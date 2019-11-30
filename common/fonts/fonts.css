@@ -1,0 +1,88 @@
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+	src: local('Merriweather Italic'), local('Merriweather-Italic'), local('Merriweather'),
+		url('./Merriweather-RegularItalic.woff2') format('woff2'),
+		url('./Merriweather-RegularItalic.woff') format('woff'),
+		url('./Merriweather-RegularItalic.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+	src: local('Merriweather Bold'), local('Merriweather-Bold'), local('Merriweather'),
+		url('./Merriweather-Bold.woff2') format('woff2'),
+		url('./Merriweather-Bold.woff') format('woff'),
+		url('./Merriweather-Bold.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 900;
+	font-style: italic;
+	font-display: swap;
+	src: local('Merriweather BlackItalic'), local('Merriweather-BlackItalic'), local('Merriweather Black'), local('Merriweather'),
+		url('./Merriweather-BlackItalic.woff2') format('woff2'),
+		url('./Merriweather-BlackItalic.woff') format('woff'),
+		url('./Merriweather-BlackItalic.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+	src: local('Merriweather Light'), local('Merriweather-Light'), local('Merriweather'),
+		url('./Merriweather-Light.woff2') format('woff2'),
+		url('./Merriweather-Light.woff') format('woff'),
+		url('./Merriweather-Light.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 900;
+	font-style: normal;
+	font-display: swap;
+	src: local('Merriweather Black'), local('Merriweather-Black'), local('Merriweather'),
+		url('./Merriweather-Black.woff2') format('woff2'),
+		url('./Merriweather-Black.woff') format('woff'),
+		url('./Merriweather-Black.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 300;
+	font-style: italic;
+	font-display: swap;
+	src: local('Merriweather LightItalic'), local('Merriweather-LightItalic'), local('Merriweather Light'), local('Merriweather'),
+		url('./Merriweather-LightItalic.woff2') format('woff2'),
+		url('./Merriweather-LightItalic.woff') format('woff'),
+		url('./Merriweather-LightItalic.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+	src: local('Merriweather Regular'), local('Merriweather-Regular'), local('Merriweather'),
+		url('./Merriweather-Regular.woff2') format('woff2'),
+		url('./Merriweather-Regular.woff') format('woff'),
+		url('./Merriweather-Regular.ttf') format('truetype');
+}
+
+@font-face {
+	font-family: 'Merriweather';
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+	src: local('Merriweather BoldItalic'), local('Merriweather-BoldItalic'), local('Merriweather'),
+		url('./Merriweather-BoldItalic.woff2') format('woff2'),
+		url('./Merriweather-BoldItalic.woff') format('woff'),
+		url('./Merriweather-BoldItalic.ttf') format('truetype');
+}
+
