@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Blender ako video editor</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Blender ako video editor</h1>
+	<p>Obľúbený modelovací nástroj Blender má vstavaný prekvapujúco výkonný a jednoducho ovládateľný video editor. V dnešnom článku si ukážeme, ako nastrihať video pomocou vstavaného video editoru.</p>
+</header>
+
+<p>Hneď pri spustení ponúkne Blender ako jednu z možností úpravu videa. Po kliknutí na <em>Video Editing</em> sa načíta Blender s rozložením okien určený pre úpravu videa. Rozloženie okien je možné samozrejme neskôr ľubovoľne upraviť.</p>
+
+<figure>
+	<a href="img/splash.png"><img src="img/splash.png" alt="Úvodná obrazovka" /></a>
+	<figcaption>Obrázok <counter></counter>: Úvodná obrazovka</figcaption>
+</figure>
+
+<h2>Príprava</h2>
+
+<p>Po výbere úpravy videa sa zobrazí okno rozdelené na niekoľko častí. Horná polovica obsahuje zoznam súborov, náhľad výsledného videa a nastavenia výstupu. V dolnej časti vľavo je priestor pre strihanie / umiestňovanie klipov (<em>sekvencer</em>) a vpravo sa nachádzajú nastavenia klipu.</p>
+
+<figure>
+	<a href="img/video_editor.png"><img src="img/video_editor.png" alt="Video editor" /></a>
+	<figcaption>Obrázok <counter></counter>: Video editor</figcaption>
+</figure>
+
+<p>Klipy sa dajú umiestniť do okna sekvencera systémom drag &amp; drop buď zo vstavaného správcu súborov, alebo zo systémového správcu súborov.</p>
+
+<p>Po umiestnení klipov môžme okno správcu súborov zatvoriť. V Blenderi sa okná spravujú pomocou ťahaním za <em>hrany</em> / <em>rohy</em> okien. Potiahnutím za <em>hranu</em> okna je možné okno zväčšiť, alebo zmenšiť. Okno sa dá duplikovať, alebo zlúčiť s vedľajším oknom potiahnutím za <em>roh</em> okna. Pri potiahnutí <em>rohu</em> smerom do vnútra okna sa okno duplikuje. Pri potiahnutí smerom k vedľajšiemu oknu dôjde k zlúčeniu. Typ okna sa vyberá pomocou prvej ikonky vľavo v hlavičke okna.</p>
+
+<figure>
+	<a href="img/windows.gif"><img src="img/windows.gif" alt="Správa okien" /></a>
+	<figcaption>Obrázok <counter></counter>: Správa okien</figcaption>
+</figure>
+
+<p>Nasledujeme nastavením video výstupu. Rozlíšenie a framerate by mali byť automaticky vyplnené podľa prvého videa. Voľby frame start a end určujú prvý a posledný snímok, ktorý sa exportuje do video súboru. Prvý môžme nechať na 1, ale posledný sa musí upraviť podľa dĺžky nastrihaného videa. Výstupný adresár môžme upraviť podľa svojich preferencií. Keďže budeme pracovať s videom prepneme formát súboru z png obrázka na niektorý z video formátov (napr. video enkódované pomocou ffmpeg-u). Nastavenia kodeku a kvality videa nechávam na čitateľovi. Ja zvyčajne nastavujem formát videa H.264 a audio AAC.</p>
+
+<figure>
+	<a href="img/nastavenie_vystupu.png"><img src="img/nastavenie_vystupu.png" alt="Nastavenie výstupu" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie výstupu</figcaption>
+</figure>
+
+<p>Po umiestnení klipov na časovú os môže byť práca s nimi dosť pomalá. Závisí to od spôsobu kompresie vstupného videa. Kvalitne komprimované video vo formáte h.264 môže mať kompletné snímky vzdialené od seba desiatky sekúnd. Skok na konkrétny snímok znamená, že Blender musí dekódovať najbližší kompletný snímok od neho dekódovať každý ďalší snímok až po požadovaný snímok. Posun kurzoru v dobre komprimovanom videu bude preto trvať pomerne dlho.</p>
+
+<p>Aby bola manipulácia s videom čo najplynulejšia má Blender podporu pre proxy video. Proxy video znamená, že Blender vytvorí samostatný video súbor s MJPEG kompresiou, v ktorom sa dá priamo dekódovať každý jeden snímok bez závislosti na iných snímkoch. Namiesto pôvodného video súboru bude pri náhľade a manipulácii používať proxy video.</p>
+
+<p>Pre vytvorenie proxy najskôr označíme všetky videa, ktoré sme pridali do sekvencera cez menu <em>Select / All</em>, alebo klávesou <code>A</code> keď je kurzor myši umiestnený nad oknom sekvencera. V pravej časti na karte <em>Proxy &amp; Cache</em> v sekcii <em>Proxy Settings</em> vyberieme tlačidlom <em>Set Selected Strip Proxies</em> želané rozlíšenie (napr. 50% pôvodnej veľkosti videa). Proxy video sa vytvorí po kliknutí na <em>Rebuild Proxy and Timecode Indices</em>. Priebeh vytvárania proxy sa bude zobrazovať v spodnom riadku okna Blenderu.</p>
+
+<p><strong>Tip:</strong> K jednotlivým položkám v menu je možné jednoducho priradiť vlastné klávesové skratky. Ak nám nesedí skratka pre <em>Select / All</em> stačí kliknúť pravým tlačítkom myši na položku <em>All</em> a vybrať <em>Change Shortcut</em>.</p>
+
+<figure>
+	<a href="img/strip_proxy.png"><img src="img/strip_proxy.png" alt="Nastavenie proxy pre klipy" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie proxy pre klipy</figcaption>
+</figure>
+
+<p>Na to, aby blender začal používať proxy je potrebné ešte v časti <em>Preview</em> nastaviť používanie proxy zvolenej veľkosti. V okne <em>Preview</em> zobrazíme bočný panel cez <em>View / Sidebar</em>, alebo klávesou <code>N</code>. V časti <em>View Settings</em> nastavíme <em>Proxy Render Size</em> na rovnakú veľkosť, akú sme vybrali pri generovaní proxy.</p>
+
+<figure>
+	<a href="img/preview_sidebar.png"><img src="img/preview_sidebar.png" alt="Nastavenie proxy pre náhľad" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie proxy pre náhľad</figcaption>
+</figure>
+
+<p>Po importe sú audio a video stopy samostatné. Pôvodnú audio stopu je vďaka tomu možné ľahko nahradiť, ale pri úprave videa z jednej kamery s pôvodným zvukom je to dosť nepraktické. Zvuk a obraz je možné spojiť do jednej stopy spoločným označením (klik ľavým tlačidlom na video, potom shift + klik ľavým na audio) a vytvorením metastopy cez <em>Strip / Make Meta Strip</em>, alebo klávesovou skratkou <code>Ctrl + G</code>.</p>
+
+<figure>
+	<a href="img/meta_strips.png"><img src="img/meta_strips.png" alt="Meta stopy" /></a>
+	<figcaption>Obrázok <counter></counter>: Meta stopy</figcaption>
+</figure>
+
+<h2>Strihanie</h2>
+
+<p>Pri strihaní budeme pracovať v okne sekvencera. V ľavej časti okna sa nachádza časová os, na ktorú umiestňujeme stopy. V pravej časti je bočný panel pre nastavenie vlastností stôp. Podobne ako v okne náhľadu je možné bočný panel zapnúť / vypnúť klávesou <code>N</code>.</p>
+
+<p>Na vrchu časovej osi sa nachádza časový kurzor. V modrom obdĺžniku je zobrazená aktuálna pozícia (čas + číslo snímku v danej sekunde). Posúvať sa v čase je možné buď kliknutím / ťahaním v tejto oblasti, alebo pomocou klávesnice klávesami vpravo a vľavo.</p>
+
+<p>V oblasti sekvencera sa dá scrollvoať do všetkých smerov ťahaním so stlačeným stredným tlačidlom myšky. Otáčaním kolieska sa mení zoom v horizontálnom (časovom) smere. Zoom v oboch smeroch sa dá meniť ťahaním pomocou stredného tlačidla myši zároveň so stlačenou klávesou <code>Ctrl</code>.</p>
+
+<figure>
+	<a href="img/sequencer.png"><img src="img/sequencer.png" alt="Sekvencer" /></a>
+	<figcaption>Obrázok <counter></counter>: Sekvencer</figcaption>
+</figure>
+
+<p><strong>Tip:</strong> Význam niektorých kláves a tlačidiel myši je zobrazený v spodnej časti obrazovky.</p>
+
+<figure>
+	<a href="img/actions.png"><img src="img/actions.png" alt="Zoznam kláves a tlačidiel myši pri presune objektu" /></a>
+	<figcaption>Obrázok <counter></counter>: Zoznam kláves a tlačidiel myši pri presune objektu</figcaption>
+</figure>
+
+<p><strong>Tip:</strong> Na oboch koncoch scrollbaru sa nachádzajú guličky. Ako to už u Blenderu býva zvykom tieto drobné grafické prvky neslúžia ako ozdoba, ale majú určitú funkciu. V prípade scrollbaru sa dá ťahaním za niektorú z guličiek zoomovať buď v horizontálnom, alebo vertikálnom smere.</p>
+
+<figure>
+	<a href="img/scrollbar.png"><img src="img/scrollbar.png" alt="Scrollbar, ktorý môže ovládať aj zoom" /></a>
+	<figcaption>Obrázok <counter></counter>: Scrollbar, ktorý môže ovládať aj zoom</figcaption>
+</figure>
+
+<p>Pri strihaní najskôr označíme stopu, ktorú chceme strihať, následne nastavíme čas a cez menu <em>Strip / Cut</em>, alebo klávesou <code>K</code> rozdelíme stopu na dve menšie stopy. Časti, ktoré chceme odstrániť označíme a stlačíme klávesu <code>Delete</code>, alebo <code>X</code>. Výsledné sekcie jednoducho zoradíme na časovej osi.</p>
+
+<figure>
+	<a href="img/video_editing.gif"><img src="img/video_editing.gif" alt="Editácia videa" /></a>
+	<figcaption>Obrázok <counter></counter>: Editácia videa</figcaption>
+</figure>
+
+<p><strong>Tip:</strong> Stopy majú na oboch okrajoch šípky, za ktoré sa dá ťahať. Potiahnutím za okraj sa mení bod, v ktorom bola stopa strihaná.</p>
+
+<p>Po dokončení strihania presunieme kurzor na posledný snímok a cez menu <em>Playback</em> nastavíme posledný snímok (<em>Set End Frame</em>), alebo použijeme klávesovú skratku <code>Ctrl + End</code>.</p>
+
+<figure>
+	<a href="img/set_end_frame.png"><img src="img/set_end_frame.png" alt="Nastavenie posledného snímku" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie posledného snímku</figcaption>
+</figure>
+
+<p>Výsledné video stačí exportovať cez menu <em>Render / Render Animation</em>, alebo klávesovou skratkou <code>Ctrl + F12</code>.</p>
+
+<p>Exportované video sa bude nachádzať v adresári, ktorý sme na nastavili na začiatku (pri ponechaní predvolených hodnôt to bude adresár <em>/tmp</em>).</p>
+
+<p>Gratulujem! Práve ste zvládli základy strihu videa v Blenderi. Príprava bola síce obsiahlejšia, ale práca s videom je vďaka dobre prepracovanému užívateľskému rozhraniu a podpore proxy videa veľmi rýchla a zaberie minimum času.</p>
+
+<p>K bežným úpravám videa nepatrí len strihanie, ale aj úprava parametrov obrazu, filtre, či prechodové efekty. Na niektoré z nich sa teraz pozrime bližšie.</p>
+
+<h2>Modifikátory</h2>
+
+<p>Jednotlivé scény sú často natáčané pri rôznych svetelných podmienkach, s rôznymi nastaveniami kamery, rôznym vyvážením bielej a podobne. Modifikátory sú filtre, ktoré sa aplikujú na jednotlivé stopy a umožňujú upraviť parametre obrazu.</p>
+
+<p>Modifikátory sa po označení stopy pridávajú cez menu <em>Add Strip Modifier</em> v bočnom paneli sekvencera. Napríklad pre vyváženie bielej vyberieme modifikátor <em>White Balance</em> a v políčku <em>White Value</em> vyberieme (napr. pipetou z náhľdu) biely bod.</p>
+
+<figure>
+	<a href="img/modifiers.png"><img src="img/modifiers.png" alt="Nastavenie modifikátorov" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie modifikátorov</figcaption>
+</figure>
+
+<h2>Prechodové efekty</h2>
+
+<p>Jednotlivé scény môžu na seba nadväzovať s prechodovým efektom. Aby sme mohli aplikovať prechodové efekty musíme najskôr umiestniť stopy tak, aby sa ich začiatky a konce prekrývali.</p>
+
+<figure>
+	<a href="img/track_layout_transition.png"><img src="img/track_layout_transition.png" alt="Umiestnenie stôp" /></a>
+	<figcaption>Obrázok <counter></counter>: Umiestnenie stôp</figcaption>
+</figure>
+
+<p><strong>Tip:</strong> Presný presun stopy o určitý počet snímkov je možný označením stopy, stlčením tlačidla <code>G</code> a zapísaním čísla o koľko sa má stopa posunúť. Príklad: ak chcem stopu posunúť o 30 záberov dozadu a o jeden riadok hore tak stlačím <code>G</code> <code>-30</code> <code>TAB</code> <code>1</code> <code>ENTER</code>.</p>
+
+<p>Efekt pridáme označením najskôr zdrojovej stopy (klik ľavým tlačidlom myši), potom cieľovej (shift + klik ľavým) a potom cez menu <em>Add / Transition / Efekt</em>. Menu <em>Add</em> sa dá vyvolať aj klávesovou skratkou <code>Shift + A</code>.</p>
+
+<p>V základnej inštalácii má Bnedner 2 prechodové efekty. Prvým je <em>Cross</em>, alebo <em>Gama Cross</em>, čo je postupné vyblednutie jedného klipu a nahradenie druhým. Rozdiel medzi týmito dvoma možnosťami je len v gama korekcii.</p>
+
+<figure>
+	<a href="img/track_layout_transition.png"><img src="img/track_layout_effects.png" alt="Stopy s efektmi" /></a>
+	<figcaption>Obrázok <counter></counter>: Stopy s efektmi</figcaption>
+</figure>
+
+<p>Druhým efektom, ktorý je k dispozícii je <em>Wipe</em>. Na rozdiel od predchádzajúceho efektu tu nájdeme aj nejaké tie nastavenia. Po označení stopy s efektom môžme nastaviť v bočnom paneli parametre ako typ prechodu, smer a parametre špecifické pre jednotlivé prechody.</p>
+
+<figure>
+	<a href="img/transition_wipe.png"><img src="img/transition_wipe.png" alt="Efekt wipe" /></a>
+	<figcaption>Obrázok <counter></counter>: Efekt wipe</figcaption>
+</figure>
+
+<h2>Obrázky a text</h2>
+
+<p>Do videa je možné pridať aj statický obrázok. Cez menu <em>Add / Image/Sequence</em> vytvoríme novú stopu s obrázkom. Ťahaním za okraje môžme stopu zväčšiť na požadovanú dĺžku. V bočnom paneli na záložke <em>Strip</em> sa dajú nastaviť parametre ako priehľadnosť, pozícia, alebo orezanie.</p>
+
+<figure>
+	<a href="img/image.png"><img src="img/image.png" alt="Vloženie obrázka" /></a>
+	<figcaption>Obrázok <counter></counter>: Vloženie obrázka</figcaption>
+</figure>
+
+<p><strong>Tip:</strong> Každé nastavenie, ktoré ma vedľa vstupu guličku sa dá animovať. Kliknutím na guličku sa vloží kľúčový snímok danej vlastnosti. Medzi kľúčovými snímkami sa vlastnosť animuje. Príklad: chcem, aby sa obrázok vynoril zo spodnej časti videa. Nastavím teda časový kurzor na začiatok animácie a polohu obrázka tak, aby bol pod videom (mimo obraz). Kliknem na guličku vedľa <em>Position Y</em>, čím vložím kľúčový snímok. Potom presuniem časový kurzor na moment kedy má byť obrázok umiestnený na knečnej pozícii, nastavím <em>Position Y</em> a zase kliknem tentoraz na štvorec. Medzi týmito bodmi sa bude vlastnosť plynulo meniť. Vstupné polia menia farbu v závislosti na tom, či sú animované (zelená pre dopočítanú animáciu, hnedá pre kľúčový snímok), alebo nie (sivá).</p>
+
+<figure>
+	<a href="img/animated_property.gif"><img src="img/animated_property.gif" alt="Animácia pozície obrázka" /></a>
+	<figcaption>Obrázok <counter></counter>: Animácia pozície obrázka</figcaption>
+</figure>
+
+<p>Text sa pridáva podobne ako obrázok cez menu <em>Add / Text</em>. Na záložke <em>Strip</em> je potom možné nastaviť text a štýl textu. Textová vrstva sa dá exportovať do súboru s titulkami (formát .srt).</p>
+
+<figure>
+	<a href="img/text.png"><img src="img/text.png" alt="Nastavenie textu" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie textu</figcaption>
+</figure>
+
+<h2>Efekty</h2>
+
+<p>Ďalšie jednoduché efekty sa pridávajú cez podmenu <em>Add / Effect Strip</em>. Nájdeme tu efekty pre jednotlivé stopy - transformácia (posun, zmena veľkosti, pozícia, rotácia), zmena rýchlosti, efekt žiary, rozostrenie a efekty kombinácie viacerých stôp - rôzne matematické operácie. Parametre efektov sa nastavujú v bočnom paneli na karte <em>Strip</em>.</p>
+
+<figure>
+	<a href="img/effect.png"><img src="img/effect.png" alt="Nastavenia glow efektu" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie glow efektu</figcaption>
+</figure>
+
+<p>Možnosti Blenderu pri úprave videa samozrejme v tomto momente ani zďaleka nekončia. Video je možné ľubovoľne kombinovať s 3D objektmi. Pokročilé efekty sa dajú dosiahnuť napríklad importom videa do novej 3D scény, úpravou videa cez <em>node editor</em> a vložením 3D scény naspäť do video editoru.</p>
+
+<p>Blender podporuje aj sledovanie pohybu vybraných bodov vo videu. Analýza pohybu sa dá využiť na stabilizáciu videa, alebo vloženie objektov z 3D scény do videa. Tieto funkcie však ďaleko prevyšujú bežné úpravy videa.</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
