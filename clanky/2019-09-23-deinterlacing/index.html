@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Deinterlacing videa z Pentaxu</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Deinterlacing videa z Pentaxu</h1>
+
+	<p>Ostránenie prekladania (deinterlacing) je celkom bežná úprava videa. Nakoniec mi takáto blbosť zabrala celý deň experimentovania. Prečo som sa trápil s deinterlacingom tak dlho sa dozviete v nasledujúcom blogu.</p>
+</header>
+
+<h2>Zdrojové video</h2>
+
+<p>Nedávno som písal malú knižnicu pre ovládanie displaya z MCU <a href="https://www.aliexpress.com/item/32649400326.html" target="_blank">STM32F103C8T6</a> (cena okolo 1.5 €). Display dokážem aktualizovať rýchlosťou cca 60 fps. Moja kamera však vie nahrávať len 1080p/30fps, alebo 1080i/60fps. Takže som sa rozhodol nahrávať v prekladanom režime a dodatočne urobiť deinterlacing v softvéri.</p>
+
+<figure>
+	<a href="img/input_static.png"><img src="img/input_static.png" alt="Vstupné video - statická časť" /></a>
+	<figcaption>Obrázok 1: Vstupné video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/input_moving.png"><img src="img/input_moving.png" alt="Vstupné video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 2: Vstupné video - pohyblivá časť</figcaption>
+</figure>
+
+<p>Prekladanie je špeciálny režim videa kedy sa obraz skladá z polsnímkov. Namiesto plných 60 snímkov za sekundu sa posiela najskôr snímok s párnymi riadkami a potom snímok z nepárnymi riadkami. Spojenie do celistvého videa nie je úplne triviálne, pretože pre každý polsnímok sa musí dorátať chýbajúca polovica obrazu.</p>
+
+<p>Skúšal som rôzne bežné metódy deinterlacingu a so žianou som pre moje video nebol spokojný. V nasledujúcej časti je ich prehľad aj s nedostatkami, ktoré som zaznamenal v testovacom videu.</p>
+
+<h2>Metódy odstránenia prekladania</h2>
+
+<p>Text pri metódach platí len pre testovacie video. V závere blogu sa dostanem k tomu, prečo je moje vstupné video chybné a preto preň nefungujú bežné metódy deinterlacingu.</p>
+
+<h3>Kernel deinterlacing</h3>
+
+<p>Pri použití tohto filtra som prišiel o polovicu snímkov. Vertikálne rozlíšenie je rovnaké ako vstupné video (tj. polovičné).</p>
+
+<figure>
+	<a href="img/kerneldeint_static.png"><img src="img/kerneldeint_static.png" alt="Kerneldeint video - statická časť" /></a>
+	<figcaption>Obrázok 3: Kerneldeint video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/kerneldeint_moving.png"><img src="img/kerneldeint_moving.png" alt="Kerneldeint video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 4: Kerneldeint video - pohyblivá časť</figcaption>
+</figure>
+
+<h3>Yadif deinterlacing</h3>
+
+<p>Výsledky sú takmer totožné s kernel deinterlacingom. V rýchlo pohybujúcich sa častiach môžu byť malé artefakty. Framerate je zase polovičný.</p>
+
+<figure>
+	<a href="img/yadif_static.png"><img src="img/yadif_static.png" alt="Yadif video - statická časť" /></a>
+	<figcaption>Obrázok 5: Yadif video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/yadif_moving.png"><img src="img/yadif_moving.png" alt="Yadif video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 6: Yadif video - pohyblivá časť</figcaption>
+</figure>
+
+<h3>Mcdeint deinterlacing</h3>
+
+<p>Veľmi pomalý deinterlacing, ktorý dopočítava chýbajúce riadky z pohybových vektorov predchádzajúcich a nasledujúcich snímkov. Vďaka tomu má výstup 60 snímkov za sekundu. Vertikálne rozlíšenie také ako vstupné (tj. polovičné).</p>
+
+<figure>
+	<a href="img/mcdeint_static.png"><img src="img/mcdeint_static.png" alt="Mcdeint video - statická časť" /></a>
+	<figcaption>Obrázok 7: Mcdeint video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/mcdeint_moving.gif"><img src="img/mcdeint_moving.gif" alt="Mcdeint video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 8: Mcdeint video - pohyblivá časť</figcaption>
+</figure>
+
+<h3>Nnedi3 deinterlacing</h3>
+
+<p>Metóda nnedi3 využíva neurónové siete. K svojmu fungovaniu využíva <strong>len polsnímok</strong> (v podstate pracuje so 540p a škáluje ho na 1080p). Výsledky sú super až na to, že moje video poskakuje o pixel.</p>
+
+<figure>
+	<a href="img/nnedi_static.gif"><img src="img/nnedi_static.gif" alt="Nnedi3 video - statická časť" /></a>
+	<figcaption>Obrázok 9: Nnedi3 video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/nnedi_moving.gif"><img src="img/nnedi_moving.gif" alt="Nnedi3 video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 10: Nnedi3 video - pohyblivá časť</figcaption>
+</figure>
+
+<h3>QTGMC deinterlacing</h3>
+
+<p>Táto metóda využíva niekoľko šikovných trikov + ďalšie metódy deinterlacingu, medzi inými aj nnedi3. K použitiu na linuxe si musíme napísať malý skript pre <a href="http://www.vapoursynth.com/" target="_blank">VapourSynth</a>.</p>
+
+<p>Výsledok má síce skvelú ostrosť, detaily, 60fps, ale časť obrazu poskakuje o pixel.</p>
+
+<pre class="code-python">
+# deinterlace.vpy
+import os
+
+import havsfunc as haf
+import vapoursynth as vs
+
+core = vs.get_core()
+clip = core.ffms2.Source(source=os.environ['VIDEO_SOURCE'])
+clip = haf.QTGMC(Input=clip, Preset="Placebo", TFF=True)
+clip.set_output()
+</pre>
+
+<pre class="code-bash">
+# deinterlace.sh
+export VIDEO_SOURCE=$1
+vspipe ./deinterlace.vpy - --y4m|ffmpeg -i - -c:v libx264 -x264opts "keyint=60" -preset placebo -crf 1 -r 60000/1001 $1.deint.mkv
+</pre>
+
+<figure>
+	<a href="img/qtgmc_static.gif"><img src="img/qtgmc_static.gif" alt="QTGMC video - statická časť" /></a>
+	<figcaption>Obrázok 11: QTGMC video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/qtgmc_moving.gif"><img src="img/qtgmc_moving.gif" alt="QTGMC video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 12: QTGMC video - pohyblivá časť</figcaption>
+</figure>
+
+<h2>Prečo to poskakovanie?</h2>
+
+<figure>
+	<a href="img/annotated.png"><img src="img/annotated.png" alt="Detail vstupného videa" /></a>
+	<figcaption>Obrázok 13: Detail vstupného videa</figcaption>
+</figure>
+
+<p>Je samozrejme vysoko nepravdepodobné, že by každý deinterlacer bol zlý. V skutočnosti je zle nahrané vstupné video.</p>
+
+<p>Štandardne by prekladané video malo mať v každom druhom snímku párne a nepárne riadky. V mojom videu sú však riadky len párne. Preto by sa asi ani nemalo označovať ako 1080i, ale 540p.</p>
+
+<p>Aby som nebol úplne zlý na moju kameru tak prvý riadok je prekladaný správne ;) Bloky s rovnakou farbou sú posunuté oproti jasu o jeden riadok, čo trochu komplikuje orezávanie videa a nakoniec aj jeho deinterlacing.</p>
+
+<p>Môj finálny deinterlace skript používa ako základ QTGMC. Vďaka tomu dostanem na výstupe pekných 1080p (síce dopočítaných, ale rozdiel oproti originálu je minimálny). Skript duplikuje každý snímok 2x a pre každý druhý snímok urobí orez posunutý o jeden pixel voči susedom. Takto pripravené video vykazuje po aplikácii deinterlacera minimálne trasenie (spôsobené posunom farebného signálu o jeden pixel, ale s tým nedokážem už nič ďalšie spraviť), má slušné vertikálne rozlíšenie a 60 snímkov za sekundu.</p>
+
+<pre class="code-python">
+# deinterlace.vpy
+import os
+
+import vapoursynth as vs
+import havsfunc as haf
+
+
+def combine(n, f):
+    if n % 2 == 0:
+        frame = f[0].copy()
+    else:
+        frame = f[1].copy()
+    return frame
+
+
+core = vs.get_core()
+clip = core.ffms2.Source(source=os.environ['VIDEO_SOURCE'])
+clip = core.std.SelectEvery(clip=clip, cycle=2, offsets=1) # kazdy frame je duplicitny, redukujem
+clip = core.resize.Bicubic(clip, format=vs.YUV444P10)      # kvoli orezaniu na pixel musi byt YUV444
+clip = core.std.SelectEvery(clip=clip, cycle=2, offsets=[0, 0, 1, 1]) # duplikacia snimkov
+clip_odd = core.std.CropAbs(clip, clip.width, clip.height - 2, 0, 1) # orezanie s posunom o pixel
+clip_even = core.std.CropAbs(clip, clip.width, clip.height - 2, 0, 2) # orezanie s posunom o 2 pixely
+# zlozenie vysledneho videa skladanim snimkov striedavo z clip_odd / clip_even
+clip = core.std.ModifyFrame(clip=clip_odd, clips=[clip_even, clip_odd], selector=combine)
+clip = core.std.AssumeFPS(clip, fpsnum=60000, fpsden=1001)
+clip = haf.QTGMC(Input=clip, Preset="Slow", TFF=True)
+clip = core.std.SelectEvery(clip=clip, cycle=2, offsets=0)
+clip = core.std.AddBorders(clip=clip, bottom=2)
+clip.set_output()
+</pre>
+
+<figure>
+	<a href="img/qtgmc_mod_static.gif"><img src="img/qtgmc_mod_static.gif" alt="QTGMC modifikované video - statická časť" /></a>
+	<figcaption>Obrázok 14: QTGMC video - statická časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/qtgmc_mod_moving.gif"><img src="img/qtgmc_mod_moving.gif" alt="QTGMC modifikované video - pohyblivá časť" /></a>
+	<figcaption>Obrázok 15: QTGMC video - pohyblivá časť</figcaption>
+</figure>
+
+<p>Video, ktoré som upravoval som uploadol skôr než, som dopísal deinterlacer. Ak by to napriek tomu niekto chcel vidieť moje video tak tu je link na youtube.</p>
+
+<p><a href="https://www.youtube.com/watch?v=8S1BXnx-vLE"><img src="//img.youtube.com/vi/8S1BXnx-vLE/maxresdefault.jpg" alt="STM32 mandelbrot" target="_blank"/></a></p>
+
+<p>Pokusné súbory sú priložené k blogu.</p>
+
+<script src="../../../common/script.js"></script>
+</body>
+</html>
