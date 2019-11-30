@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Deinterlacing videa z Pentaxu K3 - dokončenie</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Deinterlacing videa z Pentaxu K3 - dokončenie</h1>
+
+	<p>V mojom minulom blogu o deinterlacingu som skončil pri použití filtra QTGMC. Dnešný blog bude obsahovať trochu teórie a výrazný tuning QTGMC.</p>
+</header>
+
+<h2>Ako vyzerá prekladané video</h2>
+
+<p>Prekladané video sa na rozdiel od progresívneho videa skladá z polsnímkv s dvojnásobnou frekvenciou snímkov. Polsnímky obsahujú striedavo párne a nepárne riadky. Pri deinterlacingu sa buď skladajú 2 polsnímky do kompletného snímku a vznikne video s polovičnou frekvenciou snímkov (60i - 30p), alebo sa pre každý polsnímok dorátajú striedavo párne a nepárne riadky a vtedy vznikne video s plnou frekvenciou (60i - 60p).</p>
+
+<p>Na nasledujúcej animácii sú 2 po sebe idúce snímky.</p>
+
+<figure>
+	<img src="img/final.gif" alt="Pôvodná animácia" />
+	<figcaption>Obrázok <counter></counter>: Pôvodná animácia</figcaption>
+</figure>
+
+<p>V prekladanom videu by boli 2 po sebe idúce snímky spojené do jedného snímku kde párne riadky by patrili jednému snímku a nepárne druhému. Statické časti obrazu zostávajú rovnaké ako pri progresívnom videu, ale pohyblivé časti sa rozštiepia na párne a nepárne riadky.</p>
+
+<figure>
+	<img src="img/interlaced.png" alt="Správne prekladaný obraz" />
+	<figcaption>Obrázok <counter></counter>: Správne prekladaný obraz</figcaption>
+</figure>
+
+<p>Pentax však zaznamenáva vždy len párne (alebo nepárne) snímky, takže reálne vertikálne rozlíšenie je polovičné.</p>
+
+<figure>
+	<img src="img/interlaced_half.png" alt="Video nahrané pentaxom" />
+	<figcaption>Obrázok <counter></counter>: Video nahrané pentaxom</figcaption>
+</figure>
+
+<h2>Algoritmus</h2>
+
+<p>Našťastie existuje celá rodina algoritmov, ktoré pracujú len so snímkom s polovičným rozlíšením. Tieto algoritmy môžu mať pri korektne prekladanom obraze roztrasený obraz pretože pre každý polsnímok sa dopočítava obrázok z trochu rozdielnych dát. Z pentaxu by však statické časti mali byť pre oba polsnímky rovnaké a pri správne použitom algoritme by mal byť obraz stabilnejší.</p>
+
+<p>Nasledujúci kód rieši väčšinu problémov s deinterlacingom z pentaxu.</p>
+
+<pre class="code-python">
+import havsfunc as haf
+import numpy as np
+import os
+import vapoursynth as vs
+
+
+def modify_frame(n, f):
+	frame = f.copy()
+
+	for plane in range(frame.format.num_planes):
+		write_array = np.array(frame.get_write_array(plane), copy=False)
+
+		# Fix extra line on every second frame
+		if n % 2 == 1:
+			write_array[:] = np.roll(write_array, 1, axis=0)
+			write_array[0,:] = write_array[1,:]
+
+		# Double height frame
+		copy = write_array.copy()[0:write_array.shape[0]//2,:] # Copy top half of frame
+		write_array[0::2,:] = copy # Assign to odd and even lines
+		write_array[1::2,:] = copy
+
+	return frame
+
+
+core = vs.get_core()
+core.max_cache_size = 1024
+clip = core.ffms2.Source(source=os.environ['VIDEO_SOURCE'])
+clip = core.std.SelectEvery(clip=clip, cycle=2, offsets=0)
+clip = core.std.AddBorders(clip=clip, bottom=clip.height)
+clip = core.std.SeparateFields(clip)
+clip = core.std.ModifyFrame(clip, clip, modify_frame)
+
+#clip = core.nnedi3.nnedi3(clip=clip, field=0, nsize=0, nns=2, qual=2, etype=1)
+clip = haf.QTGMC(
+	Input=clip,
+	Preset="Placebo",
+	TFF=True,
+	FPSDivisor=2,
+	Lossless=0
+)
+clip.set_output()
+</pre>
+
+<p>Kód <code>deinterlace.vpy</code> sa používa nasledovne:</p>
+
+<pre>
+export VIDEO_SOURCE=video.mkv
+vspipe ./deinterlace.vpy - --y4m|\
+ffmpeg -i - -c:v libx264 -preset slow -crf 15 -r 60000/1001 -pix_fmt yuvj420p out.mkv
+</pre>
+
+<h2>Analýza kódu</h2>
+
+<p>Prejdime si jednotlivé časti kódu. Na začiatku sa nastavujú parametre backendu.</p>
+
+<pre>
+core = vs.get_core()
+core.max_cache_size = 1024
+</pre>
+
+<p>Klip sa načítava pomocou ffmpeg backendu.</p>
+
+<pre>
+clip = core.ffms2.Source(source=os.environ['VIDEO_SOURCE'])
+</pre>
+
+<figure>
+	<img src="img/interlaced_half.png" alt="Načítané video" />
+	<figcaption>Obrázok <counter></counter>: Načítané video</figcaption>
+</figure>
+
+<p>Na mojom systéme ffmpeg načítava prekladané snímky ako 2 po sebe idúce rovnaké snímky. Tu si nie som istý, či to je korektné správanie, alebo bug. Nasledujúci riadok odstráni polovicu snímkov, takže  vznikne video bez duplicitných snímkov.</p>
+
+<pre>
+clip = core.std.SelectEvery(clip=clip, cycle=2, offsets=0)
+</pre>
+
+<p>V ďalšom kroku sa zväčší klip na dvojnásobnú výšku (pridá sa čierny pás dole).</p>
+
+<pre>
+clip = core.std.AddBorders(clip=clip, bottom=clip.height)
+</pre>
+
+<figure>
+	<img src="img/interlaced_half_border.png" alt="Pridaný čierny pás" />
+	<figcaption>Obrázok <counter></counter>: Pridaný čierny pás</figcaption>
+</figure>
+
+<p>Nasleduje rozdelenie snímku na dva samostatné polsnímky.</p>
+
+<pre>
+clip = core.std.SeparateFields(clip)
+</pre>
+
+<figure>
+	<img src="img/fields_border.gif" alt="Rozdelený klip" />
+	<figcaption>Obrázok <counter></counter>: Rozdelený klip</figcaption>
+</figure>
+
+<p>Každý druhý snímok je vertikálne posunutý o jeden pixel. Kvôli tomu obraz poskakuje hore a dole. Funkcia <code>modify_frame</code> pomocou numpy opravuje poskakovanie a zväčší snímok na plnú výšku (tu sa využije predtým pridaný čierny pás).</p>
+
+<pre>
+clip = core.std.ModifyFrame(clip, clip, modify_frame)
+</pre>
+
+<p>Funkcia sa volá pre každý snímok s parametrami <code>n</code> (číslo snímku) a <code>f</code> (inštancia snímku). Začíname kopírovaním snímku (nie je dobré modifikovať snímok zo vstupného prúpdu).</p>
+
+<pre>
+def modify_frame(n, f):
+	frame = f.copy()
+</pre>
+
+<p>Kód sa bude spúšťať nad každou zložkou obrazu (jas a farba sú uložené samostatne).</p>
+
+<pre>
+	for plane in range(frame.format.num_planes):
+</pre>
+
+<p>Časť snímku sa konvertuje do numpy poľa.</p>
+
+<pre>
+		write_array = np.array(frame.get_write_array(plane), copy=False)
+</pre>
+
+<p>Pre nepárne snímky sa obraz posunie o jeden pixel smerom nadol. Prvý riadok nepárnych snímkov sa skopíruje z druhého riadka.</p>
+
+<pre>
+		if n % 2 == 1:
+			write_array[:] = np.roll(write_array, 1, axis=0)
+			write_array[0,:] = write_array[1,:]
+</pre>
+
+<figure>
+	<img src="img/fields_fix.gif" alt="Opravený klip" />
+	<figcaption>Obrázok <counter></counter>: Opravený klip</figcaption>
+</figure>
+
+<p>Snímok sa roztiahne na plnú výšku. Nasledujúci kód priradí kópiu polovice snímku (<code>copy</code>) párnym a nepárnym riadkom. Výsledný snímok má dvojnásobné rozlíšenie.</p>
+
+<pre>
+		copy = write_array.copy()[0:write_array.shape[0]//2,:]
+		write_array[0::2,:] = copy
+		write_array[1::2,:] = copy
+</pre>
+
+<figure>
+	<img src="img/field_double.gif" alt="Dvojnásobná výška snímku" />
+	<figcaption>Obrázok <counter></counter>: Dvojnásobná výška snímku</figcaption>
+</figure>
+
+<p>Výsledné video sa preženie deinterlacerom. Ja používam QTGMC pretože si vie celkom slušne poradiť s chybami pri kompresii. Prekladaný obraz sa totiž môže komprimovať samostatne pre párne a nepárne riadky a čistý nnedi3 filter pre takýto vstup vyprodukuje obraz v ktorom sa bude veľmi rýchlo meniť odtieň na väčších plochách. QTGMC tieto problémy čiastočne rieši.</p>
+
+<p>Interne QTGMC používa neurónové siete (nnedi3 filter) a množstvo ďalších filtrov. Popis parametrov je v <a href="http://avisynth.nl/index.php/QTGMC">dokumentácii</a>. Ja som pri testoch použil nasledujúce parametre:</p>
+
+<dl>
+	<dt>Preset</dt>
+	<dd>Predvolené nastavenia parametrov (maximálna kvalita).</dd>
+	<dt>TFF</dt>
+	<dd>Príznak pre používanie párnych, alebo nepárnych riadkov. Keďže vychádzame z polovičného rozlíšenia je hodnota tohto parametra irelevantná.</dd>
+	<dt>FPSDivisor</dt>
+	<dd>Tento filter štandardne generuje pre každý vstupný snímok dva výstupné snímky. Parametrom FPSDivisor nastavujem aby pre každý snímok bol generovaný jeden výstupný snímok.</dd>
+	<dt>Lossless</dt>
+	<dd>Pri nastavení tohto parametra by sa do generovania výstupnej snímky zarátali oba polsnímky a výstupné rozlíšenie by kvôli tomu bolo polovičné (keďže vstup je polovičný).</dd>
+</dl>
+
+<figure>
+	<img src="img/final.gif" alt="Rekonštrukcia obrazu" />
+	<figcaption>Obrázok <counter></counter>: Rekonštrukcia obrazu</figcaption>
+</figure>
+
+<h2>Výsledky</h2>
+
+<p>Teraz sa pozrime na výsledky z predchádzajúceho blogu a porovnajme s vylepšenou verziou.</p>
+
+<figure>
+	<a href="../2019-09-23-deinterlacing/img/qtgmc_mod_static.gif"><img src="../2019-09-23-deinterlacing/img/qtgmc_mod_static.gif" alt="Staré QTGMC - statické časti sú nestabilné" /></a>
+	<figcaption>Obrázok <counter></counter>: Staré QTGMC - statické časti sú nestabilné</figcaption>
+</figure>
+
+<figure>
+	<a href="img/static.gif"><img src="img/static.gif" alt="Oprava QTGMC" /></a>
+	<figcaption>Obrázok <counter></counter>: Oprava QTGMC</figcaption>
+</figure>
+
+<p>Po oprave zostávajú statické časti stabilné.</p>
+
+<figure>
+	<a href="../2019-09-23-deinterlacing/img/qtgmc_mod_moving.gif"><img src="../2019-09-23-deinterlacing/img/qtgmc_mod_moving.gif" alt="Staré QTGMC - pohyblivá časť" /></a>
+	<figcaption>Obrázok <counter></counter>: Staré QTGMC - pohyblivá časť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/moving.gif"><img src="img/moving.gif" alt="Oprava QTGMC" /></a>
+	<figcaption>Obrázok <counter></counter>: Oprava QTGMC</figcaption>
+</figure>
+
+<p>Pohyblivé časti vyzerajú tak isto v poriadku.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
