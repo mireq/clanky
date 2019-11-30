@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Upgrade wifi Thinkpadu T420 na Intel 8265</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Upgrade wifi Thinkpadu T420 na Intel 8265</h1>
+
+	<p>Často som mal problémy s kvalitou signálu na mojom staručkom thinkpade T420. Rozhodol som sa to riešiť výmenou wifi modulu a podľa možnosti som chcel čo najnovší wifi modul od intelu. Nakoniec som skončil u šmejdu s osnzčením IT-8265HMW-B.</p>
+</header>
+
+<p>Na začiatok sa pozrieme trochu na zúbok decibelom. Tí, ktorí majú teoretické znalosti môžu kľudne nasledujúcu sekciu preskočiť.</p>
+
+<h2>Čo je to decibel?</h2>
+
+<p>Decibel je bezrozmerná logaritmická jednotka udávajúca pomer určitej veličiny voči referenčnej hodnote. V prípade zvuku je napríklad referenčnou hodnotou zhruba 20 μPa (hranica počuteľného zvuku u mladých ľudí, ktorí nemajú poškodený sluch).</p>
+
+<p>Pri wifi sa zvyčajne ako referenčná hodnota používa výkon 1mW (1 tisícina watu). Bežne je výkon označený ako (číslo) dBm (decibel miliwat).</p>
+
+<p>Výpočet absolútnej hodnoty z relatívnej hodnoty v dB je veľmi jednoduchý: absolútna hodnota = referenčná hodnota * 10<sup>(db/10)</sup>.</p>
+
+<p>Príklad: Máme výkon 10dBm. Referenčná honota je 0.001W. Výsledný výkon je 0.001W * 10<sup>10/10</sup> = 0.001W * 10<sup>1</sup> = 0.01W.</p>
+
+<p>Hodnota 10dB znamená 10-násobok referenčnej hodnoty, 20dB znamená 100-násobok, 30dB znamená 1000-násobok atď. Na opačnej strane máme -10dB (desatina), -20dB (stotina) atď.</p>
+
+<p>Z absolútnej hodnoty dostaneme hodnotu v decibeloch vzorcom 10 * log(absolútna hotnota / referenčná hodnota).</p>
+
+<h3>Prečo sa používajú decibely</h3>
+
+<p>Veľkou výhodou použitia decibelov je možnosť vyjadriť veľké rozsahy veličiny bez nutnosti používať veľký počet desatinných miest na jednej strane stupnice, alebo núl na druhej strane. V prípade wifi sa bežne môžme stretnúť s hodnotami od -100dBm (0.0000000000001W) po 40dBm (10W). Pri takom počte desatinných miest sa môže človek veľmi ľahko pomýliť.</p>
+
+<p>Ďalšou veľkou výhodou použitia decibelov je jednoduchý výpočet strát / ziskov. Príklad:</p>
+
+<p>Máme vysielač s výkonom 1W (30dBm), prijímač s citlivosťou 0.00000000001W (-80dBm), prívodné vodiče k anténe prijímača aj vysielača so stratami 68.4% (-5dB). Vysielač má obyčajnú všesmerovú anténu (0dB) a prijímač má anténu s 10-násobným ziskom oproti všesmerovej anténe (10dB). Straty na ceste budú 10000000000-násobné (100dB). Bude prijímač schopný prijať signál ak zanedbáme šum?</p>
+
+<p>S absolútnymi hodnotami bude výpočet výsledného výkonu na strane prijímača vyzerať nasledovne:</p>
+
+<p>1W * (100-68.4)/100 * 1/10000000000 * (100-68.4)/100 * 10 = 0.0000000001W</p>
+
+<p>Ak som sa niekde nepomýlil mal by výkon a antény postačovať na prijímanie signálu. Pri výpočte výsledného výkonu nám stačilo vynásobiť jednotlivé straty / zisky signálu. Medzivýsledky a aj samotný výsledok však vyzerá hrozne a človek sa pri tých nulách ľahko pomýli. Existuje však aj jednoduchší spôsob. Využijeme k tomu jednu vlastnosť logaritmov.</p>
+
+<p>log(a*b) = log(a) + log(b)</p>
+
+<p>Ten istý výpočet s použitím decibelov:</p>
+
+<p>30dBm -5dB - 100dB - 5dB + 10dB = -70dBm</p>
+
+<p>To je 10-násobne viacej než citlivosť prijímača.</p>
+
+<h3>Prevodová tabuľka medzi dBm a mW</h3>
+
+<table>
+	<thead>
+		<tr>
+			<th>Hodnota dBm</th>
+			<th>Hodnota mW</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>-100 dBm</td>
+			<td>  0,0000000001 mW</td>
+		</tr>
+		<tr>
+			<td>-90 dBm</td>
+			<td>  0,000000001 mW</td>
+		</tr>
+		<tr>
+			<td>-80 dBm</td>
+			<td>  0,00000001 mW</td>
+		</tr>
+		<tr>
+			<td>-70 dBm</td>
+			<td>  0,0000001 mW</td>
+		</tr>
+		<tr>
+			<td>-60 dBm</td>
+			<td>  0,000001 mW</td>
+		</tr>
+		<tr>
+			<td>-50 dBm</td>
+			<td>  0,00001 mW</td>
+		</tr>
+		<tr>
+			<td>-40 dBm</td>
+			<td>  0,0001 mW</td>
+		</tr>
+		<tr>
+			<td>-30 dBm</td>
+			<td>  0,001 mW</td>
+		</tr>
+		<tr>
+			<td>-20 dBm</td>
+			<td>  0,01 mW</td>
+		</tr>
+		<tr>
+			<td>-10 dBm</td>
+			<td>  0,1 mW</td>
+		</tr>
+		<tr>
+			<td>0 dBm</td>
+			<td>  1 mW</td>
+		</tr>
+		<tr>
+			<td>1 dBm</td>
+			<td>  1,3 mW</td>
+		</tr>
+		<tr>
+			<td>2 dBm</td>
+			<td>  1,6 mW</td>
+		</tr>
+		<tr>
+			<td>3 dBm</td>
+			<td>  2 mW</td>
+		</tr>
+		<tr>
+			<td>4 dBm</td>
+			<td>  2,5 mW</td>
+		</tr>
+		<tr>
+			<td>5 dBm</td>
+			<td>  3,2 mW</td>
+		</tr>
+		<tr>
+			<td>6 dBm</td>
+			<td>  4 mW</td>
+		</tr>
+		<tr>
+			<td>7 dBm</td>
+			<td>  5 mW</td>
+		</tr>
+		<tr>
+			<td>8 dBm</td>
+			<td>  6,3 mW</td>
+		</tr>
+		<tr>
+			<td>9 dBm</td>
+			<td>  8 mW</td>
+		</tr>
+		<tr>
+			<td>10 dBm</td>
+			<td> 10 mW</td>
+		</tr>
+		<tr>
+			<td>11 dBm</td>
+			<td> 12,6 mW</td>
+		</tr>
+		<tr>
+			<td>12 dBm</td>
+			<td> 15,8 mW</td>
+		</tr>
+		<tr>
+			<td>13 dBm</td>
+			<td> 20 mW</td>
+		</tr>
+		<tr>
+			<td>14 dBm</td>
+			<td> 25 mW</td>
+		</tr>
+		<tr>
+			<td>15 dBm</td>
+			<td> 32 mW</td>
+		</tr>
+		<tr>
+			<td>16 dBm</td>
+			<td> 40 mW</td>
+		</tr>
+		<tr>
+			<td>17 dBm</td>
+			<td> 50 mW</td>
+		</tr>
+		<tr>
+			<td>18 dBm</td>
+			<td> 63 mW</td>
+		</tr>
+		<tr>
+			<td>19 dBm</td>
+			<td> 79 mW</td>
+		</tr>
+		<tr>
+			<td>20 dBm</td>
+			<td>100 mW</td>
+		</tr>
+		<tr>
+			<td>21 dBm</td>
+			<td>126 mW</td>
+		</tr>
+		<tr>
+			<td>22 dBm</td>
+			<td>158 mW</td>
+		</tr>
+		<tr>
+			<td>23 dBm</td>
+			<td>200 mW</td>
+		</tr>
+		<tr>
+			<td>24 dBm</td>
+			<td>251 mW</td>
+		</tr>
+		<tr>
+			<td>25 dBm</td>
+			<td>316 mW</td>
+		</tr>
+		<tr>
+			<td>26 dBm</td>
+			<td>398 mW</td>
+		</tr>
+		<tr>
+			<td>27 dBm</td>
+			<td>501 mW</td>
+		</tr>
+		<tr>
+			<td>28 dBm</td>
+			<td>630 mW</td>
+		</tr>
+		<tr>
+			<td>29 dBm</td>
+			<td>794 mW</td>
+		</tr>
+		<tr>
+			<td>30 dBm</td>
+			<td>1000 mW</td>
+		</tr>
+	</tbody>
+</table>
+
+<h2>Možnosti upgradu</h2>
+
+<p>V mojom notebooku bola pôvodná karta Intel 6205. Maximálny výkon tejto karty je 15dBm (32mW). To mi robí dosť veľké starosti pretože zvyčajne chytím celkom slušný signál routra, ale komunikovať nemôžem pretože router nezachytí môj signál.</p>
+
+<p>Pred výmenou karty sa musí naflashovať nový <a href="https://pluspora.com/posts/1485322">BIOS</a> s odstraáneným whitelistom. Bez odstránenia whitelistu je možné vymeniť kartu len za kartu, ktorá sa používala v tom istom modeli thinkpadu.</p>
+
+<p>Aké sú teda možnosti po úprave BIOSu? Prekvapujúco malé. Poslednou wifi kartou pre Mini PCIE half od intelu je 7260HMW z roku 2012 (dnes sa už nevyrába). Ostatní výrobcovia na tom sú podobne. Intel navyše neposkytuje samotný chipset, takže ani keby sa našiel výrobca ochotný vyrobiť novú kartu do Mini PCIE tak vlastne nemôže.</p>
+
+<p>Redukcia z nových kariet M2 do PCIE je pomerne triviálna keďže M2 je väčšinou len iná forma PCIE. Redukcia však potrebuje dlhý slot. Thinkpad má len polovičný, takže tadiaľ cesta nevedie.</p>
+
+<figure>
+	<a href="img/original_intel.jpg"><img src="img/original_intel.jpg" alt="Pôvodná karta" /></a>
+	<figcaption>Obrázok <counter></counter>: Pôvodná karta</figcaption>
+</figure>
+
+<p>Tu vstupuje do hry náš hlavný hrdina - firma <em>IdeaTrust Technology Solutions</em>. Firma, ktorá nemá ani vlastnú webovú stránku, ale predáva nové intelácke wifi karty do Mini PCIE. Ako sa im to podarilo?</p>
+
+<p>Intel vyrába v súčasnosti karty prevažne v 2 formách. V štandardnej (M.2 2230) a vo forme SMD (M.2 1216), ktorá je výrazne menšia než Mini PCIE Half.</p>
+
+<figure>
+	<a href="img/wifi_inside.jpg"><img src="img/wifi_inside.jpg" alt="Karta M.2 1216 v Mini PCIE half" /></a>
+	<figcaption>Obrázok <counter></counter>: Karta M.2 1216 v Mini PCIE half</figcaption>
+</figure>
+
+<p>Na obrázku je karta vyrábaná vyššie spomenutou firmou s odstráneným plechovým krytom. Pod krytom sa skrýva malá kartička, ktorá má vlastné konektory na anténu (typ MHF4) pripojené vo vnútri koaxiálom na plôšky A1/A2. Vonku sú vyvedené konektory u.FL/IPEX. V recenziách som našiel, že práve toto prepojenie je katastrofálne a hneď po zakúpení by som mal dať dole kryt, odpojiť vnútorné konektory a pripojiť anténu priamo, alebo cez redukciu na tú malú vnútornú kartičku. Ja som sa rozhodol pred touto možnosťou vyskúšať výkon bez úprav.</p>
+
+<h2>Balenie</h2>
+
+<p>Z aliexpresu som teda kúpil kartu IT-8265HMW-B. Karta stála 16€. Vo vnútri je Intel 8265 s bluetooth 4.2. Balíček prišiel sa necelá 2 týždne. Katastrofálne zabalený v zmačkanej krabičke, ktorá už zažila lepšie časy. Vo vnútri bola wifi karta zabalená v antistatickom obale a obalená bublinkovou fóliou. Sledovanie zásielky výnimočne fungovalo skvele.</p>
+
+<figure>
+	<a href="img/package.jpg"><img src="img/package_thumb.jpg" alt="Obsah balenia" /></a>
+	<figcaption>Obrázok <counter></counter>: Obsah balenia</figcaption>
+</figure>
+
+<figure>
+	<a href="img/card_front.jpg"><img src="img/card_front_thumb.jpg" alt="Karta - predná strana" /></a>
+	<figcaption>Obrázok <counter></counter>: Karta - predná strana</figcaption>
+</figure>
+
+<figure>
+	<a href="img/card_back.jpg"><img src="img/card_back_thumb.jpg" alt="Karta - zadná strana" /></a>
+	<figcaption>Obrázok <counter></counter>: Karta - zadná strana</figcaption>
+</figure>
+
+<h2>Inštalácia</h2>
+
+<p>Po výmene bola karta automaticky rozpoznaná. Samozrejme BIOS musel byť pred výmenou upravený aby vôbec notebook nabootoval. Bluetooth časť nebola rozpoznaná vôbec.</p>
+
+<figure>
+	<a href="img/card_install.jpg"><img src="img/card_install_thumb.jpg" alt="Karta nainštalovaná v notebooku" /></a>
+	<figcaption>Obrázok <counter></counter>: Karta nainštalovaná v notebooku</figcaption>
+</figure>
+
+<p>Oprava bluetooth bola pomerne triviálna. Stačilo zobrať lepiacu pásku a zalepiť pin 51 na PCIE konektore (na obrázku v prednej časti úplne vpravo). Tento pin slúžin na karte ako rfkill a v thinkpade je napevno uzemnený, takže bluetooth časť je permanentne vypnutá. Ak sa pin izoluje bluetooth by mala normálne fungovať. Mala ...</p>
+
+<p>Aby systém začal vidieť bluetooth je potrebné v BIOSe povoliť wlan. Po reštarte už systém normálne videl bluetooth časť ako nové USB zariadenie. Nové nefunkčné USB zariadenie ;)</p>
+
+<a href="img/bluetooth_bad.png"><img src="img/bluetooth_bad.png" alt="Bluetooth" /></a>
+
+<p>S týmto problémom som dlho bojoval kým som neskúsil vypnúť quic boot v BIOSe. Po vypnutí začala bluetooth zázračne fungovať. Po aktivácii quick bootu zostáva fungovať.</p>
+
+<a href="img/bluetooth_good.png"><img src="img/bluetooth_good.png" alt="Bluetooth" /></a>
+
+<p>Okrem toho LED bluetooth a wifi zostali nefunkčné. Bluetoth pretože je pripojená na iný port a wifi pretože karta nemá vyvedený signál na pine 44.</p>
+
+<figure>
+	<a href="img/thinkpad_pcie_schematic.png"><img src="img/thinkpad_pcie_schematic.png" alt="Schéma matičnej dosky thinkpadu" /></a>
+	<figcaption>Obrázok <counter></counter>: <a href="https://drive.google.com/file/d/0B6IqcVTk0jpYOWZwNjVvSzV4Rlk/view">Schéma matičnej dosky thinkpadu</a></figcaption>
+</figure>
+
+<figure>
+	<a href="img/card_back_pin_44.jpg"><img src="img/card_back_pin_44.jpg" alt="Detail pinu 44 na karte" /></a>
+	<figcaption>Obrázok <counter></counter>: Detail pinu 44 na karte</figcaption>
+</figure>
+
+<h2>Benchmarky</h2>
+
+<p>Maximálny výkon novej karty je 22dBm (158mW), teda 5-krát vyšší než stará karta. Zároveň však má pomerne vysoký útlm hlavne v pásme 5GHz. V nasledujúcich grafoch sú výsledky iperf3 v rovnakej polohe (testy boli vykonané hneď pred a po výmene karty, s notebookom sa medzitým nehýbalo a pri všetkých textoch bol notebook čiastočne rozobratý). Ako router bol použitý Huawei B2338-168. Mezi routrom a notebookom bola nejaká tá stena, pár menších prekážok a asi 5 metrov vzduchu.</p>
+
+<p>Na testovanie záťaže som používal program iperf3, konkrétne nasledujúci príkaz (prepínač -R znamená download). Zároveň som kontroloval úroveň signálu z /proc/net/wireless. Skript pre záznam dát a transformáciu dát do csv prikladám k blogu.</p>
+
+<pre>iperf3 -c 192.168.1.3 -Z [-R] -t 60 -i 0.5 -J --logfile stats.json</pre>
+
+<p>Ako server som používal starší thinkpad pripojený káblom priamo k routru. Teoreticky zvláda odosielať / prijímať dáta rýchlosťou 600Mbit/s. Novšie notebooky sa mi k routru nedali pripojiť (z nejakého dôvodu hlásia, že kábel nie je pripojený).</p>
+
+<h3>Časové priebehy 60-sekundového testu</h3>
+
+<figure>
+	<a href="img/new_download_2g.png"><img src="img/new_download_2g.png" alt="Intel 8265 2.4 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 2.4 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_download_2g.png"><img src="img/old_download_2g.png" alt="Intel 6205 2.4 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 6205 2.4 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_upload_2g.png"><img src="img/new_upload_2g.png" alt="Intel 8265 2.4 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 2.4 GHz Upload</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_upload_2g.png"><img src="img/old_upload_2g.png" alt="Intel 6205 2.4 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 6205 2.4 GHz Upload</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_download_5g.png"><img src="img/new_download_5g.png" alt="Intel 8265 5 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 5 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_download_5g.png"><img src="img/old_download_5g.png" alt="Intel 6205 5 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 6205 5 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_upload_5g.png"><img src="img/new_upload_5g.png" alt="Intel 8265 5 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 5 GHz Upload</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_upload_5g.png"><img src="img/old_upload_5g.png" alt="Intel 6205 5 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 6205 5 GHz Upload</figcaption>
+</figure>
+
+<h3>Súhrnné výsledky</h3>
+
+<table>
+	<thead>
+		<tr>
+			<th rowspan="2">Benchmark</th>
+			<th colspan="2">Intel 8265</th>
+			<th colspan="2">Intel 6205</th>
+		</tr>
+		<tr>
+			<th>Rýchlosť</th>
+			<th>Úroveň</th>
+			<th>Rýchlosť</th>
+			<th>Úroveň</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<th>2,4 GHz Download</th>
+			<td>112,2 Mbit/s</td>
+			<td>-55,89 dBm</td>
+			<td>29,75 Mbit/s</td>
+			<td>-55,48 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>35,97</small></td>
+			<td><small>1,207</small></td>
+			<td><small>17,32</small></td>
+			<td><small>0,4985</small></td>
+		</tr>
+		<tr>
+			<th>2,4 GHz Upload</th>
+			<td>84,39 Mbit/s</td>
+			<td>-56,32 dBm</td>
+			<td>22,3 Mbit/s</td>
+			<td>-57,57 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>11,47</small></td>
+			<td><small>1,068</small></td>
+			<td><small>4,161</small></td>
+			<td><small>0,9103</small></td>
+		</tr>
+		<tr>
+			<th>5 GHz Download</th>
+			<td>106,1 Mbit/s</td>
+			<td>-75,76 dBm</td>
+			<td>34,74 Mbit/s</td>
+			<td>-71,05 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>15,25</small></td>
+			<td><small>0,8806</small></td>
+			<td><small>3,116</small></td>
+			<td><small>1,064</small></td>
+		</tr>
+		<tr>
+			<th>5 GHz Upload</th>
+			<td>60,1 Mbit/s</td>
+			<td>-75,87 dBm</td>
+			<td>17,76 Mbit/s</td>
+			<td>-71,27 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>16,56</small></td>
+			<td><small>1,036</small></td>
+			<td><small>3,916</small></td>
+			<td><small>0,2957</small></td>
+		</tr>
+	</tbody>
+</table>
+
+<figure>
+	<a href="img/speed.png"><img src="img/speed.png" alt="Rýchlosť" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Rýchlosť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/level.png"><img src="img/level.png" alt="Úroveň signálu" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Úroveň signálu</figcaption>
+</figure>
+
+<h2>Záver</h2>
+
+<p>Oproti starej karte som prišiel o stavové LED diódy a skoro 5dB na frekvencii 5GHz. Napriek tomu má karta výrazne vyšší dosah a dosahuje lepšie rýchlosti. Celkovo prichádzam o 9% signálu na frekvencii 2.4GHz a 67% na frekvencii 5GHz. Oprava by bola vcelku triviálna ak by existovala slušná redukcia zo samca MHF4 na samicu u.FL.</p>
+
+<p>Upgrade hodnotím ako celkom pozitívny. Konečne mám slušné spojenie s routrom či už som kdekoľvek v dome, na záhrade, alebo vo vlaku národného prepravcu (u ktorého sa mi zatiaľ podarilo načítať 1 skoro kompletnú webovú stránku a pritom ani nehorel).</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
