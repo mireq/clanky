@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Neviem napísať "Hello world" v C++</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Neviem napísať "Hello world" v C++</h1>
+	<p>Možno by tento blog mal byť skôr vo fóre, ale nakoneic je to trochu viacej textu a možno trochu viacej otázok na zamyslenie sa. V každom prípade situácia je taká, že posledných pár týždňov sa snažím napísať hello world v C++ a jednoducho to nefunguje.</p>
+</header>
+
+<p>Samozrejme nebol by som to ja, keby v tom nebol malý háčik. Háčik spočíva v tom, že pracujem s hardvérom, ktorý má pár bytov pamäte. Takže som napísal malý objekt, ktorý má podobné rozhranie ako <code>std:cout</code>. V momente keď chcem vypísať dáta vložím do registra r1 adresu adresu textového buffera a vyvolám výnimku, ktorú odchytím debuggerom. Dosť bolo kecov, poďme na kód:</p>
+
+<pre class="code-cpp">
+#include &lt;string&gt;
+
+
+#define SVC_WRITE0 0x04
+
+
+int svc_call(int command, const void* message) {
+    int output;
+    __asm volatile
+    (
+        "mov r0, %[com] \n"
+        "mov r1, %[msg] \n"
+        "bkpt #0xAB \n"
+        "mov %[out], r0"
+        : [out] "=r" (output)
+        : [com] "r" (command), [msg] "r" (message)
+        : "r0", "r1"
+    );
+    return output;
+}
+
+
+struct OutputStream {
+    OutputStream() = default;
+
+    const OutputStream&amp; operator&lt;&lt;(const std::string &amp;value) const {
+        svc_call(SVC_WRITE0, value.data());
+        return *this;
+    }
+
+    const OutputStream&amp; operator&lt;&lt;(const char *value) const {
+        svc_call(SVC_WRITE0, value);
+        return *this;
+    }
+};
+
+
+const OutputStream cout;
+
+
+extern "C" {
+
+void hlavny_program(void) {
+    //cout &lt;&lt; "Hello world!\n"; FUnguje
+
+    const std::string msg("Hello world!\n");
+    cout &lt;&lt; msg;
+    for (;;) {
+    }
+}
+
+}
+</pre>
+
+<p>Po skompilovaní nasledujúcim príkazom program normálne funguje.</p>
+
+<pre>arm-none-eabi-g++ -c -o build/program.o program.cpp -Os -mcpu=cortex-m3</pre>
+
+<p>Disassembler (<code>arm-none-eabi-objdump -D build/program.o</code>) vyzerá normálne.</p>
+
+<pre>
+00000000 &lt;_Z8svc_calliPKv&gt;:
+   0:   4603            mov     r3, r0
+   2:   460a            mov     r2, r1
+   4:   4618            mov     r0, r3
+   6:   4611            mov     r1, r2
+   8:   beab            bkpt    0x00ab
+   a:   4603            mov     r3, r0
+   c:   4618            mov     r0, r3
+   e:   4770            bx      lr
+
+00000010 &lt;hlavny_program&gt;:
+  10:   b57f            push    {r0, r1, r2, r3, r4, r5, r6, lr}
+  12:   4a08            ldr     r2, [pc, #32]   ; (34 &lt;hlavny_program+0x24&gt;)
+  14:   a802            add     r0, sp, #8
+  16:   f1a2 010d       sub.w   r1, r2, #13
+  1a:   9000            str     r0, [sp, #0]
+  1c:   f7ff fffe       bl      0 &lt;_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE13_S_copy_charsEPcPKcS7_&gt;
+  20:   230d            movs    r3, #13
+  22:   9301            str     r3, [sp, #4]
+  24:   2300            movs    r3, #0
+  26:   9900            ldr     r1, [sp, #0]
+  28:   2004            movs    r0, #4
+  2a:   734b            strb    r3, [r1, #13]
+  2c:   f7ff fffe       bl      0 &lt;_Z8svc_calliPKv&gt;
+  30:   e7fe            b.n     30 &lt;hlavny_program+0x20&gt;
+  32:   bf00            nop
+  34:   0000000d        andeq   r0, r0, sp
+
+Rozloženie sekcie .rodata.str1.1:
+</pre>
+
+<p>Objektový kód <code>program.o</code> obsahuje text Hello world a po spustení program normálne vypíše "Hello world!" do okna gdb.</p>
+
+<p>Teraz preložím ten istý program s flagom <code>-O3</code>.</p>
+
+<pre>
+00000000 &lt;_Z8svc_calliPKv&gt;:
+   0:   4603            mov     r3, r0
+   2:   460a            mov     r2, r1
+   4:   4618            mov     r0, r3
+   6:   4611            mov     r1, r2
+   8:   beab            bkpt    0x00ab
+   a:   4603            mov     r3, r0
+   c:   4618            mov     r0, r3
+   e:   4770            bx      lr
+
+00000010 &lt;hlavny_program&gt;:
+  10:   b086            sub     sp, #24
+  12:   2304            movs    r3, #4
+  14:   aa02            add     r2, sp, #8
+  16:   4618            mov     r0, r3
+  18:   4611            mov     r1, r2
+  1a:   beab            bkpt    0x00ab
+  1c:   4603            mov     r3, r0
+  1e:   e7fe            b.n     1e &lt;hlavny_program+0xe&gt;
+</pre>
+
+<p>Výsledný program hrabe do neinicializovanej pamäte. Za bežných okolností by som povedal, že mám zlý linker skript, ale ja kontrolujem generovaný kód pred linkovaním. Výsledný objektový kód neobsahuje konštantu "Hello world!". Môžem zmeniť text "Hello world!" na iný a binárny súbor program.o zostane bez zmeny. Kompilátor jednoducho z nejakého dôvodu odstránil konštantu a celý kód, ktorý s ňou pracuje okrem asm funkcie, ktorá je označená ako <em>volatile</em>.</p>
+
+<p>Ak vo funkcii <em>svc_call</em> pridám do <code>int output</code> príznak <em>volatile</em> program začne generovať konštantu "Hello world!" a zároveň aj začne fungovať.</p>
+
+<p>Nejaké nápady, prečo sa pri -O3 stratila časť generovaného kódu?</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
