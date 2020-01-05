@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ESP32 - dynamická zmena vzorkovacej frekvencie I2S</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>ESP32 - dynamická zmena vzorkovacej frekvencie I2S</h1>
+	<p>Nedávno som si kúpil mikrokontrolér ESP32 kvôli prestavbe starého nefunkčného tranzistorového rádia na internetové rádio. U môjho malého projektu chcem dosiahnuť čo najplynulejšie prehrávanie internetových streamov bez výpadkov, alebo počuteľného praskania.</p>
+</header>
+
+<h2>MAX98357A</h2>
+
+<p>Ako obyčajne predstavím najskôr nový hardvér, o ktorom som ešte nepísal. Vývojovú dosku s ESP32 som predstavil už minule, takže tú vynechám, ale ukážem čosi zaujímavejšie. Ide o digitálny koncový zosilňovač triedy D - MAX98357A.</p>
+
+<figure>
+	<a href="img/max98375a_detail.jpg"><img src="img/max98375a_detail.jpg" alt="Detail dosky s MAX98357A"></a>
+	<figcaption>Obrázok <counter></counter>: Detail dosky s MAX98357A</figcaption>
+</figure>
+
+<p>Trieda D znamená, že zosilňovač pracuje v spínanom režime. Vďaka tomu dosahuje celkom slušný výkon (3W) pri účinnosti 92%. Pre porovnanie maximálna teoretická účinnosť zosilňovača triedy A je 25%.</p>
+
+<figure>
+	<a href="img/max98375a_detail2.jpg"><img src="img/max98375a_detail2.jpg" alt="Integrovaný obvod MAX98357A"></a>
+	<figcaption>Obrázok <counter></counter>: Integrovaný obvod MAX98357A</figcaption>
+</figure>
+
+<p>Tento celkom zaujímavý kúsok sa dá napájať napätím 2.5V - 5.5V. Na vstupe prijíma digitálne dáta v rôznych formátoch s rôznymi frekvenciami (konfigurácia je automatická). Zosilňovač dokáže pracovať ako výstup ľavého kanála, pravého kanála, alebo dokáže mixovať oba kanály dokopy v závislosti na napätí SD_MODE stupu. Dosky z aliexpresu zvyknú mať prednastavené mixovanie oboch kanálov. Upraviť sa to dá vhodnou voľbou pull up rezistoru na SD_MODE. Kombináciou 2 identických zosilňovačov je vďaka tomu možné dosiahnuť stereo výstup aj keď oba dostávajú signál pomocou jediného dátového vodiča. Vstup SD_MODE má nasledujúce režimy:</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>Napätie</th>
+			<th>Kanál</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>pod 0.16 V</td>
+			<td>Vypnutý</td>
+		</tr>
+		<tr>
+			<td>nad 0.16 V</td>
+			<td>(Ľavý + Pravý) / 2</td>
+		</tr>
+		<tr>
+			<td>nad 0.77 V</td>
+			<td>Pravý</td>
+		</tr>
+		<tr>
+			<td>nad 1.4 V</td>
+			<td>Ľavý</td>
+		</tr>
+	</tbody>
+</table>
+
+<figure>
+	<a href="img/max98375a_package.jpg"><img src="img/max98375a_package.jpg" alt="Obsah balenia z aliexpresu"></a>
+	<figcaption>Obrázok <counter></counter>: Obsah balenia z aliexpresu</figcaption>
+</figure>
+
+<p>Na zosilňovači chýba vstup pre nastavenie hlasitosti (gain, umožňuje len skokové zmeny). Našťastie zosilňovač zvláda 32-bitový vstup, takže ovládanie hlasitosti sa dá v pohode vyriešiť softvérovo.</p>
+
+<figure>
+	<a href="img/max98375a_back.jpg"><img src="img/max98375a_back.jpg" alt="Zadná strana"></a>
+	<figcaption>Obrázok <counter></counter>: Zadná stranaa</figcaption>
+</figure>
+
+<h3>Zapojenie zosilňovača</h3>
+
+<p>Pri testovaní som používal nasledovné zapojenie:</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>Zosilňovač</th>
+			<th>Kanál</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>LRC</td>
+			<td>GPIO 25</td>
+		</tr>
+		<tr>
+			<td>BCLK</td>
+			<td>GPIO 26</td>
+		</tr>
+		<tr>
+			<td>DIN</td>
+			<td>GPIO 22</td>
+		</tr>
+		<tr>
+			<td>GAIN</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td>SD</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td>GND</td>
+			<td>GND</td>
+		</tr>
+		<tr>
+			<td>VIN</td>
+			<td>5 V</td>
+		</tr>
+	</tbody>
+</table>
+
+<figure>
+	<a href="img/connection.jpg"><img src="img/connection.jpg" alt="Moje tragické zapojenie"></a>
+	<figcaption>Obrázok <counter></counter>: Moje tragické zapojenie</figcaption>
+</figure>
+
+<p>Offtopic: čím spájkujete tieto 2.54mm piny? Všade v tutoriáloch vidím mikropájku, ale ja osobne používam obyčajnú starú trafopájku.</p>
+
+<h2>Prehrávanie zvuku</h2>
+
+<p>Pre bezproblémové prehrávanie internetovéh streamu je potrebné udrživať približne rovnakú rýchlosť prehrávania, ako je rýchlosť vysielania. Hodiny esp-32 môžu ísť o chlp rýchlejšie, zariadenie má málo RAM, takže buffer to nezachráni a pri podtečení buffera bude jednoducho sekať. V takom prípade to môžme vyriešiť drobným znížením vzorkovacej frekvencie, aby kompenzovala rôznu rýchlosť hodín.</p>
+
+<p>Nasleduje malý testovací kód, ktorý prehráva sínusovku. Kód budem písať v štandardnom esp-idf. Na začiatok pár deklarácií / definícií:</p>
+
+<pre class="code-c">
+#include &lt;math.h&gt;
+
+#include "driver/gpio.h"
+#include "driver/i2s.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "sdkconfig.h"
+
+
+#define AUDIO_OUTPUT_BUFFER_COUNT 4
+#define AUDIO_OUTPUT_BUFFER_SIZE 375
+#define AUDIO_BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_32BIT
+#define AUDIO_I2S_PORT I2S_NUM_0
+
+
+typedef int32_t audio_sample_t;
+
+typedef struct audio_output_t {
+	uint32_t sample_rate;
+	i2s_port_t port;
+	int bps;
+} audio_output_t;
+
+
+static const char *TAG = "audio";
+
+static i2s_dev_t* const I2S[I2S_NUM_MAX] = {&amp;I2S0, &amp;I2S1};
+
+static audio_sample_t audio_buffer[AUDIO_OUTPUT_BUFFER_SIZE &lt;&lt; 1];
+
+static audio_output_t audio_output = {
+	.port = AUDIO_I2S_PORT,
+	.bps = AUDIO_BITS_PER_SAMPLE,
+	.sample_rate = 44100,
+};
+</pre>
+
+<p>V podstate len includujem pár knižníc a definujem štruktúru <code>audio_output</code>, ktorou sa budem odkazovať na konkrétny výstup. Zatiaľ nič zaujímavé.</p>
+
+<p>Pokračujem malým kódom na vygenerovanie sínusovky.</p>
+
+<pre class="code-c">
+static void generate_sine() {
+	audio_sample_t max_val = 0x7fffffff;
+	for (size_t i = 0; i &lt; (AUDIO_OUTPUT_BUFFER_SIZE &lt;&lt; 1); ++i) {
+		double rad = M_PI * i / AUDIO_OUTPUT_BUFFER_SIZE * 3;
+		audio_buffer[i] = max_val * sin(rad);
+	}
+}
+</pre>
+
+<p>Inicializujem I2S rozhranie.</p>
+
+<pre class="code-c">
+void audio_output_init(audio_output_t *output) {
+	i2s_config_t i2s_config = {
+		.mode = I2S_MODE_MASTER | I2S_MODE_TX,
+		.sample_rate = output-&gt;sample_rate,
+		.bits_per_sample = output-&gt;bps,
+		.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+		.communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
+		.intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,
+		.dma_buf_count = AUDIO_OUTPUT_BUFFER_COUNT,
+		.dma_buf_len = AUDIO_OUTPUT_BUFFER_SIZE,
+		.tx_desc_auto_clear = true,
+		.use_apll = false,
+	};
+	i2s_pin_config_t pin_config = {
+		.bck_io_num = GPIO_NUM_26,
+		.ws_io_num = GPIO_NUM_25,
+		.data_out_num = GPIO_NUM_22,
+		.data_in_num = I2S_PIN_NO_CHANGE
+	};
+	i2s_driver_install(output-&gt;port, &amp;i2s_config, 0, NULL);
+	i2s_zero_dma_buffer(output-&gt;port);
+	i2s_set_pin(output-&gt;port, &amp;pin_config);
+}
+
+
+void audio_output_destroy(audio_output_t *output) {
+	i2s_driver_uninstall(output-&gt;port);
+}
+</pre>
+
+<p>Pridáme funkciu pre zmenu vzorkovacej frekvencie:</p>
+
+<pre class="code-c">
+void audio_output_set_sample_rate(audio_output_t *output, int rate) {
+	i2s_set_sample_rates(output-&gt;port, rate);
+}
+</pre>
+
+<p>Zostáva už len napísať nekonečnú slučku, ktorá bude prehrávať buffer a funkciu main.</p>
+
+<pre class="code-c">
+void audio_output_write(audio_output_t *output, audio_sample_t *buf, size_t buf_size) {
+	size_t bytes_written;
+	i2s_write(output-&gt;port, buf, buf_size, &amp;bytes_written, portMAX_DELAY);
+}
+
+
+void send_audio(void *arg) {
+	while (1) {
+		audio_output_write((audio_output_t *)arg, audio_buffer, sizeof(audio_buffer));
+	}
+}
+
+
+void app_main(void)
+{
+	// Generate audio
+	generate_sine();
+	// Initialize audio output
+	audio_output_init(&amp;audio_output);
+
+	// Create audio task
+	TaskHandle_t send_audio_task;
+	xTaskCreate(&amp;send_audio, "send_audio", 2048, &amp;audio_output, 5, &amp;send_audio_task);
+
+	// Change sample rates
+	for (size_t i = 0; i &lt; 50; ++i) {
+		vTaskDelay(30 / portTICK_PERIOD_MS);
+		audio_output_set_sample_rate(&amp;audio_output, 44100 - 200 * i);
+	}
+
+	// Stop audio output
+	vTaskDelete(send_audio_task);
+
+	// Clean
+	audio_output_destroy(&amp;audio_output);
+	vTaskDelay(portMAX_DELAY);
+	vTaskDelete(NULL);
+}
+</pre>
+
+<p>Všetko funguje správne, akurát zvuk počas zmeny vzorkovacej frekvencie praská. Výsledný zvuk si <a href="https://youtu.be/vF8r0WnuoZo">môžte vypočuť na youtube</a>. Môže za to bezpečné odstavenie i2s pri volaní <code>i2s_set_sample_rates</code>.</p>
+
+<p>Hardvér zvláda zmenu vzorkovacej frekvencie bez odstavenia I2S. Môžme tak urobiť zápisom parametrov priamo do registrov.</p>
+
+<p>Podľa dokumentácie by mali byť hodiny vypočítané podľa nasledujúcej schémy:</p>
+
+<figure>
+	<a href="img/i2s_clock.png"><img src="img/i2s_clock.png" alt="Výpočet hodín I2S"></a>
+	<figcaption>Obrázok <counter></counter>: Výpočet hodín I2s</figcaption>
+</figure>
+
+<p>Ak chceme dosiahnuť frekvenciu 44100 vzoriek za sekundu a máme frekvenciu hodín 160MHz tj. 40MHz na vstupe I2S musíme dosiahnuť aby v menovateli bola taká hodnota, aby bolo odoslaných 2822400 bytov za sekundu (44100 * 32 [bitová hĺbka] * 2 [stereo]). Frekvenciu 40 000 000Hz musíme deliť číslom 14,172336. Potrebujeme teda vyriešiť:</p>
+
+<p>14,172336 = <em>N + (b / a)</em></p>
+
+<p>Podiel <em>b/a</em> nesmie presiahnuť 1, takže za <em>N</em> môžme rovno dosiahnuť 14. Zostáva zistiť koeficienty <em>a</em> a <em>b</em>. Tie musia byť v rozsahu 0-63. ESP-IDF dosádza do vzorca vždy a=63, ale ja som sa rozhodol zistiť hodnotu s najmenšou chybou pomocou hrubej sily.</p>
+
+<pre class="code-c">
+void audio_output_set_sample_rate(audio_output_t *output, int rate) {
+	int sample_size = AUDIO_BITS_PER_SAMPLE * 2; // Stereo - 2-násobná dĺžka bitovej hĺbky
+	int i2s_frequency = APB_CLK_FREQ / 2; // Polovičná frekvencia APB hodín
+
+	// Frekvencia je Fpll / (1 / (N + (b / a)))
+	// requested_divisor = (N + (b / a)) - máme výsledok a hľadáme parametre N, b, a
+	// N podľa dokumentácie musí byť väčšie než 1 a menšie než 255
+	// a, b musia byť v rozsahu 0-63
+	// a != 0
+	// a musí byť väčšie než b (toto nie je nikde zdokumentované)
+	double requested_divisor = (double)i2s_frequency / (rate * sample_size);
+	if (requested_divisor &gt;= 255 || requested_divisor &lt; 2) {
+		ESP_LOGE(TAG, "Unsupported sample rate: %d", rate);
+		return;
+	}
+
+	// Inicializujem najlepšie doteraz nájdené riešenie
+	double min_error = 1.0;
+	int best_n = (int)requested_divisor;
+	int best_b = 0;
+	int best_a = 1;
+
+	// Vyhľadanie najlepšieho riešenia hrubou silou
+	for (int a = 1; a &lt; 64; ++a) {
+		int b = (requested_divisor - (double)best_n) * (double)a;
+		if (b &gt; 63) {
+			continue;
+		}
+
+		double divisor = (double)best_n + (double)b / (double)a;
+		double error = divisor &gt; requested_divisor ? divisor - requested_divisor : requested_divisor - divisor;
+		if (error &lt; min_error) {
+			min_error = error;
+			best_a = a;
+			best_b = b;
+		}
+
+		b++;
+		if (b &gt; 63) {
+			continue;
+		}
+		divisor = (double)best_n + (double)b / (double)a;
+		error = divisor &gt; requested_divisor ? divisor - requested_divisor : requested_divisor - divisor;
+		if (error &lt; min_error) {
+			min_error = error;
+			best_a = a;
+			best_b = b;
+		}
+	}
+
+	// Zobrazenie najlepšieho riešenia
+	double final_rate = (double)i2s_frequency / (double)sample_size / ((double)best_n + (double)best_b / (double)best_a);
+	ESP_LOGI(TAG, "Requested samplerate change to: %d, final samplerate %f, N: %d, b: %d, a: %d", rate, final_rate, best_n, best_b, best_a);
+
+	// Zmena hodín
+	I2S[output-&gt;port]-&gt;clkm_conf.clkm_div_a = 63;
+	I2S[output-&gt;port]-&gt;clkm_conf.clkm_div_b = best_b;
+	I2S[output-&gt;port]-&gt;clkm_conf.clkm_div_a = best_a;
+	I2S[output-&gt;port]-&gt;clkm_conf.clkm_div_num = best_n;
+}
+</pre>
+
+<p>Výsledkom je možnosť nastaviť vzorkovaciu frekvenciu bez prerušenia prehrávania.</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
