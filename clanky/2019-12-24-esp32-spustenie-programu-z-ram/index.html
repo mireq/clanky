@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ESP32 - spustenie  programu z RAM</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>ESP32 - spustenie  programu z RAM</h1>
+	<p>Po dlhšej dobe som sa vrátil k svojmu koníčku - práci s hardvérom. Pri tejto príležitosti tu budem písať krátke návody, poznámky, problémy, na ktoré som narazil, riešenia atď. Trochu neplánovane som začal už v svojom predchádzajúcom blogu, kde som riešil hello world na jednom obskurnom embedded systéme.</p>
+</header>
+
+<h2>Predstavenie hardvéru</h2>
+
+<p>Ako vývojovú dosku som si kúpil TTGO-T8 V1.7. Pôvodne som chcel použiť ESP32-WROVER-IB, ale nenašiel som obchod, ktorý by mi poslal adaptér (breakout board) s lacnejším poštovným než celá vývojová doska z číny. Takže okrem samotného modulu tu mám zbytočnosti ako nabíjací obvod pre li-ion baterku, USB port, UART prevodník atď. Jednoducho hardvér, ktorý buď nepotrebujem, lebo už mám v šuflíku (UART), alebo nebudem potrebovať vôbec (li-ion).</p>
+
+<p>Samotný hardvér je podľa mňa hrozný šmejd. Na prvý pohľad vyzerá dobre, ale oscilátor si kľudne tiká namiesto 40MHz na 41MHz.</p>
+
+<pre>
+esptool.py v2.9-dev
+Found 1 serial ports
+Serial port /dev/ttyUSB0
+Connecting....
+Detecting chip type... ESP32
+Chip is ESP32D0WDQ6 (revision 1)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+</pre>
+
+<p>Vstavaný USART prevodník je SIL 2104, ktorý zvláda prenos rýchlosťou 2Mbps, čo je priemernej veľkosti hello world-u vítaná vlastnosť.</p>
+
+<figure>
+	<a href="img/_IMG7052.jpg"><img src="img/_IMG7052.jpg" alt="TTGO-T8 V1.7"></a>
+	<figcaption>Obrázok <counter></counter>: TTGO-T8 V1.7</figcaption>
+</figure>
+
+<h2>Architektúra</h2>
+
+<p>ESP32 obsahuje 2 mikroprocesory Tensilica Xtensa LX6 taktovaný na 80-240 MHz. Procesor má harvardskú architektúru - kód a dáta sú adresované pomocou samostatných zberníc.</p>
+
+<p>K procesoru býva cez SPI pripojená externá flash pamäť a voliteľne externá RAM. Prístup k pamätiam riadi MMU jednotka, ktorá podľa mojich informácii nie je konfigurovateľná. MMU sprístupňuje flash pamäť cez inštrukčnú aj dátovú zbernicu, takže je možné z nej spúšťať kód a zároveň aj pristupovať k dátam. Externá RAM je sprístupnená len cez dátovú zbernicu (nie je teda možné využiť túto pamäť na spúšťanie kódu).</p>
+
+<p>Pre zrýchlenie prístupu k externým pamätiam sa používa cache. Mimochodom dosť deravá cache, takže nie vždy sú dáta tesne po zápise správne prečítané. Nás však externé pamäte nebudú zaujímať pretože kód nemôžme spustiť z externej RAM.</p>
+
+<p>Mikrokontrolér disponuje 512kB internej RAM pamäte. Tá je pomocou MMU sprístupnená zase na rôznych zberniciach. Časť je dostupná cez dátovú zbernicu, časť cez inštrukčnú a časť je rezervovaná. Pre nahranie vlastného programu môžme využiť len 128kB pamäte na adrese 0x4008 0000. Na celý program je to síce málo, ale na napísanie a odladenie niektorej časti, napríklad ovládanie LCD je prakticky ideálna.</p>
+
+<h2>Prečo?</h2>
+
+<p>Prečo nie? ;)</p>
+
+<p>Ale teraz vážne. Zápis programu do pamäte trvá určitú dobu, flash pamäť sa častým prepisovaním opotrebuje a aj keď nemusí dôjsť k jej zničeniu počas programovania môže to viesť k zníženej spoľahlivosti neskôr pri prevádzke zariadenia.</p>
+
+<h2>Ako na to?</h2>
+
+<p>V dokumentácii k možnosti nahrať program do RAM prakticky nič nie je, fóra sú tak použiteľné ako každé fórum, kde sú nadšenci do arduina, takže nezostáva nič, len skúsiť a pozrieť, čo sa bude diať ;)</p>
+
+<p>Začneme skopírovaním príkladu blink z esp-idf: <code>cp -r /cesta/k/esp-idf/examples/get-started/blink blink</code>. V adresári blink spustíme <code>idf.py menuconfig</code>. V sekcii Build type / Application build type vyberieme ELF file, loadable into RAM. Kód skompilujeme štandardne príkazom <code>idf.py build</code>, alebo <code>ninja -C build</code>.</p>
+
+<figure>
+	<a href="img/build_type.png"><img src="img/build_type.png" alt="Nastavenie projektu"></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie projektu</figcaption>
+</figure>
+
+<p>Skompilovaný program, by mal obsahovať len segmenty umiestnené v RAM. Skontrolovať to môžme pomocou príkazu <code>xtensa-esp32-elf-objdump -h build/blink.elf</code>, alebo disassemblerom <code>xtensa-esp32-elf-objdump -d build/blink.elf</code>.</p>
+
+<pre>
+Disassembly of section .iram0.vectors:
+
+40080000 &lt;_WindowOverflow4&gt;:
+40080000:       49c500          s32e    a0, a5, -16
+40080003:       49d510          s32e    a1, a5, -12
+40080006:       49e520          s32e    a2, a5, -8
+40080009:       49f530          s32e    a3, a5, -4
+4008000c:       003400          rfwo
+        ...
+
+40080040 &lt;_WindowUnderflow4&gt;:
+40080040:       09c500          l32e    a0, a5, -16
+40080043:       09d510          l32e    a1, a5, -12
+40080046:       09e520          l32e    a2, a5, -8
+40080049:       09f530          l32e    a3, a5, -4
+4008004c:       003500          rfwu
+        ...
+</pre>
+
+<p>ELF binárka sa musí pred nahraním konvertovať nástrojom elf2image.</p>
+
+<pre>esptool.py --chip esp32 elf2image build/blink.elf</pre>
+
+<p>Binárka sa nahraje a spustí esptool-om pomocou príkazu <code>load_ram</code>.</p>
+
+<pre>esptool.py --chip esp32 --baud 921600 --no-stub load_ram build/blink.bin</pre>
+
+<p>Na pripojenie k UART sa nesmie použiť <code>idf.py monitor</code>, pretože ten pri pripojení resetuje mikrokontrolér, kvôli čomu by sme prišli o obsah RAM. Namiesto toho sa pripojíme pomocou screenu (<code>screen /dev/ttyUSB0 115200</code>), alebo picocomu (<code>picocom /dev/ttyUSB0 -b115200</code>), alebo iného obľúbeného programu. Pripomeniem, že screen sa ukončuje pomocou skratky <code>Ctrl+A</code> a potom <code>:quit</code>. Picocom sa ukončuje skratkou <code>Ctrl+A, Q</code> (najskôr Ctrl, potom stlačiť A, pustiť A a stlačiť Q).</p>
+
+<p>Jednoduché, nie?</p>
+
+<h2>Prečo na tak jednoduchý postup doteraz nikto neprišiel?</h2>
+
+<p>Nuž možnosť, ktorú som zvolil v menu (ELF file, loadable into RAM) je novinka, ktorá v predchádzajúcich verziách nebola dostupná. Táto možnosť zmení oblasti pamäte v linker skripte. Za bežných okolností je linker skript <a href="https://github.com/mireq/stm32f103-samples/blob/09bd9ac71134eeb5bc897177e266778e8b4eef01/common/linker.ram.ld">pomerne jednoduchý</a>. Zvyčajne. ESP32 má dosť šialené mapovanie pamäte, takže nie je to úplne triviálne. Keď k tomu prirátame komunitu typických arduinovských lepičov, tak bolo jasné, že sa do toho nikto z komunity nepustí.</p>
+
+<p>Práve keď som sa do toho chcel pustiť som aktualizoval esp-idf a jeje ono to niekto urobil predomnou ;)</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
