@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ESP32 - simulátor pre Linux</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>ESP32 - simulátor pre Linux</h1>
+	<p>Pri vývoji komplexnejších aplikácií pre ESP32 môže nahrávanie kódu do zariadenia zabrať pokojne aj niekoľko minúť. Aby som sa vyhol čakaniu napísal som malý, jednoduchý a dosť nepresný simulátor.</p>
+</header>
+
+<h2>Prečo nie emulátor?</h2>
+
+<p>Emulácia hardvéru je pekne komplexná záležitosť. Emulátor jadra ESP32 je pomerne mladý dá sa povedať, že ešte nie je celkom dokončený. Jadro je však z celého emulátora tá najjednoduchšia časť.</p>
+
+<p>Omnoho väčším problémom je emulácia zvyšku hardvéru, ktorý obsahuje mikrokontrolér. Patrí sem napr. DMA hardvér, ktorý môže pristupovať k pamäti paralelne voči jadru, zvukové vstupy / výsupy, PWM kanály atď. Takmer každý hardvér môže zároveň ešte interagovať s DMA. Vstupy a výstupy sa dajú rôzne konfigurovať a rôzne pripájať k externým zariadeniam. Najhoršie na tom celom je, že referenčná dokumentácia nie je úplná, takže sa nedá presne určiť, čo by zariadenie malo vlastne robiť.</p>
+
+<p>Presná emulácia by bola extrémne zložitá a benefity, ktoré by som tým získal nemajú pre mňa ktovie aký význam. Omnoho jednoduchšie je reimplementovať niektoré funkcie z ESP-IDF a abstrahovať od práce s hardvérom.</p>
+
+<h2>Simulátor</h2>
+
+<p>Vývojové prostredie ESP-IDF obsahuje kompilátor (gcc), pomerne malé knižnice pre prístup k hardvéru, rôzne utility (napr. logovanie) a zopár externých viac-či menej multiplatformových knižníc.</p>
+
+<h3>Kompilátor</h3>
+
+<p>Simulátor pracuje tak, že skompiluje normálnu spustiteľnú binárku pre Linux. Prvý komponent, ktorý k tomu potrebujeme - kompilátor gcc stačí len nainštalovať.</p>
+
+<h3>Knižnice pre prístup k hardvéru</h3>
+
+<p>Implementovať knižnice pre prácu s hardvérom by bolo veľmi náročné a ako som spomínal, dokumentácia nie je kompletná, takže ani nie je jednoduché zistiť, čo by mal hardvér robiť v rôznych okrajových prípadoch. Takže na podporu hardvéru sa môžme rovno vykašlať ;)</p>
+
+<p>Omnoho jednoduchšie je izolovať prácu s hardvérom do pár funkcií, ktoré sa použijú namiesto priameho prístupu k hardvéru. Ako príklad použijem audio výstup v <a href="https://youtu.be/25Xtxvdb6V8" target="_blank">mojom internetovom rádiu</a>.</p>
+
+<p>Na reálnom hardvéri zabezpečuje audio výstup I2S rozhranie, čo je extrémne extrémne komplexný kus hardvéru. Tá vec je šialená. V dokumentácii tvrdia, že je to digitálne sériové audio rozhranie ... ktoré ale dokáže fungovať aj ako vstup. Dokonca dokáže fungovať aj ako analógový audio vstup / výstup. Dokonca má LCD režim (tj. digitálny paralelný max. 24-bitový výstup). Dokonca má aj vstupný LCD režim teda vlastne režim kamery s paralelným vstupom + 2 ďalšími vstupmi pre hsync / vsync. Okrem toho má niekoľko deličov frekvencií, vlastný oscilátor, viacero hodinových vstupov / výstupov ...</p>
+
+<p>Jednoducho I2S je strašne komplexný hardvér. Jeho emulácia by bola veľmi náročná. Pritom na audio výstup by stačilo pár jednoduchých C-čkovych funkcíí.</p>
+
+<pre class="code-c">
+void audio_output_init(void);
+void audio_output_set_sample_rate(int rate);
+void audio_output_write(audio_sample_t *buf, size_t samples_count);
+</pre>
+
+<p>Na použitie audio výstupu nám stačí rozhranie, ktoré obsahuje inicializáciu audio výstupu, nastavenie počtu samplov za sekundu a zápis audio dát.</p>
+
+<p>Tieto 3 funkcie stačí napísať v 2 variatoch. Raz pre reálny hardvér s I2S funkciami a druhý krát pre simulátor napr. pomocou alsa API. Obe implementácie sa budú rovnako volať a navonok budú pracovať rovnako. Jeden však pobeží na reálnom hardvéri, druhý na počítači s Linuxom.</p>
+
+<p>Kompletný kód audio výstupu mám zverejnený na <a href="https://github.com/mireq/esp32-internet-radio/blob/345979f87592cd0b763be396fd1365f14ce5e257/components/player/audio_output.c">githube</a>.</p>
+
+<h3>Utility</h3>
+
+<p>Z utilít som implementoval zatiaľ 2 celky. Prvým je logovanie, kde som len nahradil funkciu pre zápis do UART-u obyčajným printf.</p>
+
+<p>Druhým je systém <a href="https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/event-handling.html">eventov</a>, ktorý je veľmi užitočný pri komunikácii medzi taskmi.</p>
+
+<p>Tieto časti sa mi zdajú najužitočnejšie pre bežné použitie. Zatiaľ som nemal potrebu implementovať niečo ďalšie z utilitiek.</p>
+
+<h3>FreeRTOS</h3>
+
+<p>Celé ESP-IDF je postavené na „operačnom systéme“ FreeRTOS. Používam úvodzovky, pretože FreeRTOS nezapadá do žiadnej definície operačného systému, akú poznám.</p>
+
+<p>Na rozdiel od iných operačných systémov FreeRTOS nerozdeľuje kód na user space a kernel space. Jednoducho aplikácia má prístup k všetkému. FreeRTOS nerobí prostredníka medzi hardvérom a aplikáciou, neimplementuje súborový systém atď. Dokonca ani neoddeľuje aplikáciu a operačný systém, pretože celý FreeRTOS funguje len ako knižnica, ktorá sa linkuje spolu s aplikáciou.</p>
+
+<p>Už sme si povedali, čo FreeRTOS, ale čo vlastne robí? FreeRTOS dokáže spúšťať úlohy (task = C funkcia s vlastným stackom), prepínať medzi úlohami s prioritou, poskytuje synchronizačné mechanizmy (mutexy, semafory), fronty, správy. Vďaka FreeRTOS môže aplikácia navonok vyzerať, ako keby používala vlákna, aj keď reálne beží v režime kooperatívneho multitaskingu.</p>
+
+<p>Väčšina FreeRTOS je platformovo nezávislá, pričom pre portovanie na inú platformu stačí implementovať pár funkcií. Konkrétne port pre Linux má asi <a href="https://github.com/mireq/Posix_GCC_Simulator/blob/0a8be497ea8bf23db6f612f979d9a9ddef68fd57/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix/port.c">700 riadkov kódu</a>. Na oficiálnej stránke projektu je odkaz na POSIX port, ktorý je pekných pár rokov mŕtvy. Nedávno som zobral túto starú vykopávku a aktualizoval som ho na novú verziu FreeRTOS. Kód som ako obyčajne zverejnil na <a href="https://github.com/mireq/Posix_GCC_Simulator">githube</a>.</p>
+
+<h3>Sieť</h3>
+
+<p>Najjednoduchšie zo všetkého vyzerala práca so sieťou. ESP-IDF totiž používa socket api, takže kód sieťovej vrstvy je identický, ako v Linuxe. Tak som si teda veselo includol socket.h a ono to zo začiatku vyzeralo, že to funguje správne. Naplnil sa mi buffer a moje rádio začalo hrať. Keď som pridal HTTP server pre ovládanie celá aplikácia prestala bežať.</p>
+
+<p>Zabudol som na jeden podstatný detail. Vo FreeRTOS mám kooperatívny multitasking. Úloha sa teda prepne iba v prípade, že:</p>
+
+<ul>
+	<li>bolo vyvolané hardvérové prerušenie (v simulátore nenastane)</li>
+	<li>úloha bola explicitne zastavená (vTaskSuspend), alebo zrušená (vTaskDelete)</li>
+	<li>úloha bola explicitne prepnutá (taskYIELD)</li>
+	<li>úloha bola zablokovaná (čakaním na mutex, semafor, zápisom do plnej fronty, čítaním z prázdnej fronty, čakaním vTaskDelay)</li>
+</ul>
+
+<p>Ak zavolám funkciu socketu <code>recv</code>, tá bude blokovať úlohu kým nedostanem dáta. Volanie <code>recv</code> <strong>zabráni vykonávaniu akejkoľvek ďalšej úlohy</strong> kým nedostane dáta. Unixové API je navrhnuté synchrónne s predpokladom, že na danej platforme sa dajú použiť vlákna a že majú minimálnu réžiu. Inými slovami unixové API je naprd. Je naprd na embedded a je naprd aj na normálnom desktope, pretože réžia vlákien je významná.</p>
+
+<p>Ideálne API by pracovalo s callbackmi. Jednoducho urobím požiadavku, zablokujem task semaforom a v callbacku odblokujem semafor.</p>
+
+<p>Na úrovni hardvéru sa prerušenia najviac podobajú callbackom. Na úrovni kernelu sa so sieťovými zariadeniami pracuje pomocou callbackov. Verejné API je však už len synchrónne. Rôzne webové servery to obchádzajú tak, že všetky sieťové spojenia sa obsluhujú v jednom na to vyhradenom vlákne cez volanie <code>select</code> a následne sa volajú callbacky. Stále však platí, že <strong>na konverziu synchrónneho API na callback API je nutné obetovať minimálne jedno vlákno</strong>. Naopak <strong>konverzia callback API na synchrónne API je triviálna</strong> a stačí na ňu mutex.</p>
+
+<p>Nech už boli dôvody pre takýto návrh unixového API akékoľvek výsledok je ten, že sockety s vo FreeRTOS nedajú použiť bez zablokovania celej aplikácie.</p>
+
+<p>Na reálnom ESP32 však recv neblokuje aplikáciu. Pozrel som sa teda na zúbok ich sieťovej vrstve.</p>
+
+<p>Sieťovú vrstvu na ESP32 zabezpečuje knižnica <a href="https://savannah.nongnu.org/projects/lwip/">LWIP</a>. Je to knižnica navrhnutá podobne ako FreeRTOS, takže máme tu veľkú platformovo nezávislú časť a dve menšie platformovo závislé časti. Ide konkrétne o časť pre integráciu so systémom (tj. mutexy, semafory, časovače) a integráciu s hardvérom.</p>
+
+<p>Vďaka integrácii so systémom volanie <code>recv</code> použije mutex z FreeRTOS. V tom momente sa úloha prepne do blokovaného stavu, čím umožní vykonávanie ďalších úloh. Až budú k dispozícii nové dáta úloha sa odblokuje a môže spracovať dáta.</p>
+
+<p>Integrácia s hardvérom je pomerne jednoduchá. Tvorí ju funkcia, ktorá prijme surový packet a pošle ho na spracovanie do nižších vrstiev LWIP a funkcia, ktorá odošle dáta na hardvér.</p>
+
+<p>Aby LWIP fungoval správne v simulátore stačí použiť systémovú integráciu pre FreeRTOS (je priamo v repozitári LWIP) a hardvérovú integráciu s Linuxom (tiež je už v repozitári LWIP). Teda teoreticky ...</p>
+
+<p>Linux neumožní priamo pristupovať k hardvéru. Dokonca by to bol dosť zlý nápad o niečo také sa pokúsiť na desktope. Môžme však v systéme vytvoriť virtuálne sieťové rozhranie, ktorému normálne priradíme IP adresu, nastavíme routing, maškarádu a povolíme prístup zo simulátora. Vytvorenie virtuálneho rozhrania a pridelenie IP adresy je triviálne.</p>
+
+<pre>
+sudo ip tuntap add dev tap0 mode tap user `whoami`
+sudo ip link set tap0 up
+sudo ip addr add 10.0.0.1/24 dev tap0
+export PRECONFIGURED_TAPIF=tap0
+</pre>
+
+<p>Posledný export je nutný, aby sa hardvérová integračná vrstva nepokúšala nastaviť sieťové rozhranie (predpokladám, že nikto nechce spúšťať simulátor pod rootom).</p>
+
+<p>Aby bolo možné dostať sa z virtuálnej sieťovky na internet je nutné povoliť forwardovanie packetov.</p>
+
+<pre>sudo echo 1 &gt; /proc/sys/net/ipv4/ip_forward</pre>
+
+<p>Zostáva ešte nastavenie maškarády. Pre ukážku som zvolil nftables, ale to isté je možné dosiahnuť aj pomocou iptables.</p>
+
+<pre>
+#!/sbin/nft -f
+
+flush ruleset
+
+
+table inet filter {
+	chain input {
+		type filter hook input priority 0; policy drop;
+		ct state invalid counter drop
+		ct state {established, related} counter accept
+		iif lo accept
+		iif != lo ip daddr 127.0.0.1/8 counter drop
+		iif != lo ip6 daddr ::1/128 counter drop
+		ip protocol icmp counter accept
+		ip6 nexthdr icmpv6 counter accept
+		iifname tap0 accept
+	}
+
+	chain forward {
+		type filter hook forward priority 0; policy accept;
+	}
+
+	chain output {
+		type filter hook output priority 0; policy accept;
+	}
+}
+
+
+table ip nat {
+	chain input {
+		type nat hook input priority 0; policy accept;
+		ip protocol icmp accept
+	}
+
+	chain prerouting {
+		type nat hook prerouting priority 0; policy accept;
+	}
+
+	chain postrouting {
+		type nat hook postrouting priority 100; policy accept;
+		ip daddr != 10.0.0.0/24 ip saddr 10.0.0.0/24 masquerade;
+	}
+
+	chain output {
+		type nat hook output priority 0; policy accept;
+	}
+}
+</pre>
+
+<p>Nastavenie firewallu sa načíta cez <code>nft -f nftables.rules</code>. Pozor, pravidlá firewallu je potrebné si upraviť podľa vlastných požiadaviek.</p>
+
+<h4>Pár slov k integrácii LWIP s Linuxom</h4>
+
+<p>Integrácia s Linuxom rozhodne nebola bezproblémová. Prvý malý problém bol v tom, že FreeRTOS POSIX simulator používa SIGALRM na implementáciu tick timera. To spôsobí okamžité odblokovanie všetkých read/write/recv/send operácií s chybou EINTR. V podstate stačilo odchytiť EINTR a zavolať jednu z tých funkcií znovu.</p>
+
+<p>Všetko vyzeralo byť funkčné, kým som sa nedostal k ovládaniu cez web sockety. Vtedy začala aplikácia padať v sieťovej vrstve. Asi dva týždne som sa s tým trápil, kým som zistil, že v integrácii s Linuxom je nutné pridať uzamknutie TCPIP core pred odoslaním každého packetu do nižších vrstiev. Bez toho tam dochádzalo k race conditionu ak bolo čítanie prerušené zápisom, alebo opačne.</p>
+
+<h2>Výsledok</h2>
+
+<p>Po pár týždňoch trápenia sa som teda mal ako-tak funkčný simulátor, ktorý umožňuje:</p>
+
+<ul>
+	<li>používať logovacie funkcie</li>
+	<li>používať udalosti pomocou ESP-IDF API</li>
+	<li>používať FreeRTOS</li>
+	<li>používať sieť</li>
+</ul>
+
+<p>Na druhej strane nedokáže:</p>
+
+<ul>
+	<li>emulovať hardvér</li>
+</ul>
+
+<p>Simulácia rozhodne nie je úplne presná. Je však dostatočná na to, aby som mohol programovať svoje internetové rádio bez toho, aby som musel testovať na reálnom hardvéri. Rekompilácia a spustenie zvyčajne trvá menej net 0,5s, čo je výrazne lepšie, než čakať na upload kódu do zariadenia.</p>
+
+<p><a href="https://www.youtube.com/watch?v=25Xtxvdb6V8"><img src="//img.youtube.com/vi/25Xtxvdb6V8/maxresdefault.jpg" alt="STM32 mandelbrot" target="_blank"/></a></p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
