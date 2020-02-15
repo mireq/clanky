@@ -100,7 +100,7 @@ void audio_output_write(audio_sample_t *buf, size_t samples_count);
 
 <p>Aby LWIP fungoval správne v simulátore stačí použiť systémovú integráciu pre FreeRTOS (je priamo v repozitári LWIP) a hardvérovú integráciu s Linuxom (tiež je už v repozitári LWIP). Teda teoreticky ...</p>
 
-<p>Linux neumožní priamo pristupovať k hardvéru. Dokonca by to bol dosť zlý nápad o niečo také sa pokúsiť na desktope. Môžme však v systéme vytvoriť virtuálne sieťové rozhranie, ktorému normálne priradíme IP adresu, nastavíme routing, maškarádu a povolíme prístup zo simulátora. Vytvorenie virtuálneho rozhrania a pridelenie IP adresy je triviálne.</p>
+<p><del>Linux neumožní priamo pristupovať k hardvéru. Dokonca by to bol dosť zlý nápad o niečo také sa pokúsiť na desktope.</del><foot-note name="raw">Tu som sa splietol, článok, <a href="https://www.intervalzero.com/library/RTX/WebHelp/Content/PROJECTS/Application%20Development/Understanding_Network/Using_RAW_Sockets.htm">ktorý som čítal</a> tvrdil, že RAW sockety pracujú na sieťovej vrstve, nie linkovej</foot-note> Môžme však v systéme vytvoriť virtuálne sieťové rozhranie, ktorému normálne priradíme IP adresu, nastavíme routing, maškarádu a povolíme prístup zo simulátora. Vytvorenie virtuálneho rozhrania a pridelenie IP adresy je triviálne.</p>
 
 <pre>
 sudo ip tuntap add dev tap0 mode tap user `whoami`
@@ -193,6 +193,8 @@ table ip nat {
 </ul>
 
 <p>Simulácia rozhodne nie je úplne presná. Je však dostatočná na to, aby som mohol programovať svoje internetové rádio bez toho, aby som musel testovať na reálnom hardvéri. Rekompilácia a spustenie zvyčajne trvá menej net 0,5s, čo je výrazne lepšie, než čakať na upload kódu do zariadenia.</p>
+
+<p>Zdrojáky simulátora a krátky popis rozbehania mám zverejnené na <a href="https://mireq.github.io/esp32-simulator/">stránke projektu</a>.</p>
 
 <p><a href="https://www.youtube.com/watch?v=25Xtxvdb6V8"><img src="//img.youtube.com/vi/25Xtxvdb6V8/maxresdefault.jpg" alt="STM32 mandelbrot" target="_blank"/></a></p>
 
