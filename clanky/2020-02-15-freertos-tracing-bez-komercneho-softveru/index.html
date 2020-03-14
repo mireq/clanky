@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>FreeRTOS tracing bez komerčného softvéru</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>FreeRTOS tracing bez komerčného softvéru</h1>
+	<p>Operačný systém FreeRTOS dokáže počas behu zaznamenávať rôzne systémové udalosti ako napr. presné časovanie prepínania úloh. Práve táto časť je pre kooperatívny multitasking kľúčová. V nasledujúcom blogu si ukážeme, ako jednoducho zaznamenávať a zobrazovať prácu správcu úloh pomocou OSS softvéru.</p>
+</header>
+
+<h2>Aký softvér máme k dispozícii?</h2>
+
+<p>Na vizualizáciu práce FreeRTOS exituje skvelý komerčný nástroj <a href="https://percepio.com/tracealyzer/">Percepio Tracealyzer</a>. Z ponuky OSS softvéru som nenašiel prakticky nič. Skúsil som teda napísať niečo vlastné.</p>
+
+<figure>
+	<a href="img/percepio.png"><img src="img/percepio.png" alt="Percepio Tracealyzer"></a>
+	<figcaption>Obrázok <counter></counter>: Percepio Tracealyzer</figcaption>
+</figure>
+
+<h2>Záznam práce plánovača úloh na strane FreeRTOS</h2>
+
+<p>Pre pridanie zaznamenávania práce plánovača stačí zapnúť nastavenie <code>configUSE_TRACE_FACILITY</code> vo <em>FreeRTOSConfig.h</em> a definovať makrá <code>traceTASK_CREATE</code> a <code>traceTASK_SWITCHED_IN</code>.</p>
+
+<pre class="code-c">
+#define configUSE_TRACE_FACILITY 1
+
+#undef traceTASK_CREATE
+#define traceTASK_CREATE(pxNewTCB) \
+	trcKERNEL_HOOKS_TASK_CREATE(pxNewTCB-&gt;uxTCBNumber, pxNewTCB-&gt;pcTaskName);
+
+
+#undef traceTASK_SWITCHED_IN
+#define traceTASK_SWITCHED_IN() \
+	trcKERNEL_HOOKS_TASK_SWITCH(pxCurrentTCB-&gt;uxTCBNumber);
+</pre>
+
+<p>Ďalej je potrebné ešte definovať funkcie <code>trcKERNEL_HOOKS_TASK_CREATE</code> a <code>trcKERNEL_HOOKS_TASK_SWITCH</code>.</p>
+
+<p>Konkrétna implementácia týchto funkcií bude závisieť od použitej platformy. Na Linuxe budú tieto funkcie zaznamenávať prácu plánovača do súboru. Na inom hardvéri to môže byť napríklad UART, alebo SD karta. Ako príklad tu však uvediem implementáciu práve pre desktop.</p>
+
+<p>Celý kód je k dispozícii <a href="https://github.com/mireq/esp32-internet-radio/blob/d3d82de26474bfb1169d82dc6a0f034dfc94663a/linux/trace.c">na mojom githube</a>. Je to pomerne jednoduchý kód, ktorý vytvorí 2 súbory - hlavičku s názvami úloh a záznam bežiacich úloh.</p>
+
+<h2>Vizualizácia</h2>
+
+<p>Pre vizualizáciu som zvolil program <a href="https://sigrok.org/doc/pulseview/unstable/manual.html">PulseView</a>. Skôr než zobrazíme súbor ho musíme konvertovať na niektorý z podporovaných formátov.</p>
+
+<p>Ide zase o jednoduchý program, ktorý parsuje binárny trace. Celý zdrojový kód je opäť na <a href="https://github.com/mireq/esp32-internet-radio/blob/bcd3bd7f1e00513d3eb01fa3675ebcb6b763e30e/linux/scripts/trace_to_vcd.py">mojom githube</a>.</p>
+
+<p>Zastavme sa ešte na chvíľu pri formáte. Navrhol som jednoduchý, ľahko parsovateľný, kompaktný binárny formát vhodný ako pre počítač tak aj pre jednoduchší hardvér.</p>
+
+<p>Hlavička má formát za sebou uložených záznamov. Každý záznam vyzerá nasledovne:</p>
+
+<pre>
+I L NNNNNNNNN
+| | |
+| | `- Názov úlohy
+| `- Dĺžka názvu úlohy (1 byte)
+`- ID úlohy (1 byte)
+</pre>
+
+<p>Maximálna dĺžka názvu môže byť 255 znakov. Štruktúra zaberá málo priestoru v pamäti a dá sa veľmi ľahko pasovať.</p>
+
+<p>Práca plánovača úloh je zase zaznamenaná vo forme po sebe idúcich záznamov. Každý záznam obsahuje na začiatku časový údaj od posledného záznamu nasledovaný dátami fixnej dĺžky. Časový údaj môže byť 62-bitový. Časové údaje majú premenlivú dĺžku od 8 bitov po 64 bitov. Prvé 2 bity určujú dĺžku čísla.</p>
+
+<pre>
+00XXXXXX - 6-bitové číslo
+01XXXXXX XXXXXXXX - 14-bitové číslo
+10XXXXXX XXXXXXXX XX... 30-bitové číslo
+11XXXXXX XXXXXXXX XX... 62-bitové číslo
+</pre>
+
+<p>Keďže zaznamenávame čas od predchádzajúcej udalosti budú časové značky väčšinou 6, alebo 14 bitové, čo výrazne redukuje priestor potrebný pre uloženie záznamu.</p>
+
+<p>Z binárneho formátu sa následne generuje <a href="https://web.archive.org/web/20120323132708/http://www.beyondttl.com/vcd.php">Value Change Dump</a> formát. Rozhodol som sa práve pre tento formát, pretože tuším ako jediný z projektu sigrok podporoval riedke dáta.</p>
+
+<p>Konkrétnymi nechutnosťami formátu sa nebudem zaoberať. V zásade je to jednoduchý formát, ktorý používa ascii a zvyšok nájdete v špecifikácii.</p>
+
+<figure>
+	<a href="img/trace.png"><img src="img/trace.png" alt="Záznam načítaný v PulseView"></a>
+	<figcaption>Obrázok <counter></counter>: Záznam načítaný v PulseView</figcaption>
+</figure>
+
+<p>Výsledný záznam stačí načítať do PulseView. Na zázname je krásne vidieť, ktoré úlohy najviac blokujú vykonávanie programu. Na základe tohto záznamu je možné ľahko identifikovať miesta, v ktorých je napríklad vhodné pridať explicitné prepnutie úlohy (taskYIELD), alebo ktorým úlohám je potrebné zvýšiť prioritu.</p>
+
+<h2>Tuning PulseView</h2>
+
+<p>Okrem toho som sa zaoberal aj možnosťou zobraziť kombinovaný trace zo všetkých úloh v jednom riadku. Teoreticky to je možné dosiahnuť vlastným dekóderom pre sigrok, ale prakticky sa to nepoužíva až tak dobre, pretože nie je možné naskriptovať prepojenie vstupov s dekóderom. Vstupy sa preto musia vyklikať ručne. Ak by sa však niekomu chcelo babrať s interným formátom sigrok-u malo by byť možné vložiť nastavenia priamo do generovaného súboru.</p>
+
+<p>Dekóder pre sigrok je jednoduchý python skrip, ktorý je umiestnený niekde v /usr/lib, alebo adresári definovaným premennou SIGROKDECODE_DIR. Pre umiestnenie v domovskom adresári definujeme:</p>
+
+<pre>export SIGROKDECODE_DIR=~/.sigrok/decoders</pre>
+
+<p>Vytvoríme adresár <em>~/.sigrok/decoders/freertos_task_tarce</em> a vytvoríme v ňom súbory <em>__init__.py</em> a <em>pd.py</em>. V <em>__init__.py</em> bude jediný import:</p>
+
+<pre>from .pd import Decoder</pre>
+
+<p>V <em>pd.py</em> je samotný dekóder. Áno, je hnusný s hardcodovanými názvami a počtom kanálov. Nie je však problém načítať počet kanálov a názvy z externého zdroja (súboru hlavičky).</p>
+
+<pre class="code-python">
+import sigrokdecode as srd
+import sys
+
+
+task_names = [
+	'IDLE',
+	'tcpip_thread',
+	'player_event',
+	'player',
+	'read',
+	'player_stats',
+	'http_control',
+	'http_server',
+]
+
+
+NUM_CHANNELS = 8
+
+
+class Decoder(srd.Decoder):
+	api_version = 3
+	id = 'freertos_task_tarce'
+	name = 'FreeRTOS task'
+	longname = 'FreeRTOS task trace'
+	desc = 'Visualize FreeRTOS task trace'
+	license = 'gplv2+'
+	inputs = ['logic']
+	outputs = ['freertos_task_tarce_out']
+	tags = ['Util']
+	optional_channels = tuple({'id': 'd%d' % i, 'name': 'D%d' % i, 'desc': 'Data line %d' % i} for i in range(NUM_CHANNELS))
+	annotations = tuple(('c%d' % i, 'C%d' % i) for i in range(NUM_CHANNELS))
+	annotation_rows = (('items', 'Items', tuple(range(NUM_CHANNELS))),)
+
+	def __init__(self):
+		self.reset()
+
+	def reset(self):
+		pass
+
+	def start(self):
+		self.out_ann = self.register(srd.OUTPUT_ANN)
+
+	def decode(self):
+		max_possible = len(self.optional_channels)
+		idx_channels = [
+			idx if self.has_channel(idx) else None
+			for idx in range(max_possible)
+		]
+		has_channels = [idx for idx in idx_channels if idx is not None]
+		conds = [{idx: 'r'} for idx in has_channels]
+		start_sample = 0
+		sample_data = None
+		while True:
+			pins = self.wait(conds)
+			if sample_data is not None:
+				self.put(start_sample, self.samplenum, self.out_ann, sample_data);
+				sample_data = None
+
+			start_sample = self.samplenum
+
+			try:
+				pin_number = pins.index(1)
+			except ValueError:
+				continue
+
+			if pin_number != 0:
+				sample_data = [pin_number, [task_names[pin_number]]]
+</pre>
+
+<p>V celom kóde je jediná zaujímavá metóda - decode. V nej sa kontrolujú pripojené vstupy, registruje sa tu wait podmienka spustená pre nábežnú hranu ktoréhokoľvek vstupného signálu a pre udalosti sa generuje signál (self.put).</p>
+
+<figure>
+	<a href="img/protocol_decoder.png"><img src="img/protocol_decoder.png" alt="Dekódovanie"></a>
+	<figcaption>Obrázok <counter></counter>: Dekódovanie</figcaption>
+</figure>
+
+<p>Podčiarknuté a sčítané: sledovať vykonávanie kódu je možné dosiahnuť pri troche snahy aj s OSS softvérom bez nutnosti platiť tisíce dolárov za komerčný softvér.</p>
+
+<p>Nakoniec si ešte trochu rýpnem do embedded vývojárov. Je škoda, že množstvo malých, ale užitočných kúskov softvéru si každá firma rieši interne a nezverejňuje ich ako OSS. Ešte väčšia škoda, že takto sa správajú aj bežní hobby bastliči v Arduine.</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
