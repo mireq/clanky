@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Display ST7789 - zopár poznámok a veľa obrázkov</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Display ST7789 - zopár poznámok a veľa obrázkov</h1>
+	<p>Za 1€ aj nejaké drobné som kúpil mačku vo vreci. Farebný display s rozlíšením 240x240px a kontrolérom ST7789. V nasledujúcom blogu bude pár mojich poznámok k tomuto kúsku hardvéru a nejaké tie ukážky kódu.</p>
+</header>
+
+<figure>
+	<a href="img/mandel.jpg"><img src="img/mandel.jpg" alt="LCD modul"></a>
+	<figcaption>Obrázok <counter></counter>: LCD modul</figcaption>
+</figure>
+
+<h2>Technické podrobnosti</h2>
+
+<p>Ako u väčšiny čínskych produktov sú bližšie nešpecifikované. V popise sa nachádza jedine informácia o použitom kontroléri (ST7789). Problém je, že taký kontrolér neexistuje. Existuje však ST7789V, ST7789H2 a pod. Konkrétnu verziu, ani, či ide o originál, alebo čínsku kópiu sa mi zistiť nepodarilo.</p>
+
+<p>Moduly majú na aliexprese rôzne pochybné označenia. Za všetky sem hodím:</p>
+
+<blockquote>1.3 inch IPS HD TFT ST7789 Drive IC 240*240 SPI Communication 3.3V Voltage 4-Wire SPI Interface Full Color LCD OLED Display DIY</blockquote>
+
+<figure>
+	<a href="img/_IMG6199.jpg"><img src="img/_IMG6199.jpg" alt="LCD modul"></a>
+	<figcaption>Obrázok <counter></counter>: LCD modul</figcaption>
+</figure>
+
+<p>Takže OLED, či LCD? HD? TFT? IPS? Alebo 4-pinové SPI rozhranie, z ktorého sú vyvedené 2 piny, kvôli čomu nie je možná obojstranná komunikácia (napr. prečítanie verzie čipu, alebo LCD panelu).</p>
+
+<p>Práve informácie o LCD paneli sú ďalším problémom. Kontrolér ST7789(X) má obrovské množstvo nastavení rôznych napätí (rozsah skoro 30V), gama kriviek a všeličoho ďalšieho, ale bez špecifikácie LCD panelu sa parametre hádajú veľmi ťažko.</p>
+
+<figure>
+	<a href="img/_IMG6200.jpg"><img src="img/_IMG6200.jpg" alt="LCD modul - spodná strana"></a>
+	<figcaption>Obrázok <counter></counter>: LCD modul - spodná strana</figcaption>
+</figure>
+
+<h2>Kvalita obrazu a pozorovacie uhly</h2>
+
+<p>Väčšinou sa v popise uvádza skratka IPS. Podľa kvality podania farieb a pozorovacích uhlov by to skutočne mohlo byť IPS, ktoré sa montuje do smart hodiniek. Nestavil by som sa o to, ale display vážne nevyzerá zle.</p>
+
+<figure>
+	<a href="img/_IMG6214.jpg"><img src="img/_IMG6214.jpg" alt="Zobrazenie textu"></a>
+	<figcaption>Obrázok <counter></counter>: Zobrazenie textu</figcaption>
+</figure>
+
+<p>Rozlíšenie 240x240px na uhlopriečku 1.3" je viacej než dostatočné. Panel podporuje 16-bitové farby s bitovou hĺbkou 5-6-5 pre červenú, zelenú a modrú. Farebné prechody nie sú vôbec plynulé, ale tvoria ostré ohraničenie medzi farbami. Riešenie? Dithering!</p>
+
+<figure>
+	<a href="img/dithering.jpg"><img src="img/dithering.jpg" alt="Dithering"></a>
+	<figcaption>Obrázok <counter></counter>: Dithering</figcaption>
+</figure>
+
+<p>V podstate som to vyriešil šalamúnsky. Pred každým snímkom generujem pseudonáhodný šum. Pre jednotlivé pixely sú to 3-2-3 bity pre červenú, zelenú a modrú. K želanému pixelu sa vždy pripočíta náhodný šum o veľkosti kvantizačnej chyby (3 bity pre červenú a modrú, alebo 2 pre zelenú). Čím je pixel bližšie k vyššej hladine, tým je väčšia pravdepodobnosť, že po prirátaní náhodného šumu túto hranicu prekročí. Okrem toho sa šum mení pri každom snímku, vďaka čomu na displayi nezostáva statický šum.</p>
+
+<pre>
+packed_color_r = MIN(color_r + random_r, 255) &gt;&gt; 3;
+packed_color_g = MIN(color_g + random_g, 255) &gt;&gt; 2;
+packed_color_b = MIN(color_b + random_b, 255) &gt;&gt; 3;
+</pre>
+
+<h2>Inicializácia</h2>
+
+<p>Za absolútne najhoršiu vlastnosť tohto modulu považujem inicializačnú sekvenciu.</p>
+
+<p>Okrem takých samozrejmých nastavení ako otočenie, obnovovacia frekvencia, little/big endian sa nastavujú aj napätia pre ovládanie LCD panelu.</p>
+
+<p>Neviem, či sa niektorými nastaveniami dá LCD panel permanentne zničiť, ale osobne by som tipoval, že asi áno. Okrem toho takých samozrejmých príčin zničenia ako je vysoké napätie tu môžu nastať aj iné, napríklad permanentné jednosmerné napätie. Napätie pixelov LCD panelu sa musí v pravidelných intervaloch prepólovať, inak môže dôjsť k permanentnému poškodeniu. Tu by som zdôraznil, že kontrolér ST7789 generuje asymetrické pozitívne a negatívne napätie do  27.47V(!).</p>
+
+<p>Vstupné napätie 3.3V je konvertované pomocou step-up obvodov na vyššie napätia VGH, VGL, AVDD, AVCL, VAP a VAN.</p>
+
+<figure>
+	<a href="img/voltage3.png"><img src="img/voltage3.png" alt="Napájanie"></a>
+	<figcaption>Obrázok <counter></counter>: Napájanie</figcaption>
+</figure>
+
+<p>Z týchto základných úrovní napätia sa dovodzujú ďalšie napätia napríklad 64 úrovní pre pozitívne a 64 pre negatívne napätie.</p>
+
+<figure>
+	<a href="img/voltage4.png"><img src="img/voltage4.png" alt="Odvodené napätia"></a>
+	<figcaption>Obrázok <counter></counter>: Odvodené napätia</figcaption>
+</figure>
+
+<p>Pozitívne a negatívne napätia sa generujú v dosť šialenom obvode, o ktorom sa mi ani nechce premýšľať.</p>
+
+<figure>
+	<a href="img/voltage1.png"><img src="img/voltage1.png" alt="Diagram odvodených napätí"></a>
+	<figcaption>Obrázok <counter></counter>: Diagram odvodených napätí</figcaption>
+</figure>
+
+<p>Vzorce pre výpočet napätí vyzerajú ešte horšie.</p>
+
+<figure>
+	<a href="img/voltage2.png"><img src="img/voltage2.png" alt="Vzorce pre výpočet napätí"></a>
+	<figcaption>Obrázok <counter></counter>: Vzorce pre výpočet napätí (nekompletné)</figcaption>
+</figure>
+
+<p>Keďže nemám žiadnu rozumnú dokumentáciu, rozhodol som sa pre najjednoduchšie možné riešenie - hľadať tieto nastavenia na githube a uspokojiť sa s prvým, ktoré bude zobrazovať aspoň ako-tak prijateľný obraz. Väčšina nastavení generovala zrejme zlé napätia, keďže pri statickom jednofarebnom pozadí bol na LCD viditeľný taký divný prepal, ktorý tam zostal chvíľu po vypnutí. Nakoniec som skončil pri nasledujúcej inicializačnej sekvencii (negarantujem, že je správna, ani, že bude fungovať pri inom LCD).</p>
+
+<pre class="code-c">
+// Porch setting
+{ST7789_CMD_PORCTRL, 0, 5, (const uint8_t *)"\x0c\x0c\x00\x33\x33"},
+// Set VGH to 12.54V and VGL to -9.6V
+{ST7789_CMD_GCTRL, 0, 1, (const uint8_t *)"\x14"},
+// Set VCOM to 1.475V
+{ST7789_CMD_VCOMS, 0, 1, (const uint8_t *)"\x37"},
+// Enable VDV/VRH control
+{ST7789_CMD_VDVVRHEN, 0, 2, (const uint8_t *)"\x01\xff"},
+// VAP(GVDD) = 4.45+(vcom+vcom offset+vdv)
+{ST7789_CMD_VRHSET, 0, 1, (const uint8_t *)"\x12"},
+// VDV = 0V
+{ST7789_CMD_VDVSET, 0, 1, (const uint8_t *)"\x20"},
+// AVDD=6.8V, AVCL=-4.8V, VDDS=2.3V
+{ST7789_CMD_PWCTRL1, 0, 2, (const uint8_t *)"\xa4\xa1"},
+// 60 fps
+{ST7789_CMD_FRCTR2, 0, 1, (const uint8_t *)"\x0f"},
+// Gama 2.2
+{ST7789_CMD_GAMSET, 0, 1, (const uint8_t *)"\x01"},
+// Gama curve
+{ST7789_CMD_PVGAMCTRL, 0, 14, (const uint8_t *)"\xd0\x08\x11\x08\x0c\x15\x39\x33\x50\x36\x13\x14\x29\x2d"},
+{ST7789_CMD_NVGAMCTRL, 0, 14, (const uint8_t *)"\xd0\x08\x10\x08\x06\x06\x39\x44\x51\x0b\x16\x14\x2f\x31"},
+</pre>
+
+<p>Inicializačný kód je inšpirovaný kódom z <a href="https://github.com/crystalfontz/cfaf240240a1-013t/blob/34603db83c0059d65a9ee3d3a04764fce4707246/CFAF240240A1-013T_Adalogger/st7789h2.cpp">repozitára crystalfontz</a>.</p>
+
+<h2>Rýchlosť</h2>
+
+<p>Minimálny čas potrebný pre reset displaya je cca 300ms. Skúšal som sa držať hraničných hodnôt z dokumentácie, ale keďže moja ESP32 tiká o 2% rýchlejšie než by mala nepodarilo sa inicializovať display. Takže pravidlo pri resete - radšej počkať dlhšie než kratšie. Ten čas je tam skutočne nutný.</p>
+
+<p>Kontrolér obsahuje sériové a paralelné rozhranie. Vyvedené je však len sériové. Minimálny čas cyklu SPI hodín je 16ns. Pri minimálnom čase to činí celkom slušných 62,5 MHz ((1s/16ns)/1000000). Keďže na 1 pixel potrebujeme 16 bitov je maximálna obnovovacia frekvencia pri použití sériového rozhrania 67,8 fps (1s/((240*240*16)*16ns)).</p>
+
+<p>Pri použití STM 32 sa mi podarilo dostať na frekvenciu 64 MHz (tu by som chcel zdôrazniť, že mikrokontrolér bežal na 128 MHz pričom jeho maximálna frekvencia bola 72 MHz). S ESP32 som mal na výber medzi frekvenciami 40 a 80 MHz. Na 40 funguje, na 80 už nie. Nemám osciloskop, takže neviem zistiť, či je to len kvôli kontroléru, alebo mám príliš skreslený signál.</p>
+
+<figure>
+	<a href="https://youtu.be/8S1BXnx-vLE" target="_blank"><img src="img/stm32_yt.jpg" alt="ST7789 na STM32"></a>
+	<figcaption>Video <counter name="video"></counter>: ST7789 na STM32</figcaption>
+</figure>
+
+
+<p>Obnovovacia frekvencia LCD panelu je nastaviteľná v rozsahu 39 - 119Hz. Všetky nastavenia, okrem 119Hz mi fungovali. Pri 119Hz sa display začne správať dosť divne:</p>
+
+<ul>
+	<li>panel sa obnovuje otočený o 90°</li>
+	<li>k obnoveniu dôjde až po dokončení zápisu do pamäte (po kompletom vykreslení snímku)</li>
+	<li>tearing (inak neodstrániteľný) zmizol</li>
+	<li>display dokáže zobrazovať len odtiene šedej a horizontálny gradient (žiadne vertikálne štruktúry)</li>
+	<li>v strede displaya sa zobrazuje vertikálna čiara</li>
+</ul>
+
+<p>Najvyšší režim funguje akosi úplne inak než nižšie. Neviem, či je to nejaká nezdokumentovaná vlastnosť, príprava na voľnú synchronizáciu bez nutnosti používať VSYNC, alebo chybná čínska napodobenina. Možno by sa stačilo pohrať s časovaním a fungovalo by to, ale bez poriadnej dokumentácie to neviem zistiť.</p>
+
+<h2>Na čom pracujem?</h2>
+
+<p>Na koniec trochu priblížim niektoré moje rozpracované projekty.</p>
+
+<h3>Internetové rádio</h3>
+
+<p>Hlavným rozpracovaným projektom je momentálne internetové rádio založené na ESP32. Dekódovanie MP3 zabezpečuje priamo ESP32. V budúcnosti možno pribudne OGG / AC3.</p>
+
+<figure>
+	<a href="https://youtu.be/25Xtxvdb6V8" target="_blank"><img src="img/radio_yt.jpg" alt="Internetové rádio"></a>
+	<figcaption>Video <counter name="video"></counter>: Internetové rádio</figcaption>
+</figure>
+
+<p>Projekt má niektoré side projekty ako simulátor ESP32, malá, veľmi efektívna grafická knižnica a pod. Práve na jednu zo súčastí grafickej knižnice sa teraz pozrime.</p>
+
+<h3>Rendering textu</h3>
+
+<p>Súčasťou takmer každej grafickej knižnice je podpora renderovania fontov. Na embedded systémoch býva pravidlom, že v zariadení sú dopredu vyrenderované bitmapové fonty s obmedzenou sadou znakov. Práve toto pravidlo som sa pokúsil porušiť.</p>
+
+<p>Nechápem tomuto pravidlu, takže som sa naň vykašlal a do projektu som integroval knižnicu pre vykresľovanie fontov - Freetype. Minimálny build s podporou vektorových TTF fontov zaberá cca 30kB flash pamäte, čo je vynikajúca hodnota. Spotrebovaná RAM je minimálna, v podstate postačuje buffer pre uloženie jedného znaku v odtieňoch šedej a pár bytov pre renderer. Ja som sa rozhodol pre trochu väčší build a pridal som k tomu 20kB pre bytecode interpret. Truetype fonty môžu totiž pri každom znaku obsahovať inštrukcie virtuálneho počítača (niečo ako assembler), ktoré zarovnajú font do mriežky. Ide o skutočný turing complete jazyk!</p>
+
+<p>Takže všetko som to skompiloval, vyskúšal som renderovať text a výsledky sú skvelé. V podstate môžem pokryť celý display textom pri renderovaní 40 framov za sekundu. Je to prekvapivo rýchle a môžem použiť fonty ľubovoľnej veľkosti so slušnou podporou Unicode. Prečo sa to bežne nepoužíva na embedded?</p>
+
+<figure>
+	<a href="img/_IMG7322.jpg"><img src="img/_IMG7322.jpg" alt="Renderovanie znaku @"></a>
+	<figcaption>Obrázok <counter></counter>: Renderovanie znaku @</figcaption>
+</figure>
+
+<figure>
+	<a href="img/_IMG7324.jpg"><img src="img/_IMG7324.jpg" alt="Detail znaku @"></a>
+	<figcaption>Obrázok <counter></counter>: Detail znaku @</figcaption>
+</figure>
+
+<figure>
+	<a href="img/_IMG7304.jpg"><img src="img/_IMG7304.jpg" alt="Text zblízka"></a>
+	<figcaption>Obrázok <counter></counter>: Detail textu zblízka - vďaka hintingu s interpretovaným bytekódom sú znaky perfektne zarovnané na pixely</figcaption>
+</figure>
+
+<figure>
+	<a href="img/_IMG7354.jpg"><img src="img/_IMG7354.jpg" alt="Drobný text s animovaným pozadím"></a>
+	<figcaption>Obrázok <counter></counter>: Drobný text s animovaným pozadím</figcaption>
+</figure>
+
+<p>Do dokončenia grafickej knižnice zostáva ešte kopec práce, ale jednu veľkú časť - renderovanie textu a cachovaciu vrstvu s kompresiou pixelov mám už zvládnutú dobre. Nakoniec ešte jedno video grafického dema.</p>
+
+<figure>
+	<a href="https://youtu.be/Wql4WTpPrWs" target="_blank"><img src="img/esp32_yt.jpg" alt="Grafické demo na ESP32"></a>
+	<figcaption>Video <counter name="video"></counter>: Grafické demo na ESP32</figcaption>
+</figure>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
