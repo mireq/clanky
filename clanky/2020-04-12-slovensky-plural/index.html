@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Plural v slovenčine - transiflex vs. gettext</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Plural v slovenčine - transiflex vs. gettext</h1>
+	<p>V niektorých projektoch som si všimol chyby v prekladoch spôsobené prechodom správy prekladov do služby transiflex. Pozrel som sa na zúbok dôvodu prečo sú preklady z transiflexu nekompatibilné s niektorými nástrojmi, ktoré som doteraz používal.</p>
+</header>
+
+<h2>Plural</h2>
+
+<p>Problém sa vyskytol pre preklade textov v plurále. Po dvoch hodinách trhania vlasov som zistil, že gettext štandardne pre slovenčinu používa 3 formy plurálu. Transiflex však používa 4 formy. Niektoré nástroje (napr. Qt linguist) majú hardcodované 3 formy podľa <a href="https://www.gnu.org/software/gettext/manual/html_node/Plural-forms.html">podľa odporúčania GNU gettext</a>.</p>
+
+<h2>Aký počet foriem je správny?</h2>
+
+<p>Na túto otázku neviem odpovedať. GNU gettext používa nasledujúce 3 formy. Transiflex k tomu pridáva ešte jednu formu.</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>Číslo</th>
+			<th>Príklad</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>1</td>
+			<td>1 pomaranč</td>
+		</tr>
+		<tr>
+			<td>2~4</td>
+			<td>2 pomaranče</td>
+		</tr>
+		<tr>
+			<td>5..</td>
+			<td>5 pomarančov</td>
+		</tr>
+
+		<tr>
+			<th colspan="2">Transiflex k tomu pridáva</th>
+		</tr>
+
+		<tr>
+			<td>0,0..</td>
+			<td>1½ pomaranča</td>
+		</tr>
+	</tbody>
+</table>
+
+<p>V mnohých prípadoch, keď je počet vždy celočíselný to stačí. Niekedy však môžme chcieť lokalizovať zlomky, alebo desatinné čísla. V tom prípade budeme mať pri rešpektovaní odporúčania GNU gettext problém. Pre zaujímavosť štandard <a href="https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html#sk">Unicode</a> uvádza 4 formy.</p>
+
+<h2>Čo s tým?</h2>
+
+<p>Je správny počet foriem 3, alebo 4? Mali by sme kontaktovať autorov gettextu? Stojí táto zmena za všetky problémy, ktoré to spôsobí?</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
