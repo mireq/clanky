@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Upgrade wifi Thinkpadu T420 na Intel AX200</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Upgrade wifi Thinkpadu T420 na Intel AX200</h1>
+
+	<p>Takto pred rokom som menil originálnu intel wifi kartu za čínsku hračku. Nuž po roku mením znova, tentoraz hádam definitívne.</p>
+</header>
+
+<p>Pre tých, ktorým sa hechce hľadať minulý článok tu je link - <a href="/blog/mirecove-dristy/detail/upgrade-wifi-thinkpadu-t420-na-intel-8265/">Upgrade wifi Thinkpadu T420 na Intel 8265</a>. Okrem samotnej mini recenzie sú tam určité teoretické základy o meraní sily signálu, takže ak niečomu nerozumiete odporúčam najskôr pozrieť predchádzajúci blog.</p>
+
+
+<h2>Prečo zase mením wifi</h2>
+
+<p>S predchádzajúcou čínsko wifi som mal zopár problémov. Azda za najväčší problém považujem, že mala zapojený pin 51 (rfkil pre BT). Môj notebook ho poriadne neimplementuje, takže som musel tento pin izolovať a akosi keď zostal voľne nezapojený robilo to problém. Okrem toho som prišiel o pár dB signálu na 5GHz páseme, nefungovala WiFi LED dióda a ešte k tomu sa trochu aj prehrievala.</p>
+
+
+<figure>
+	<a href="img/thinkpad.jpg"><img src="img/thinkpad.jpg" alt="Testujeme" /></a>
+	<figcaption>Obrázok <counter></counter>: Testujeme (mimochodom max teplota bola 104°C a zrejme by pri dlhšom teste ešte stúpla)</figcaption>
+</figure>
+
+<h2>Čo som to zase kúpil za hovadinu?</h2>
+
+<p>Z aliexpresu som za necelých 20€ kúpil kartu s označením MPE-AX3000H. Čo je to vlastne za karta sa moc nedozvieme, ale na fórach tvrdili, že vo vnútri je to Intel AX200. Nebudem napínať, je to Intel AX200. Okrem toho som na fotografiách od užívateľov videl, že pin 51 (bluetooth rfkill) nie je zapojený a pin 46 (LED) je zapojený. Takže som neodolal a musel som ju kúpiť ;)</p>
+
+<figure>
+	<a href="img/wifi1.jpg"><img src="img/wifi1.jpg" alt="Balenie" /></a>
+	<figcaption>Obrázok <counter></counter>: Balenie</figcaption>
+</figure>
+
+<figure>
+	<a href="img/wifi2.jpg"><img src="img/wifi2.jpg" alt="Karta" /></a>
+	<figcaption>Obrázok <counter></counter>: Karta</figcaption>
+</figure>
+
+<figure>
+	<a href="img/wifi3.jpg"><img src="img/wifi3.jpg" alt="Predná strana" /></a>
+	<figcaption>Obrázok <counter></counter>: Predná strana</figcaption>
+</figure>
+
+<figure>
+	<a href="img/wifi4.jpg"><img src="img/wifi4.jpg" alt="Zadná strana" /></a>
+	<figcaption>Obrázok <counter></counter>: Zadná strana</figcaption>
+</figure>
+
+<h3>Skúsenosti</h3>
+
+<p>Na začiatku ma prekvapilo, že karta nevydrží pripojená ani 10s a havaruje (občas aj s kernelom). Ok, je to pomerne nová karta a v mojom stabilnom kerneli je škaredý bug, kvôli ktorému nefunguje. Výmená za novší kernel pomohla a od vtedy ani jeden zásek.</p>
+
+<p>Bluetooth funguje bez akejkoľvek úpravy karty. WiFi LED funguje. Rfkill je zapojený len pre WiFi časť, takže bluetooth sa po prepnutí spínača nevypne. Antény sú zapojené podstatne lepšie než na staršom modeli. Oproti originálnej inteláckej karte som nezaznamenal žiaden merateľný útlm, čo je super. Výsledky sú .. no celkom dobré. Bol by som zvedavý ako by si karta viedla s ax-kovym routrom. Mám žiaľ len ac, takže očakával som približne rovnaké rýchlosti ako s Intel 8265.</p>
+
+<h3>Časové priebehy 60-sekundového testu</h3>
+
+<figure>
+	<a href="img/new_download_2g.png"><img src="img/new_download_2g.png" alt="Intel AX 200 2.4 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel AX 200 2.4 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_download_2g.png"><img src="img/old_download_2g.png" alt="Intel 8265 2.4 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 2.4 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_upload_2g.png"><img src="img/new_upload_2g.png" alt="Intel AX 200 2.4 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel AX 200 2.4 GHz Upload</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_upload_2g.png"><img src="img/old_upload_2g.png" alt="Intel 8265 2.4 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 2.4 GHz Upload</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_download_5g.png"><img src="img/new_download_5g.png" alt="Intel AX 200 5 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel AX 200 5 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_download_5g.png"><img src="img/old_download_5g.png" alt="Intel 8265 5 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 5 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_upload_5g.png"><img src="img/new_upload_5g.png" alt="Intel AX 200 5 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel AX 200 5 GHz Upload</figcaption>
+</figure>
+
+<figure>
+	<a href="img/old_upload_5g.png"><img src="img/old_upload_5g.png" alt="Intel 8265 5 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel 8265 5 GHz Upload</figcaption>
+</figure>
+
+<h3>Súhrnné výsledky</h3>
+
+<table>
+	<thead>
+		<tr>
+			<th rowspan="2">Benchmark</th>
+			<th colspan="2">Intel AX 200</th>
+			<th colspan="2">Intel 8265</th>
+		</tr>
+		<tr>
+			<th>Rýchlosť</th>
+			<th>Úroveň</th>
+			<th>Rýchlosť</th>
+			<th>Úroveň</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<th>2,4 GHz Download</th>
+			<td>79,71 Mbit/s</td>
+			<td>-53,85 dBm</td>
+			<td>74,81 Mbit/s</td>
+			<td>-55,57 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>3,089</small></td>
+			<td><small>0,300</small></td>
+			<td><small>10,04</small></td>
+			<td><small>1,497</small></td>
+		</tr>
+		<tr>
+			<th>2,4 GHz Upload</th>
+			<td>98,59 Mbit/s</td>
+			<td>-54,26 dBm</td>
+			<td>93,79 Mbit/s</td>
+			<td>-56,37 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>7,530</small></td>
+			<td><small>0,240</small></td>
+			<td><small>10,14</small></td>
+			<td><small>0,429</small></td>
+		</tr>
+		<tr>
+			<th>5 GHz Download</th>
+			<td>162,0 Mbit/s</td>
+			<td>-73,58 dBm</td>
+			<td>127,47 Mbit/s</td>
+			<td>-76,83 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>12,79</small></td>
+			<td><small>0,622</small></td>
+			<td><small>25,75</small></td>
+			<td><small>0,972</small></td>
+		</tr>
+		<tr>
+			<th>5 GHz Upload</th>
+			<td>140,2 Mbit/s</td>
+			<td>-74,46 dBm</td>
+			<td>59,08 Mbit/s</td>
+			<td>-77.39 dBm</td>
+		</tr>
+		<tr>
+			<th><small>Štandardná odchýlka</small> </th>
+			<td><small>13,69</small></td>
+			<td><small>0,663</small></td>
+			<td><small>23,36</small></td>
+			<td><small>0,821</small></td>
+		</tr>
+	</tbody>
+</table>
+
+<figure>
+	<a href="img/speed.png"><img src="img/speed.png" alt="Rýchlosť" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Rýchlosť</figcaption>
+</figure>
+
+<figure>
+	<a href="img/level.png"><img src="img/level.png" alt="Úroveň signálu" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Úroveň signálu</figcaption>
+</figure>
+
+<h3>Bonusové grafy</h3>
+
+<p>Ešte 2 bonusové grafy keď som bol s notebookom v miestnosti, kde mám umiestnený router. Mimochodom môj router po kábli nezvládne ani 600Mbit.</p>
+
+<figure>
+	<a href="img/new_download_5g_2.png"><img src="img/new_download_5g_2.png" alt="Intel AX 200 5 GHz Download" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel AX 200 5 GHz Download</figcaption>
+</figure>
+
+<figure>
+	<a href="img/new_upload_5g_2.png"><img src="img/new_upload_5g_2.png" alt="Intel AX 200 5 GHz Upload" /></a>
+	<figcaption>Graf <counter name="graph"></counter>: Intel AX 200 5 GHz Upload</figcaption>
+</figure>
+
+<h2>Záver</h2>
+
+<p>Všetky problémy, ktoré som s wifi mal vyzerajú byť vyriešené. Táto karta je podstatne lepšie spracovaná než predchádzajúci modely. Keby ju niekto hľadal na aliexpresse tak tu je link: <a href="https://www.aliexpress.com/item/4001035855462.html">link na aliexpress</a>.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
