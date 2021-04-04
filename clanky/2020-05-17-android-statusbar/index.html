@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Skrytie statusbaru pre vybrané aplikácie v Androide</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Skrytie statusbaru pre vybrané aplikácie v Androide</h1>
+	<p>Ako jeden z mála ľudí, ktorí si ešte nezvykli na lopaty na odhŕňanie snehu nosené každý deň vo vrecku sa snažím maximalizovať užitočnú plochu aplikácie. V nasledujúcom blogu predstavím jeden trik, pomocou ktorého sa dá skryť statusbar pre ľubovoľnú aplikáciu.</p>
+</header>
+
+<p>Najskôr musíme povoliť možnosti vývojára, usb debugging a security settings. Zvyčajne sa do menu dá dostať až po poklepaní 7x na číslo zostavy v sekcii o telefóne.</p>
+
+<figure>
+	<img src="img/nastavenia.png" alt="Nastavenia">
+	<figcaption>Obrázok <counter></counter>: Nastavenia vývojára</figcaption>
+</figure>
+
+<p>Na počítači spustíme <code>adb shell</code>. Vyhľadáme aplikáciu, alebo aplikácie, pre ktoré chceme schovať statusbar. Ja napríklad používam tento príkaz:</p>
+
+<pre>
+pm list packages|grep -i firefox
+package:org.mozilla.firefox
+</pre>
+
+<p>Ak máme názov aplikácií stačí už „len“ spustiť príkaz <code>settings put global policy_control immersive.status=baliky_oddelene_ciarkou</code>.</p>
+
+<figure>
+	<img src="img/so_statusbarom.png" alt="Firefox so statusbarom">
+	<figcaption>Obrázok <counter></counter>: Firefox so statusbarom</figcaption>
+</figure>
+
+<figure>
+	<img src="img/bez_statusbaru.png" alt="Firefox bez statusbaru">
+	<figcaption>Obrázok <counter></counter>: Firefox bez statusbaru</figcaption>
+</figure>
+
+<h2>Čo ak nastavenia nie sú perzistentné</h2>
+
+<p>V mojom androide sa tieto nastavenia resetujú pri každom reštarte. Bolo by fajn pridať tento malý kód ako akciu vykonanú pri boote.</p>
+
+<p>Tu sa rovno priznám, že nepoznám veľmi dobre Android, takže neviem ako docieliť, aby sa nejaký skript spustil pri boote na teelfóne bez roota. Áno, skúšal som rôzne aplikácie, ako automate, ale nepodarilo sa mi dosiahnuť, aby sa skript spustil pri každom boote, nie len každú tretiu sobotu po splne.</p>
+
+<p>Ja som si preto vytvoril magisk modul, ktorý sa spustí pri štarte. Modul je obyčajný adresár so súbormi <code>module.prop</code> a skriptom <code>service.sh</code>. V súbore <code>module.prop</code> je popis modulu, ktorý sa zobrazí v správcovi magisk.</p>
+
+<pre>id=hide_status
+name=hide_status
+version=1
+versionCode=1
+author=Miroslav Bendik
+description=hide_status</pre>
+
+<p>Súbor <code>service.sh</code> obsahuje sleep, pretože sa spúšťa skôr, než je možné volať settings a potom samotné nastavenie.</p>
+
+<pre>#!/system/bin/sh
+sleep 120
+settings put global policy_control immersive.status=org.mozilla.firefox</pre>
+
+<figure>
+	<img src="img/magisk.png" alt="Magisk">
+	<figcaption>Obrázok <counter></counter>: Zoznam modulov v magisk</figcaption>
+</figure>
+
+<figure>
+	<img src="img/redmi_4a.jpg" alt="Redmi 4A">
+	<figcaption>Obrázok <counter></counter>: Firefox bez statusbaru</figcaption>
+</figure>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
