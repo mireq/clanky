@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Úprava systémových aplikácií v Androide</title>
+	<meta charset="utf-8" />
+	<link href="./../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Úprava systémových aplikácií v Androide</h1>
+	<p>V dnešnom článku budeme rezať do živého. Rozpitváme si pomocou dekompilátora jednu systémovú aplikáciu, urobíme pár úprav a nahradíme vstavanú systémovú aplikáciu opravenou verziou.</p>
+</header>
+
+<h2>Čo budeme potrebovať</h2>
+
+<p>V prvom rade budeme potrebovať telefón s Androidom a root prístupom. Odporúčam mať nainštalovaný aj nejaký lepší recovery image (TWRP, alebo niečo podobné pre prípad, že niečo veľmi veľmi pokazíme). Ďalej budeme potrebovať nástroje adb, <a href="https://github.com/iBotPeaches/Apktool">apktool</a>, <a href="https://github.com/pxb1988/dex2jar">dex2jar</a> a <a href="http://java-decompiler.github.io/">jd-gui</a>.</p>
+
+<h2>Čo ideme zmeniť</h2>
+
+<p>Tu si musí každý čitateľ dosadiť vlastnú odpoveď. Ja som nedávno prešiel so svojou starou vykopávkou Xiaomi Redmi 4A na MIUI 11 (Android 9). Nepríjemne ma prekvapila napríklad skutočnosť, že MIUI 11 ukladá všetky screenshoty v JPEG a nie je v systéme možnosť to zmeniť.</p>
+
+<h2>Sťahujeme balíky z telefónu</h2>
+
+<p>Z telefónu budeme potrebovať požadovaný apk balíček + balíčky frameworku, na ktorých je závislý. Najskôr si vyhľadáme požadovaný balíček (v mojom prípade System UI). Prihlásime sa teda do telefónu cez <code>adb shell</code> a zistíme cestu k apk súboru. Príkaz <code>pm list package</code> vypíše nainštalované balíčky a príznak <code>-f</code> pridá do výpisu cestu k apk súboru.</p>
+
+<pre>
+$ pm list package -f|grep systemui
+package:/vendor/overlay/SysuiDarkTheme/SysuiDarkThemeOverlay.apk=com.android.systemui.theme.dark
+package:/vendor/overlay/DevicesAndroidOverlay.apk=com.miui.systemui.overlay.devices.android
+<strong>package:/system/priv-app/MiuiSystemUI/MiuiSystemUI.apk=com.android.systemui</strong>
+</pre>
+
+<p>Balík stiahneme príkazom <code>adb pull /system/priv-app/MiuiSystemUI/MiuiSystemUI.apk</code>. Teraz môžme skúsiť dekompilovať balík. Použijeme na to príkaz apktool:</p>
+
+<pre>$ java -jar apktool_2.4.1.jar d MiuiSystemUI.apk
+I: Using Apktool 2.4.1 on MiuiSystemUI.apk
+I: Loading resource table...
+I: Decoding Shared Library (miui), pkgId: 16
+I: Decoding Shared Library (android.miui), pkgId: 17
+I: Decoding AndroidManifest.xml with resources...
+I: Loading resource table from file: /home/mirec/.local/share/apktool/framework/1.apk
+W: Could not decode attr value, using undecoded value instead: ns=android, name=theme, value=0x100d00c5
+W: Could not decode attr value, using undecoded value instead: ns=android, name=theme, value=0x100d00c5
+W: Could not decode attr value, using undecoded value instead: ns=android, name=theme, value=0x100d00c5
+W: Could not decode attr value, using undecoded value instead: ns=android, name=theme, value=0x100d00c5
+W: Could not decode attr value, using undecoded value instead: ns=android, name=theme, value=0x100d00c5
+W: Could not decode attr value, using undecoded value instead: ns=android, name=theme, value=0x100d00c5
+I: Regular manifest package...
+I: Decoding file-resources...
+W: Could not decode attr value, using undecoded value instead: ns=android, name=src, value=0x1002006e
+W: Could not decode attr value, using undecoded value instead: ns=android, name=color, value=0x10010084
+W: Could not decode attr value, using undecoded value instead: ns=android, name=src, value=0x10020080
+W: Could not decode attr value, using undecoded value instead: ns=android, name=src, value=0x10020081
+W: Could not decode attr value, using undecoded value instead: ns=android, name=color, value=0x10010084
+W: Could not decode attr value, using undecoded value instead: ns=android, name=color, value=0x10010084
+W: Could not decode attr value, using undecoded value instead: ns=android, name=color, value=0x10010084
+I: Decoding values */* XMLs...
+Can't find framework resources for package of id: 16. You must install proper framework files, see project website for more info.</pre>
+
+<p>Ako vidíme vo výpise príkazu apktool chýbajú 2 frameworky (miui a android.miui). Stiahneme teda príslušné frameworky (nájdené cez adb príkazom find).</p>
+
+<pre>adb pull /system/app/miui/miui.apk
+adb pull /system/framework/framework-ext-res/framework-ext-res.apk</pre>
+
+<p>Teraz ich potrebujeme ešte nainštalovať do apktool, takže spustíme:</p>
+
+<pre>$ java -jar apktool_2.4.1.jar if miui.apk
+I: Framework installed to: /home/mirec/.local/share/apktool/framework/16.apk
+$ java -jar apktool_2.4.1.jar if framework-ext-res.apk
+I: Decoding Shared Library (miui), pkgId: 16
+I: Framework installed to: /home/mirec/.local/share/apktool/framework/17.apk</pre>
+
+<p>Dekompilácia tentoraz prebehne v poriadku:</p>
+
+<pre>$ java -jar apktool_2.4.1.jar d MiuiSystemUI.apk -f
+
+I: Using Apktool 2.4.1 on MiuiSystemUI.apk
+I: Loading resource table...
+I: Decoding Shared Library (miui), pkgId: 16
+I: Decoding Shared Library (android.miui), pkgId: 17
+I: Decoding AndroidManifest.xml with resources...
+I: Loading resource table from file: /home/mirec/.local/share/apktool/framework/1.apk
+I: Loading resource table from file: /home/mirec/.local/share/apktool/framework/16.apk
+I: Regular manifest package...
+I: Decoding file-resources...
+I: Decoding values */* XMLs...
+I: Loading resource table from file: /home/mirec/.local/share/apktool/framework/17.apk
+I: Decoding Shared Library (miui), pkgId: 16
+I: Baksmaling classes.dex...
+I: Copying assets and libs...
+I: Copying unknown files...
+I: Copying original files...
+</pre>
+
+<h2>Úprava binárky</h2>
+
+<p>Týmto krokom sme získali kód v nízkoúrovňovom jazyku smali (podobný assembleru). Lepšie by sa nám však vyznalo vo vysokoúrovňovom java kóde. Skúsime teda dekompilovať apk do java zdrojákov (len ako pomôcku, pri samotnej úprave to nepotrebujeme). Rozbalíme zo zip súboru MiuiSystemUI.apk (apk sú v skutočnosti zip) súbor classes.dex a konvertujeme ho na jar príkazom <code>d2j-dex2jar.sh classes.dex</code> z balíka dex-tools. Teraz sa môžme pohrabať v zdrojákoch pomocou jd-gui (<code>java -jar jd-gui-1.6.6.jar classes-dex2jar.jar</code>).</p>
+
+<figure>
+	<a href="img/jd-gui.png"><img src="img/jd-gui.png" alt="jd-gui"></a>
+	<figcaption>Obrázok <counter></counter>: JD-GUI - hľadaná časť súboru</figcaption>
+</figure>
+
+<p>Teraz keď vieme, čo sa deje v aplikácii a vieme, stačí zmeniť výskyt jpg/jpeg za png v súboroch v adresári <code>MiuiSystemUI/smali/com/android/systemui/screenshot</code>.</p>
+
+<figure>
+	<a href="img/smali.png"><img src="img/smali.png" alt="Zdrojový kód smali"></a>
+	<figcaption>Obrázok <counter></counter>: Zdrojový kód smali</figcaption>
+</figure>
+
+<h2>Vytvorenie balíka</h2>
+
+<p>Po úprave zostavíme nový apk balíček.</p>
+
+<pre>java -jar apktool_2.4.1.jar b MiuiSystemUI -o MiuiSystemUI.apk
+I: Using Apktool 2.4.1
+I: Checking whether sources has changed...
+I: Smaling smali folder into classes.dex...
+I: Checking whether resources has changed...
+I: Building resources...
+W: warning: string 'battery_can_use_time' has no default translation.
+W: warning: string 'battery_profiles' has no default translation.
+W: warning: string 'dlg_cancel' has no default translation.
+W: warning: string 'dlg_confirm' has no default translation.
+W: warning: string 'dlg_summary_close_app' has no default translation.
+W: warning: string 'dlg_summary_close_theme' has no default translation.
+W: warning: string 'dlg_summary_close_wifi' has no default translation.
+W: warning: string 'dlg_summary_nfc' has no default translation.
+W: warning: string 'dlg_summary_title' has no default translation.
+W: warning: string 'enable_extreme_power_save_mode' has no default translation.
+W: warning: string 'enable_power_save_mode' has no default translation.
+W: warning: string 'notification_low_battery_action_btn' has no default translation.
+W: warning: string 'notification_low_battery_need_charge' has no default translation.
+W: warning: string 'notification_low_battery_open_save_mode' has no default translation.
+W: warning: string 'notification_low_battery_title' has no default translation.
+W: warning: string 'oldman_airplane_mode_text' has no default translation.
+W: warning: string 'oldman_incall_text' has no default translation.
+W: warning: string 'open_extreme_power_save_mode_title' has no default translation.
+W: warning: string 'save_mode_btn_ok' has no default translation.
+I: Building apk file...
+I: Copying unknown files/dir...
+I: Built apk...
+</pre>
+
+<p>Aby sa dal balík použiť v androide musí byť digitálne podpísaný (pokojne self signed certifikátom). Vytvoríme teda najskôr privátny kľúč príkazom <code>keytool -genkeypair -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000</code>.</p>
+
+<p>Teraz môžme balík pospísať príkazom <code>jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore android.keystore MiuiSystemUI.apk android</code>.</p>
+
+<h2>Nahradenie systémovéj aplikácie</h2>
+
+<p>Balík prenesieme do androidu príkazom <code>adb push /sdcard/MiuiSystemUI.apk</code> (priamo na systémovú partíciu nemôžme cez adb zapisovať). Následne v systéme pripojíme <code>/system</code> v režime na zápis príkazom <code>mount -o remount,rw /system</code>. Ak to nejde naštartujeme telefón do recovery a pripojíme /system s právami na zápis priamo v recovery (pokročilé recovery obrazy podporujú shell cez adb). Teraz prekopírujeme balík na správne miesto príkazom cp /sdcard/MiuiSystemUI.apk /system/priv-app/MiuiSystemUI/MiuiSystemUI.apk.</p>
+
+<p>Android balíky po inštalácii automaticky kompiluje a ukladá na ART/Dalivk cache partíciu. Aj keď je balík nahradený stále sa môže načítavať skompilovaná a optimalizovaná verzia z cache. Tu by som chcel zdôrazniť <strong>nemažte ART / Dalvik cache</strong>. Ja som to urobil a potom som hodinu hľadal, ako ju znovu vytvoriť, pretože aj taká banalita ako spustenie nastavení trvala vyše 30s. Cache sa nemusí automaticky vytvoriť a fakt som sa zapotil keď som nevedel donútiť inak nezdokumentovaný daemon <code>installd</code>, aby rekompiloval cache. Keby niekto urobil náhodou tú istú chybu, tak opraviť sa dá príkazom <code>pm compile -a -r first-boot</code>. Kompilácia vybraného balíka sa dá vynútiť príkazom <code>pm compile -m speed com.android.systemui</code>.</p>
+
+<p>Po reštarte telefónu by sa mal konečne použíť náš upravený balík namiesto pôvodného.</p>
+
+<figure>
+	<a href="https://youtu.be/sY4ig28tA_w" target="_blank"><img src="img/screenshot_video.jpg" alt="Ukladanie screenshotu do PNG"></a>
+	<figcaption>Video <counter name="video"></counter>: Ukladanie screenshotu do PNG</figcaption>
+</figure>
+
+
+<h2>Moje postrehy - nespokojnosť s Androidom</h2>
+
+<p>Prakticky každý aspekt Androidu vo mne zanechal nepríjemný pocit sklamania. Od komunity cez prístup googlu, výrobcu telefónu až po prístup výrobcu chipsetu. Jednoducho celé zle.</p>
+
+<p>Používam starší, ale po hardvérovej stránke plne vyhovujúci telefón Xiaomi Redmi 4A. Pred pár rokmi som zaň zaplatil asi stovku a stále dokáže pracovať pomerne svižne a má pri mojom nenáročnom používaní vydrž tak 10 dní na nabitie. Jednoducho pohodový, ľahký a malý telefón.</p>
+
+<p>Oficiálny softvér dodávaný výrobcom je Android 6 s nadstavbou MIUI. Tesne po vydaní 4A prišlo Xiaomi s identickým hardvérom - 5A, ktorá dostala update na Android 8. Aby som tu nepobehoval s totálne deravým Androidom som nedávno nainštaloval Android 9 s MIUI 11.</p>
+
+<figure>
+	<a href="https://youtu.be/S4NQzWsEXCM" target="_blank"><img src="img/miui_install.jpg" alt="Inštalácia MIUI 11 na Redmi 4A"></a>
+	<figcaption>Video <counter name="video"></counter>: Inštalácia MIUI 11 na Redmi 4A</figcaption>
+</figure>
+
+<p>Ďalší softvérový problém je s kvalitou fotoaparátu. Jednoducho fotografie z toho lezú spatlané denoise algoritmom, takže žiadne detaily v tmavších oblastiach nevykreslí. Pritom hardvér v pohode podporuje Camera2 API a pri fotografovaní do RAW viem vytiahnuť aj detaily v tieňoch (huba v prílohách). Lenže výrobca nepovolil Camera2 API, takže musím použiť neoficiálny ROM.</p>
+
+<p>Potom tu máme problém s absenciou Vulkan API. To by malo byť podporované každým hardvérom, ktorý zvláda OpenGL ES 3.1. Malo … keby výrobca chipsetu dodal ovládače. Lenže qualcomm je schopný zarezať podporu ešte v dobe, kedy výrobné linky chrlia hardvér vo veľkom. Vulkan API teda nebude …</p>
+
+<p>Ešte tu máme komunitu. Peknú, zdravú, milú komunitu zloženú z uplakancov, ktorí nič nevedia a prospechárov, ktorí nič zadarmo neurobia.</p>
+
+</article>
+<script src="./../../common/script.js"></script>
+</body>
+</html>
