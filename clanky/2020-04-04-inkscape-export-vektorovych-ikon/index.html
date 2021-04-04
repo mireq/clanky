@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Inkscape - export vektorových ikon</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Inkscape - export vektorových ikon</h1>
+
+	<p>V dnešnom článku si porozprávame o tom, ako z webového dizajnu v svg exportovať vektorové ikony pomocou  inkscape.</p>
+</header>
+
+<h2>Ako na to?</h2>
+
+<p>Export časti svg zo svg je triviálna záležitosť. Inkscape je predsa svg editor, takže to musí ísť jednoducho. Poďme teda na to 😉</p>
+
+<p>Začneme otvorením obrázka. Označíme časť, ktorú chceme exportovať a pozrieme si veľkosť vybranej časti v toolbare.</p>
+
+<figure>
+	<a href="img/inkscape_1.png"><img src="img/inkscape_1.png" alt="Veľkosť výberu" /></a>
+	<figcaption>Obrázok <counter></counter>: Veľkosť výberu</figcaption>
+</figure>
+
+<p>Teraz vytvoríme nový dokument (napr. klávesovou skratkou <em>Ctrl+N</em>. Po vytvorení nového dokumentu musíme nastaviť veľkosť domumentu. Vlezieme teda do menu <em>Súbor / Vlastnosti dokumentu</em>. V nastaveniach dokumentu musíme upraviť zobrazované jednotky z mm na px. Ďalej v sekcii vlastná veľkosť nastavíme veľkosť výberu (v tomto prípade 16 a 12 px). Ďalej musíme upraviť mierku dokumentu na 1 a tak isto musíme upraviť výšku a šírku dokumentu v časti <em>Viewbox</em>.</p>
+
+<figure>
+	<a href="img/inkscape_2.png"><img src="img/inkscape_2.png" alt="Vlastnosti dokumentu" /></a>
+	<figcaption>Obrázok <counter></counter>: Vlastnosti dokumentu</figcaption>
+</figure>
+
+<p>Teraz môžme smelo skopírovať časť dokumentu do nového dokumentu. V toolbare z obrázku 1 následne nastavíme pozíciu objektu na súradnice 0, 0.</p>
+
+<figure>
+	<a href="img/inkscape_3.png"><img src="img/inkscape_3.png" alt="Uloženie súboru" /></a>
+	<figcaption>Obrázok <counter></counter>: Uloženie súboru</figcaption>
+</figure>
+
+<p>Zostáva už len uložiť súbor, takže otvoríme <em>Súbor / Uložiť ako</em>, vyberieme formát optimalizované svg, pretože defaultný formát je extrémne blbosťami preplácaný, vyklikáme optimalizácie, potvrdíme uloženie, teraz stačí už len zatvoriť okno exportu, zatvoriť okno obrázka, potvrdiť zatvorenie okna a je to. No dobre, to by šlo, ale, musí to ísť aj jednoduchšie.</p>
+
+<h2>Jednoduchšie?</h2>
+
+<p>Inkscape porporuje export časti obrázka. Samozrejme ako správny vektorový editor dokáže obrázky exportovať len v rastrovom formáte 🤔</p>
+
+<p>Hľadanie ma v prvom rade zaviedlo k <a href="https://bugs.launchpad.net/inkscape/+bug/170546">tomuto bugu z roku 2005</a>, alebo k <a href="https://gitlab.com/inkscape/inbox/-/issues/88">trochu novšiemu bugu</a>.</p>
+
+<p>No dobre, takže export vo vektorových formátoch nemáme. Čo tak vytvoriť nový dokument priamo z výberu? <a href="https://gitlab.com/inkscape/inbox/-/issues/2238">Ani to nie</a>.</p>
+
+<h2>Poďme to opraviť</h2>
+
+<p>It's 🔨🕒</p>
+
+<p>Inkscape umožňuje vyvíjať vlastné rozšírenia. Tak si poďme rozšíriť inkscape o export výberu do samostatného súboru.</p>
+
+<p>Začneme popisom pluginu. Popis uložíme do adresára s rozšíreniami (nájdeme ho v nastaveniach - <em>Úpravy / Nastavenia / Systém / Používateľské rozšírenia</em> pod názvom <em>export_selection.inx</em>). Popis tohto súboru nájdeme na <a href="https://wiki.inkscape.org/wiki/index.php?title=Extensions:_INX_widgets_and_parameters">tejto adrese</a>. Okrem popisu som tam pridal aj parameter pre nastavenie cesty pre export a nastavenie transformácie. Výsledný súbor vyzerá takto:</p>
+
+<pre class="code-xml">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension"&gt;
+    &lt;_name&gt;Export selection as svg&lt;/_name&gt;
+    &lt;id&gt;sk.linuxos.export_selection&lt;/id&gt;
+
+    &lt;dependency type="executable" location="extensions"&gt;export_selection.py&lt;/dependency&gt;
+    &lt;dependency type="executable" location="extensions"&gt;inkex.py&lt;/dependency&gt;
+
+    &lt;param name="wrap_transform" type="boolean" _gui-text="Wrap final document in transform"&gt;false&lt;/param&gt;
+    &lt;param name="export_dir" type="string" gui-text="Path to save image"&gt;./inkscape_export/&lt;/param&gt;
+
+    &lt;effect needs-document="true" needs-live-preview="false"&gt;
+        &lt;object-type&gt;all&lt;/object-type&gt;
+        &lt;menu-tip&gt;Export selection to separate SVG file.&lt;/menu-tip&gt;
+        &lt;effects-menu&gt;
+            &lt;submenu _name="Export"/&gt;
+        &lt;/effects-menu&gt;
+    &lt;/effect&gt;
+
+    &lt;script&gt;
+        &lt;command reldir="extensions" interpreter="python"&gt;export_selection.py&lt;/command&gt;
+    &lt;/script&gt;
+&lt;/inkscape-extension&gt;
+</pre>
+
+<p>Ďalej pokračujeme súborom <em>export_selection.py</em>. V nasledujúcom výpise je základná kostra pluginu. Pri vyvolaní cez menu <em>Export / Export selection as svg</em> len vypíše argumenty skriptu.</p>
+
+<pre class="code-python">
+# -*- coding: utf-8 -*-
+import inkex
+import sys
+
+
+class ExportObject(inkex.EffectExtension):
+    def add_arguments(self, pars):
+        pars.add_argument(
+            "--wrap_transform",
+            action="store",
+            type=inkex.Boolean,
+            dest="wrap_transform",
+            default=False,
+            help="Wrap final document in transform"
+        )
+        pars.add_argument(
+            "--export_dir",
+            default="~/inkscape_export/",
+            help="Location to save exported documents."
+        )
+
+    def effect(self):
+        sys.stderr.write(str(self.options))
+
+
+if __name__ == '__main__':
+    action = ExportObject()
+    action.run()
+</pre>
+
+<p>Skript taktiež môžme spustiť z terminálu príkazom <code>inkscape --actions="select-by-id:[ID objektu]; verb:sk.linuxos.export_selection.noprefs" --batch-process vstup.svg</code>.</p>
+
+<p>Vo funkcii <code>add_arguments</code> sa definujú agrumenty. Tie sa musia zhodovať s argumentmi definovanými v inx súbore. Samotné vykonanie akcie bude implementované v metóde effect.</p>
+
+<p>Teraz môže začať skutočná sranda. API rozšírení nájdeme na <a href="https://inkscape.gitlab.io/extensions/documentation/">tejto adrese</a>, ale omnoho užitočnejšie nám bude pri vývoji rovno pozerať do <a href="https://gitlab.com/inkscape/extensions/-/tree/master/inkex">kódu modulu inkex</a>, alebo do <a href="https://gitlab.com/inkscape/extensions/-/tree/master/">kódu existujúcich rozšírení</a>.</p>
+
+<p>Našťastie, alebo žiaľ, ako pre koho máme minimálne možnosti pri volaní interných funkcií inkscapu. Dokonca aj tie akcie, ktoré sa dajú volať fungujú tak, že spustia novú inštanciu inkscape a vykonajú batch process (ešte aj s otvorením a zatvorením ďalšieho okna). Takto napríklad vyzerá príkaz pre zrušenie zoskupenia objektu s vybraným ID:</p>
+
+<pre class="code-python">
+inkex.command.inkscape_command(document, select=GROUP_ID, verbs=['SelectionUnGroup'])
+</pre>
+
+<p>Zoznam príkazov inkscapu sa dá získať príkazom <code>inkscape --verb-list</code>.</p>
+
+<p>Druhý spôsob, ktorým sa dá upravovať dokument je priama modifikácia objektu <code>self.svg</code>, čo je v podstate len wrapper nad lxml.etree. Môžme teda dokument smelo modifikovať pomocou lxml volaní.</p>
+
+<p>Výsledný skript, ktorý exportuje výber v optimalizovanom formáte pomocou optimalizátora scour som <a href="https://github.com/mireq/inkscape-export-selection-as-svg/blob/918194683a9f71f2aae13054d8ef394992f80936/export_selection.py">zverejnil na githube</a>. Použitá je ako priama modifikácia DOM, tak aj volanie batch príkazov inkscape, pretože som nenašiel jednoduchý spôsob, ako objekty vyňať zo skupiny.</p>
+
+<p>Plugin sa dá spomenutým príkazom spustiť priamo z konzoly bez interackie užívateľa, alebo, čo sa mi zdalo najpohodlnejšie skript sa dá nabindovať na klávesovú skratku cez <em>Upraviť / Nastavenia / Rozhranie / Klávesové skratky</em> a export následne prebieha spôsobom: vyberiem objekt, stlačím klávesovú skratku, hotovo. Výsledkom je optimalizované svg vhodné priamo na použitie vo webovej stránke (napr. vo forme SVG spritov).</p>
+
+<p>Ukážka výsledného svg (kompletný obrázok):</p>
+
+<pre class="code-xml">
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;svg width="16" height="12" version="1.1" viewBox="0 0 16 12" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"&gt;
+ &lt;path d="m8 8a2.319 2.319 0 0 1-1-0.336l-7-3.664v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7l-7 3.664a2.319 2.319 0 0 1-1 0.336zm7-8h-14a1 1 0 0 0-1 1v0.758l8 4.2 8-4.2v-0.758a1 1 0 0 0-1-1z" fill="#777"/&gt;
+&lt;/svg&gt;
+</pre>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
