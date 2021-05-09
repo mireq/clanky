@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Ako publikujem články</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Ako publikujem články</h1>
+
+	<p>Na dnes som si pripravil krátky prehľad „publikačného systému“, ktorý používam.</p>
+</header>
+
+<p>V podstate môj publikačný systém pozostáva z adresára s článkami, jedného CSS súboru a malého javascriptu, ktorý prechrúme vlastné HTML značky. Najskôr sa pozrime, ako táto šablóna vyzerá.</p>
+
+<figure>
+	<a href="img/article.png"><img src="img/article.png" alt="Článok" /></a>
+	<figcaption>Obrázok <counter></counter>: Článok</figcaption>
+</figure>
+
+<h2>Ako písať články</h2>
+
+<p>Zdrojáky sú zverejnené na <a href="https://github.com/mireq/clanky">mojom githube</a>. Články a blogy majú jednoduchú štruktúru:</p>
+
+<pre class="code-html">
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;Titulok&lt;/title&gt;
+    &lt;meta charset="utf-8" /&gt;
+    &lt;link href="../../../common/style.css" rel="stylesheet" /&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;article&gt;
+
+&lt;header&gt;
+    &lt;h1&gt;Titulok&lt;/h1&gt;
+
+    &lt;p&gt;Perex&lt;/p&gt;
+&lt;/header&gt;
+
+Kód
+
+&lt;/article&gt;
+&lt;script src="../../../common/script.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</pre>
+
+<p>Stačí vytvoriť adresár s novým HTML súborom v príslušnom adresári a začať písať.</p>
+
+<h2>Špeciality</h2>
+
+<p>Vpravom hornom rohu sa zobrazujú štatistiky počtu znakov, slov, viet a odstavcov. Zároveň je tam prepínač medzi zobrazením HTML kódu / stránky.</p>
+
+<p>Ďalej je implementovaný špeciálny tag <code>counter</code> s voliteľným parametrom <code>name</code>, ktorý sa používa na číslovanie objektov (napr. tabuľky, grafy atď). Príklad:</p>
+
+<pre class="code-html">
+&lt;figure&gt;
+    &lt;a href="img/wifi1.jpg"&gt;&lt;img src="img/wifi1.jpg" alt="Balenie" /&gt;&lt;/a&gt;
+    &lt;figcaption&gt;Obrázok &lt;counter&gt;&lt;/counter&gt;: Balenie&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;figure&gt;
+    &lt;a href="img/new_download_2g.png"&gt;&lt;img src="img/new_download_2g.png" alt="Intel AX 200 2.4 GHz Download" /&gt;&lt;/a&gt;
+    &lt;figcaption&gt;Graf &lt;counter name="graph"&gt;&lt;/counter&gt;: Intel AX 200 2.4 GHz Download&lt;/figcaption&gt;
+&lt;/figure&gt;
+</pre>
+
+<p>Pri článkoch zároveň podporujem poznámky pod čiarou pomocou tagu <code>foot-note</code>. Ukážka poznámok pod čiarou:</p>
+
+<pre class="code-html">
+&lt;p&gt;
+    Problematické býva aj USB rozhranie či už kvôli nekvalitne napájkovanému USB
+    konektoru, alebo nesprávnej veľkosti rezistora R10
+    &lt;foot-note name="usb-problem"&gt;
+        &lt;a href="http://amitesh-singh.github.io/stm32/2017/05/27/Overcoming-wrong-pullup-in-blue-pill.html"&gt;
+            Overcoming wrong pullup resistor at D+ in blue pill
+        &lt;/a&gt;
+    &lt;/foot-note&gt;.
+&lt;/p&gt;
+</pre>
+
+<figure>
+	<a href="img/footnote.png"><img src="img/footnote.png" alt="Poznámky pod čiarou" /></a>
+	<figcaption>Obrázok <counter></counter>: Poznámky pod čiarou</figcaption>
+</figure>
+
+<p>Poznámky majú automatické číslovanie a generované ID podľa atribútu name.</p>
+
+<h2>Publikovanie blogu</h2>
+
+<p>Okrem toho sa v repoitári nachádza skript <code>publish.py</code>. Tento malý skriptík vie publikovať článok napr. na linuxos.sk príkazom <code>./publish.py adresar_s_clankom linuxos_blog</code>. Skript si sám vypýta prihlasovacie údaje a vytvorí v redakčnom systéme článok vrátane príloh. Dátum publikácie článku sa následne musí nastaviť ručne.</p>
+
+<p>Asi takto vyzerá môj primitívny systém publikovania článkov.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
