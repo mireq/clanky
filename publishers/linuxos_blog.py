@@ -20,6 +20,7 @@ class Publisher(BasePublisher):
 
 	def publish(self, server):
 		self.server = server
+		self.session.headers['Referer'] = server
 		self.load_cookies(section=server)
 		self.do_login()
 		self.article_id = self.get_or_create_article_id()
