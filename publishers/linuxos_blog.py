@@ -70,7 +70,7 @@ class Publisher(BasePublisher):
 			while True:
 				password = self.get_password()
 				if self.send_login_form(login, password):
-					break
+					self.blog_name = self.find_blog_name()
 				else:
 					sys.stdout.write("Wrong password\n")
 				login = self.get_login()
