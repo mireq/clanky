@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Enigma2 z pohľadu linuxáka</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Enigma2 z pohľadu linuxáka</h1>
+
+	<p>Už je to nejaký rok, čo mám Linuxový Set-top box s DVB GUI Enigma2. V tomto blogu sa budem snažiť podeliť o svoje skúsenosti s dlhodobým používaním, administráciou a komunitou užívateľov okolo STB s Enigmou 2.</p>
+</header>
+
+<h2>Pár slov k hardvéru</h2>
+
+<p>Na trhu je pomerne široký výber prístrojov so softvérom Enigma2. Väčšina blogu sa bude vzťahovať k ľubovoľnému hardvéru. Špecifické časti však budú len pre hardvér, ktorý mám, teda VU+ Uno 4k SE. Prístroj má SoC Broadcom 7252s, dvojjadrový ARMv7 taktovaný na 1.7GHz, 2GB RAM, 4GB flash, 2 x USB3, SATA a dvojvstupový tuner podporujúci 8 streamov.</p>
+
+<h2>Čo je Enigma2</h2>
+
+<p>Pri názve Enigma2 sa stretávame s rovnakým problémom, ako pri názve Linux. Na jednej strane sa takto označuje konkrétny softvér (v tomto prípade DVB GUI), ale zároveň sa takto označuje aj linuxová distribúcia obsahujúca DVB GUI Enigma2. V blogu budem používať označenie Enigma2 výlučne pre GUI, aby nedochádzalo z zámene.</p>
+
+<h3>GUI</h3>
+
+<p>Pôvodne bolo GUI vyvinuté firmou Dream Multimedia GmbH pre prijímače Dreambox. Firma vyvíjala softvér ako open source so zdrojovými kódmi zverejnenými pod licenciou GPLv2. V súčasnosti už firma nezverejňuje úplné zdrojové kódy a tá časť, ktorá je zverejnená je dostupná pod <a href="http://git.opendreambox.org/?p=enigma2.git;a=blob;f=LICENSE;h=4fb3d73e615cad92039b6c27297d09f51816308c;hb=HEAD" target="_blank">proprietárnou licenciou</a>. Po uzavretí zdrojových kódov pokračuje komunita vo vývoji vlastného (vlastných) forkov.</p>
+
+<p>Samotné GUI je napísané v jazykoch C++ a Python. Časti, ktoré vyžadujú vysoký výkon sú napísané v C++. Patrí tam ovládanie tunerov, displaya, vykresľovanie GUI atď. Skoro všetky objekty sú z C++ exportované do Pythonu cez SWIG wrapper. Bez Python kódu Enigma2 nerobí nič. Správanie GUI je napísané v pythone. Python určuje kedy zapnúť tuner, kam naladiť tuner, čo vykresliť na obrazovke, ako reagovať na tlačidlá …</p>
+
+<h3>Distribúcia</h3>
+
+<p>Podobne, ako distribúcia linuxu určuje výber softvéru a prostredia, tak aj distribúcia enigmy2 určuje výber softvéru, balíčkovacieho systému a skinu enigma2. Najčastejšie sa stretneme s výberom softvéru typickým pre embedded zariadenia. V systéme tak namiesto klasického openssh nájdeme skôr dropbear ssh, namiesto bashu busybox atď. Najčastejšie sa ako balíčkovací systém používa <code>opkg</code> (pôvodne vyvinutý pre OpenWrt).</p>
+
+<p>Medzi populárne distribúcie patria <a href="https://github.com/openatv/enigma2" target="_blank">OpenATV</a>, <a href="https://github.com/OpenPLi/enigma2" target="_blank">OpenPLI</a>, <a href="https://github.com/BlackHole/enigma2" target="_blank">BlackHole</a>, <a href="https://github.com/OpenViX/enigma2" target="_blank">OpenViX</a>, VTi, Open Droid, Open Vision, OpenHDF … Spolu existuje minimálne niekoľko desiatok distribúcií.</p>
+
+<p>Okrem výberu balíkov má skoro každá distribúcia vlastný fork pôvodnej enigmy2. Namiesto jedného spoločného stromu komunita udržiava desiatky trochu rozdielnych stromov, každý s pár zmenami a vlastnými bugmi. Veľmi veľa zmien sa implementuje duplicitne. Neexistuje žiaden spoločný roadmap a vývoj (ak vôbec) napreduje len veľmi pomaly.</p>
+
+<h3>Inštalácia</h3>
+
+<p>Prístroje sa predávajú v zásade s nainštalovaným firmvérom. Niekedy je to priamo firmvér od výrobcu (napr. VTi pri VU+), inokedy sa dá priamo v obchode kúpiť prístroj s inou distribúciou (napr. VU+ sa u nás dajú kúpiť aj s distribúciou OpenATV).</p>
+
+<p>Nainštalovať si inú distribúciu nebýva zložité. Konkrétny postup sa líši podľa výrobcu. Pre VU+ stačí naformátovať USB kľúč na FAT32, skopírovať image do príslušného adresára, odpojiť napájanie napájanie prístroja, zapnúť prístroj s vloženým USB a pri výzve na inštaláciu potvrdiť inštaláciu tlačidlom power na prednom paneli. Potom už len stačí počkať cca 5 minút.</p>
+
+<p>Po prvom zapnutí sa zobrazí jednoduchý wizard, v ktorom stačí vybrať jazyk, nastaviť pripojenie na internet, odkliknúť automatickú konfiguráciu tunera a automatické ladenie.</p>
+
+<h2>Používanie</h2>
+
+<p>Okrem STB s enigmou mám aj blbý televízor s Linuxom (LG, MIPS architektúra bez FP, minimalistický GUI server Nano-X), niekoľko STB s androidom a xbox s kodi.</p>
+
+<p>V porovnaní s androidom je enigma2 neskutočne rýchla. Celé GUI je tak svižné, že niekedy mám pocit, že sa prvky zobrazujú skôr než stlačím tlačidlo na ovládači. GUI je jednoducho rýchle a bez animácií.</p>
+
+<p>Porovnajme si však GUI s kodi:</p>
+
+<figure>
+	<a href="img/kodi1.jpg"><img src="img/kodi1.jpg" alt="Kodi - hlavné menu" /></a>
+	<figcaption>Obrázok <counter></counter>: Kodi - hlavné menu</figcaption>
+</figure>
+
+<figure>
+	<a href="img/menu.png"><img src="img/menu.png" alt="Enigma2 - hlavné menu" /></a>
+	<figcaption>Obrázok <counter></counter>: Enigma2 - hlavné menu</figcaption>
+</figure>
+
+<figure>
+	<a href="img/kodi2.png"><img src="img/kodi2.png" alt="Kodi - zoznam staníc" /></a>
+	<figcaption>Obrázok <counter></counter>: Kodi - zoznam staníc</figcaption>
+</figure>
+
+<figure>
+	<a href="img/list.png"><img src="img/list.png" alt="Enigma2 - Zoznam programov" /></a>
+	<figcaption>Obrázok <counter></counter>: Enigma2 - Zoznam programov</figcaption>
+</figure>
+
+<figure>
+	<a href="img/kodi3.png"><img src="img/kodi3.png" alt="Kodi - EPG" /></a>
+	<figcaption>Obrázok <counter></counter>: Kodi - EPG</figcaption>
+</figure>
+
+<figure>
+	<a href="img/epg.png"><img src="img/epg.png" alt="Enigma2 - EPG" /></a>
+	<figcaption>Obrázok <counter></counter>: Enigma2 - EPG</figcaption>
+</figure>
+
+
+<p>Zvyčajne som voči kodi dosť kritický. Jednoducho nemám rád kodi, pretože rozhranie je také … programátorské. V porovnaní s enigmou2 je však výrazne jednoduchšie.</p>
+
+<p>Najskôr sa pozrime na hlavné menu. Štandardné menu enigmy obsahuje dosť divné a skoro duplicitné položky (Panel Info, Informácia), ďalej je tu YoutubeTV (ktorý tak v 50% prípadov zhodí kernel) a 4 ako-tak užitočné položky (časovač, pluginy, nastavenia a vypnúť).</p>
+
+<p>Položky sa našťastie dajú vymeniť, takže nemusí byť až taká katastrofa, ale určite by som default zvolil inak.</p>
+
+<p>Po stlačení tlačidla <em>TV</em> sa zobrazí zoznam staníc. Teda presnejšie povedané v defaultnom nastavení sa zobrazí zoznam zoznamov staníc. Vždy. Vždy keď som chcel prepnúť kanál na iný zo zoznamu musel som stlačiť <em>TV</em>, potom <em>Ok</em> (pretože chcem vybrať stanicu z aktuálneho zoznamu) a potom som sa až dostal k výberu stanice. Nerozumiem prečo je defaultná akcia zobrazenie zoznamu zoznamov.</p>
+
+<p>Potom som dlho googlil kým som našiel nastavenie, ktoré by toto správanie malo zmeniť. No našiel, ale nefungovalo. Presnejšie povedané vyplo to zoznamy zoznamov, takže existoval jediný zoznam a nedalo sa prepnúť na iný zoznam.</p>
+
+<p>Takže som googlil usilovne ďalej a potom som po pár dňoch niekde tu našiel to správne nastavenie (tlačidlo menu pri zobrazení zoznamu staníc):</p>
+
+<figure>
+	<a href="img/menu2.png"><img src="img/menu2.png" alt="Menu …" /></a>
+	<figcaption>Obrázok <counter></counter>: Menu …</figcaption>
+</figure>
+
+<p>Položky menu sú zoradené náhodne, s náhodne zobrazenými veľkými / malými počiatočnými znakmi. V menu sa nachádzajú také divné položky ako vycentrovanie titulkov, alebo skrytie VBI (???).</p>
+
+<p>Nastavenia vyzerajú takto:</p>
+
+<figure>
+	<a href="img/settings.png"><img src="img/settings.png" alt="Nastavenia" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenia</figcaption>
+</figure>
+
+<figure>
+	<a href="img/settings2.png"><img src="img/settings2.png" alt="Ďalšie nastavenia" /></a>
+	<figcaption>Obrázok <counter></counter>: Ďalšie nastavenia</figcaption>
+</figure>
+
+<p>Nastavenia sú nahádzané do jedného veľkého zoznamu bez logiky. Niekde tu sa dá nastaviť predvolené zobrazenie zoznamu a kopec ďalších vecí, ktoré ani netuším čo robia. To hádam dokonale vystihuje vývoj enigma2. Pritom sú to drobnosti, ktoré by poriadny UX expert dokázal upratať za pár dní, ak by tušil, čo tie položky robia.</p>
+
+<p>K zoznamu by som mal ešte jednu výhradu - v defaultnom stave názov stanice a aktuálna relácia extrémne splývajú do jedného celku. V kodi je názov stanice a relácie odlíšený iným písmom a zarovnaný do stĺpcov. Samozrejme nastaviť sa to dá aj v enigme2, ale už si vôbec nepamätám, v ktorom menu.</p>
+
+<p>Nakoniec sa pozrime ešte na EPG. V zásade tu mám skôr výhrady k dizajnu než k samotnému fungovaniu. Výhrady mám hlavne ku kontrastným ohraničeniam relácií, čo celé rozhranie zneprehľadňuje. Taktiež voľba jediného fontu takmer rovnakej veľkosti a farby nie je úplne najšťastnejšia.</p>
+
+<p>Aby som to zhrnul, prístroj síce funguje super, ale ovládanie je v defaultnom nastavení šialené. Menu sú navrhnuté strašne, našťastie to človek raz nastaví a už tam nelezie. Defaultný vzhľad MymetrixHD z OpenATV je niekedy dosť neprehľadný, pritom by stačilo trochu vyladiť kontrast farieb a písma a bol by super.</p>
+
+<h3>Vzhľad</h3>
+
+<p>Neprehľadnosť niektorých častí GUI by sa dala celkom ľahko vyriešiť použitím nejakého elegantnejšieho skinu. Tak sa pozrime, čo si typický užívateľ enigmy predstavuje pod elegantným štýlom.</p>
+
+<p>Vo fórach som najčastejšie našiel odporúčanie skinu HD glass. Tak sa naň pozrieme.</p>
+
+<figure>
+	<a href="img/hdglass.png"><img src="img/hdglass.png" alt="Skin HD glass - OSD" /></a>
+	<figcaption>Obrázok <counter></counter>: Skin HD glass - OSD</figcaption>
+</figure>
+
+<p>Už zo zobrazenia OSD môžme uhádnuť, že tento skin sa zasekol niekde v roku 1995. Najdôležitejšie informácie na OSD sú stanica a aktuálna relácia. Tu sa názov stanice a aktuálna relácia totálne strácajú v úplne zbytočných informáciách a neprebernom množstve ikon. Pre porovnanie takto vyzerá OSD z MymetrixHD:</p>
+
+<figure>
+	<a href="img/osd.png"><img src="img/osd.png" alt="MymetrixHD - OSD" /></a>
+	<figcaption>Obrázok <counter></counter>: MymetrixHD - OSD</figcaption>
+</figure>
+
+<p>Bude na tom zoznam programov lepšie? No nie som si istý ;)</p>
+
+<figure>
+	<a href="img/hdglass2.png"><img src="img/hdglass2.png" alt="Skin HD glass - Zoznam staníc" /></a>
+	<figcaption>Obrázok <counter></counter>: Skin HD glass - Zoznam staníc</figcaption>
+</figure>
+
+<p>Pre istotu prikladám screenshot z webu projektu:</p>
+
+<figure>
+	<a href="img/hdglass_web.png"><img src="img/hdglass_web.png" alt="Skin HD glass - Web" /></a>
+	<figcaption>Obrázok <counter></counter>: Skin HD glass - Web</figcaption>
+</figure>
+
+<p>Možno si teraz hovoríte, prečo píšem o nejakom náhodne zvolenom skine. Žiaľ toto je najčastejšie odporúčaný skin, ktorý som našiel. Žiaľ takto vyzerá 98% skinov. Žiaľ oficiálny web mojej distribúcie vyzerá takto:</p>
+
+<figure>
+	<a href="img/vu_download.png"><img src="img/vu_download.png" alt="OpenATV web" /></a>
+	<figcaption>Obrázok <counter></counter>: OpenATV web</figcaption>
+</figure>
+
+<h4>KiddaC-ove skiny</h4>
+
+<p>Okrem MymetrixHD som našiel jedinú sadu skinov, ktorá vyzerala použiteľne. Ide skiny používateľa <a href="https://github.com/kiddac/Enigma2_Skins" target="_blank">KiddaC</a>.</p>
+
+<figure>
+	<a href="img/onyx1.png"><img src="img/onyx1.png" alt="Onyx - OSD" /></a>
+	<figcaption>Obrázok <counter></counter>: Onyx - OSD</figcaption>
+</figure>
+
+<figure>
+	<a href="img/onyx2.png"><img src="img/onyx2.png" alt="Onyx - Menu" /></a>
+	<figcaption>Obrázok <counter></counter>: Onyx - Menu</figcaption>
+</figure>
+
+<figure>
+	<a href="img/onyx3.png"><img src="img/onyx3.png" alt="Onyx - EPG" /></a>
+	<figcaption>Obrázok <counter></counter>: Onyx - EPG</figcaption>
+</figure>
+
+<figure>
+	<a href="img/onyx4.png"><img src="img/onyx4.png" alt="Onyx - Zoznam staníc" /></a>
+	<figcaption>Obrázok <counter></counter>: Onyx - Zoznam staníc</figcaption>
+</figure>
+
+<h2>Pluginy</h2>
+
+<p>Enigma2 sa dá rozšíriť o nové funkcie pomocou pluginov napísaných v programovacom jazyku python. Vývoj pluginov budem rozoberať v blogu venovanom črevám enigmy2 (ak sa k tomu v rozumnej dobe dostanem). Tento blog sa snažím písať z pohľadu užívateľa, takže zatiaľ žiadne programovanie.</p>
+
+<p>Pluginy je možné vyhľadať a nainštalovať buď z terminálu pomocou príkazu opkg, alebo cez menu pluginy, alebo cez webové rozhranie. Pluginy majú väčšinou prefix enigma2, takže v termináli ich vieme vypísať jednoducho príkazom <code>opkg find "enigma2*"</code>:</p>
+
+<pre>
+# opkg find "enigma2*"
+enigma2-oe-alliance-plugins - 6.4+git2743+4290a22-r1
+enigma2-oe-alliance-plugins - 6.4+git2737+cb9971c-r1
+enigma2-oe-alliance-plugins-meta - 6.4+git2743+4290a22-r1
+enigma2-plugin-display-oe-a-lcdskin-1 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-10 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-11 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-12 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-13 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-2 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-3 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-4 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-5 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-6 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-7 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-8 - git256+10a7dfa-r0
+enigma2-plugin-display-oe-a-lcdskin-9 - git256+10a7dfa-r0
+enigma2-plugin-drivers-atsc-950q-usb-hauppauge - 1.0-r0
+enigma2-plugin-drivers-atsc-955q-usb-hauppauge - 1.0-r0
+enigma2-plugin-drivers-atsc-usb-hauppauge - 1.1-r0
+enigma2-plugin-drivers-ct2-dvb-usb-dualhd - 1.0-r0
+…
+</pre>
+
+<p>Pluginov je na výber dostatok, ale ich kvalitu by som väčšinou označil slovíčkom „meh“. GUI som síce kritizoval kvôli zložitému a nekonzistentnému ovládaniu, ale pluginy sú na tom ešte o niekoľko úrovní horšie. Ako príklad použijem plugin na sťahovanie ikon programov. Toto je jeho nastavenie:</p>
+
+<figure>
+	<a href="img/plugin.png"><img src="img/plugin.png" alt="Nastavenie pluginu" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie pluginu</figcaption>
+</figure>
+
+<p>V celom systéme sa dialógy potvrdzujú buď zeleným tlačidlom, alebo tlačidlom OK. Červené tlačidlo slúži na zatvorenie nastavení.</p>
+
+<p>Tu sa stačí pomýliť a použiť červené tlačidlo na zatvorenie dialógu a človek si úplne omylom vymaže nastavenia. Zeleným tlačidlom sa naopak uzatvára dialóg. Aby sa zobrazili samotné nastavenia musí sa kurzor presunúť na "Povoliť spracovanie profilu" a potom je potrebné stlačiť tlačidlo vpravo. Normálne som toto googlil 20 minút. Vážne ma nenapadlo, že nastavenia sa môže skrývať pod touto položkou. Toto prosím pekne patrí medzi najpoužívanejšie a najjednoduchšie nastaviteľné pluginy. Pozrime sa na iný bizar - nastaveniue skin HD glass:</p>
+
+
+<figure>
+	<a href="img/hdglass3.png"><img src="img/hdglass3.png" alt="Nastavenie HD glass" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie HD glass</figcaption>
+</figure>
+
+<p>Ani neviem, či je možné vyjadriť slovami, čo všetko je zle na tomto okne. Čo by som mal vyzdvihnúť ako najväčšiu GUI blbosť? Absolútne nezrozumiteľné menu vpravo? Druhé menu vľavo dole? Pohyb v menu modrým tlačidlom? Aktivácia submenu oranžovým tlačidlom (ktoré malo byť asi žlté?)? Náhodne rozmiestnené farebné tlačidlá? Položka číslo 29 vpravo dole?</p>
+
+<h2>Systém a ovládače</h2>
+
+<p>Teraz budem trochu viacej hovoriť o konkrétnom hardvéri.</p>
+
+<p>Drvivá väčšina STB používa niekoľko rokov starý kernel. VU+ nie je výnimkou. Môj stroj má kernel 4.1.20-1.9. Kernel sa nedá upgradnúť, pretože závisí na binárnych ovládačoch od broadcomu. Broadcom pri STB SoC používa filozofiu jeden zastaralý kernel na večné časy a nikdy inak.</p>
+
+<p>SoC 7252s je prekvapujúco výkonný a má GPU s podporou OpenGL ES. Na kolená ho však zrážajú drivery katastrofálnej kvality od Broadcomu. Binárne drivery obsahujú všetko od IR prijímača cez drivery GPU/DVB až po správcu okien v kerneli. Áno, správa okien je v kerneli. Prepnutie okna trvá luxusných 300ms a s 50% pravdepodobnosťou pri neštandardnom rozlíšení zhodí kernel. Pritom správa okien by sa dala krásne riešiť v userspace cez EGL. Jednoducho celé zle.</p>
+
+<p>Všetko v distribúcii OpenATV okrem kernelu je plne open source a dá sa bez problémov skompilovať. Po inštalácii sa dá do systému prihlásiť cez telnet / ssh a človek má v základe plné práva roota.</p>
+
+<p>Ako init systém je použitý busybox init. GUI beží v runleveli 3. Naopak textový režim je runlevel 4. Napísať si vlastný init skript sa v zásade nelíši od písania init skriptov pre Debian pred prechodom na systemd.</p>
+
+<h2>Komunita</h2>
+
+<p>Nakoniec sa pozrime, ako je na tom komunita.</p>
+
+<p>Skoro každá distribúcia má vlastné PhpBB fórum, ktoré je viac-či menej uzavreté. Nie je možné ani prezrieť si screenshoty, či stiahnuť súbor bez registrácie. Niekde nie je možné prehliadať ani len text príspevkov bez registrácie.</p>
+
+<p>Na fórach sa často objavujú vlastné upravené binárne verzie rôznych balíkov bez dostupných zdrojových kódov. Nie je neobvyklá žiadať nemalé peniaze za binárku programu pôvodne pod GPL licenciou. Porušovanie licencie je úplne bežná prax.</p>
+
+<p>Hlavne české/slovenské fóra sú plné mudrlantov, ktorí absolútne nechápu problematike, ale pokojne vysypú na človeka kopec nepodložených tvrdení a budú sa tváriť, že je to pravda. Príklad za všetky uvediem, keď niekto chcel stavať STB založené na raspberry pi. Jednoducho musel prísť nejaký „expert“ a vysvetliť, aký má raspberry pi 4 hrozne nízky výkon, že je to ako porovnávať ferrari a traktor a podobné kraviny.</p>
+
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
