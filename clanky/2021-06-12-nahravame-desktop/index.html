@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Nahrávame desktop</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Nahrávame desktop</h1>
+
+	<p>V dnešnom blogu si ukážeme, ako nahrávať desktop s minimálnou záťažou CPU. Využijeme pritom hardvérový enkóder, ffmpeg a priame nahrávanie z GPU bez kopírovania obrazu do RAM.</p>
+</header>
+
+<p>Každý Intel CPU od mikroarchitektúry Sandy Bridge vyššie podporuje hardvérové enkódovanie video formátu h.264. Ak máme podporovaný hardvér je nahrávanie videa z desktopu pomocou <code>ffmpeg</code> hračkou. Stačí príkaz:</p>
+
+<pre>ffmpeg \
+    -f kmsgrab \
+    -i - \
+    -vf 'hwmap=derive_device=vaapi,scale_vaapi=format=nv12' \
+    -c:v h264_vaapi \
+    vystup.mkv</pre>
+
+<p>Jednoduché, nie? Keby to fungovalo …</p>
+
+<p>Vo väčšine distribúcií tento príkaz zlyhá, pretože <code>ffmpeg</code> nemá dostatočné práva. Príkaz musí byť buď spustený pod rootom, alebo ffmpegu musíme prideliť dodatočné práva (pozor, toto môže byť poriadna bezpečnostná diera do systému) príkazom spusteným pod rootom:</p>
+
+<pre># setcap cap_sys_admin<strong>+</strong>ep `which ffmpeg`</pre>
+
+<p>Odobrať práva je možné rovnakým príkazom, akurát namiesto znamienka <code>+</code> sa použije znamienko <code>-</code>.</p>
+
+<p>Než sa pustíme do zložitejších prípadov pozrieme sa na parametre príkazu <code>ffmpeg</code>. Začneme netradične v strede príkazu. Parameter <code>-i -</code> znamená, že vstupný súbor je stdin (štandardný vstup). My však nahrávame obrazovku, ktorá vstupný súbor nemá, takže tento parameter je síce ffmpegom vyžadovaný, ale nie je použitý.</p>
+
+<p>Poradie parametrov vo ffmpegu hraje dôležitú úlohu. Parametre týkajúce sa vstupu sa vždy vzťahujú k nasledujúcemu vstupu, takže <code>-f kmsgrab</code> sa vzťahuje k vstupu <code>-i -</code>. V preklade to znamená: otvor súbor stdin a spracuj ho pomocou <code>kmsgrab</code> (nahrávanie z <a href="https://www.kernel.org/doc/html/v5.10/gpu/drm-kms.html">KMS</a> subsystému). Keďže <code>kmsgrab</code> nepotrebuje vstupný súbor, zožerie prakticky čokoľvek, čo mu podhodíme, či už video súbor, alebo stdin.</p>
+
+<p>Filter <code>-vf 'hwmap=derive_device=vaapi,scale_vaapi=format=nv12'</code> sa skladá z 2 častí. V prvej sa namapuje zariadenie typu vaapi do pamäte (<code>hwmap=derive_device=vaapi</code>) a následne sa použije škálovanie, orezanie a zmena formátu (<code>scale_vaapi=format=nv12</code>). Zatiaľ síce nahrávame celú obrazovku bez zmeny rozlíšenia, ale tento filter potrebujeme kvôli zmene formátu obrazu na <code>nv12</code>. Nebudem zachádzať do detailov, ale je dôležité si uvedomiť, že typický display má pixely uložené, ako hodnoty červenej, zelenej a modrej. Hardvérový enkóder však vyžaduje formát nv12 (podobný yuv420p), ktorý má pixely uložené ako jas pre každý pixel zvlášť a farbu pre bloky veľkosti 2x2 pixely. Takýto formát bol zavedený kvôli šetreniu prenosovej kapacity.</p>
+
+<p>Uvedený príkaz na mojom notebooku z 2011 spotrebuje 2% procesorového času počas zobrazovania animovaného dema zo stránky <a href="https://www.shadertoy.com/">shadertoy.com</a>.</p>
+
+<figure>
+	<a href="img/htop.png"><img src="img/htop.png" alt="Zaťaženie CPU počas nahrávania" /></a>
+	<figcaption>Obrázok <counter></counter>: Zaťaženie CPU počas nahrávania</figcaption>
+</figure>
+
+<h2>Výber oblasti</h2>
+
+<p>Oblasť nahrávania sa dá obmedziť video filtrom <code>crop</code>. Medzi filtre <code>hwmap</code> a <code>scale_vaapi</code> sa vloží filter <code>crop=šírka:výška:vzdialenosť od ľavého okraja:vzdialenosť od horného okraja</code>. Ak chcem napríklad nahrávať oblasť o veľkosti 800x600 pixelov umiestnenú 100 pixelov od ľavého okraja a 50 pixelov od horného okraja použijem <code>crop=800:600:100:50</code>. Obraz však bude deformovaný, pretože filter <code>scale_vaapi</code> bude meniť rozlíšenie vide na rovnaké, aké je rozlíšenie obrazovky. Je preto nutné ešte doplniť parametre <code>w</code> a <code>h</code> filtra <code>scale_vaapi</code>. Celý parameter filtra bude teda vyzerať takto:</p>
+
+<pre>-vf 'hwmap=derive_device=vaapi,crop=800:600:100:50,scale_vaapi=w=800:h=600:format=nv12'</pre>
+
+<p>Ako však postupovať keď máme viacej obrazoviek? Pred parameter <code>-i</code> stačí vložiť <code>-crtc_id id obrazovky</code>. Ako však zistiť ID obrazovky netuším. Ak niekto vloží do komentárov správny postup budem rád a rád ho sem doplním. Keďže správny postup nepoznám napíšem 2 spôsoby, ktorými to u mňa fungovalo.</p>
+
+<p>Prvým je spustenie ffmpegu s parametrom <code>-v debug</code> a s náhodne zvoleným <code>crtc_id</code>:</p>
+
+<pre>$ ffmpeg \
+  -f kmsgrab \
+  -crtc_id 99999 \
+  -i - \
+  -vf 'hwmap=derive_device=vaapi,scale_vaapi=format=nv12' \
+  -c:v h264_vaapi \
+  -y /dev/null \
+  -v debug
+...
+[AVHWDeviceContext @ 0x55fcf0bae720] Opened DRM device /dev/dri/card0: driver i915 version 1.6.0.
+[kmsgrab @ 0x55fcf0bad940] Plane 31: CRTC 0 FB 0.
+[kmsgrab @ 0x55fcf0bad940] Plane 35: CRTC 0 FB 0.
+[kmsgrab @ 0x55fcf0bad940] Plane 41: CRTC 0 FB 0.
+[kmsgrab @ 0x55fcf0bad940] Plane 46: CRTC 60 FB 99.
+[kmsgrab @ 0x55fcf0bad940] Plane 50: CRTC 0 FB 0.
+[kmsgrab @ 0x55fcf0bad940] Plane 56: CRTC 60 FB 102.</pre>
+
+<p>Z výpisu stačí už len uhádnuť, že správne číslo <code>crtc_id</code> je 60.</p>
+
+<p>Okrem toho som na githube objavil repozitár <a href="https://github.com/w23/drmtoy">drmtoy</a>. Po kompilácii vznikne v adresári <code>build/rel</code> súbor <code>enum</code>. Stačí spustiť a vo výpise nájsť spávne ID:</p>
+
+<pre>$ ./enum
+open = 4
+drm version 1.6.0 driver=i915 date=20200917 desc=Intel Graphics
+drm lib version 1.3.0 driver= date= desc=
+busid=pci:0000:00:02.0
+drmGetStats = 0
+    count = 0
+    count_fbs = 0
+    count_crtcs = 2
+        0: 0x2d
+            buffer_id = 0x0 gamma_size = 256
+            (0 0 0 0) 0
+            mode.name =
+        1: <strong>0x3c</strong>
+            buffer_id = 0x63 gamma_size = 256
+            (0 0 1280 1024) 1
+            mode.name =
+</pre>
+
+<p>Vo výpise vidíme crtc s rozlíšením 1280x1024px a ID 0x3c, čo je v desiatkovej sústave 60.</p>
+
+<p>Pri použití viacerých grafických kariet môžme špecifikovať zariadenie, ktoré bude akcelerovať enkódovanie parametrom <code>-vaapi_device /cest/k/zariadeniu</code> napr. <code>-vaapi_device /dev/dri/renderD128</code>.</p>
+
+<h2>Kvalita</h2>
+
+<p>Začneme nastavením frekvencie snímkov. Pre vstup kmsgrab je štandardná hodnota 30 snímkov za sekundu. Ak by sme chceli napríklad 60 snímkov stačí pred parameter <code>-i</code> pridať <code>-framerate 60</code>, alebo skrátene <code>-r 60</code>.</p>
+
+<p>Kvalita videa sa nastavuje argumentmi zadanými pred výstupným súborom. Môžme nastaviť buď konštantný dátový tok, alebo konštantnú kvalitu. Vo väčšine prípadov odporúčam konštantnú kvalitu.</p>
+
+<p>Konštantná kvalita sa nastavuje argumentom <code>-qp [1 - 52]</code>. Najvyššia kvalita je 1, najnižišia je 52. Konštantný bitrate sa dá nastaviť parametrom <code>-b:v bitrate</code> napr. <code>-b:v 10M</code>. Kompletný príkaz pre nahrávanie kvalita v celkom slušne kvalite vyzerá takto:</p>
+
+<pre>ffmpeg \
+  -framerate 60 \
+  -f kmsgrab \
+  -i - \
+  -vf 'hwmap=derive_device=vaapi,scale_vaapi=format=nv12' \
+  -c:v h264_vaapi \
+  -qp 18 \
+  video.mkv</pre>
+
+<p>Ďalšie parametre enkódera sa dajú zobraziť príkazom <code>ffmpeg -h encoder=h264_vaapi</code>.</p>
+
+<h2>Nenahráva sa kurzor</h2>
+
+<p>Pod X serverom sa kurzor renderuje zvyčajne ako hardvérový overlay nad framebufferom. Nahrávané video preto nebude obsahovať kurzor.</p>
+
+<p>Na githube sa dá nájsť program <a href="https://github.com/andykitchen/swcursor">swcursor</a>, ktorý pod skutočným kurzorom zobrazuje veľký softvérový kurzor. Voči tomuto softvéru mám pár výhrad: kurzor nemení svoj tvar napr. na symbol <code>I</code> nad textom, má vysokú latenciu (pretože nepočúva na udalosti, ale namiesto toho používa polling), nepodporuje hotspot atď.</p>
+
+<p>Napísal som preto <a href="https://github.com/mireq/software-cursor">vlastný softwarovo renderovaný kurzor</a>, ktorý používa pixmapu z aktuálneho kurzora, nemá žiadne závislostí okrem xlibu a namiesto pollingu je plne riadený eventmi. Program stačí skompilovať (<code>make</code>), spustiť kompozitor a spustiť <code>./softwarecursor-x11</code>. Ak je kurzor väčší než 32 pixelov je potrebné doplniť parameter <code>-s veľkosť</code> napr. <code>-s 48</code>. Veľkosť zvýraznenia sa určuje parametrom <code>-r</code> a štandardne má rovnakú veľkosť, ako je maximálna veľkosť kurzora.</p>
+
+<figure>
+	<a href="img/softwarecursor.gif"><img src="img/softwarecursor.gif" alt="Softvérový kurzor" /></a>
+	<figcaption>Obrázok <counter></counter>: Softvérový kurzor</figcaption>
+</figure>
+
+<h2>Nahrávanie zvuku</h2>
+
+<p>Napriek minimálnemu použitiu CPU môže dochádzať k zahadzovaniu snímkov hlavne keď je GPU zaneprázdnená. Pre nahrávanie zvuku stačí použiť ako vstup zvukový server (napr. pulseaudio) a zapnúť vkladanie časových značiek do audia, aby bol zvuk synchronizovaný s obrazom. Synchronizácia sa zapína argumentom <code>-af "asetpts=N/SR/TB"</code>. Kompletný príkaz vyzerá napríklad takto:</p>
+
+<pre>ffmpeg \
+  -f pulse -i default \
+  -framerate 60 \
+  -thread_queue_size 128 \
+  -f kmsgrab -i - \
+  -af "asetpts=N/SR/TB" \
+  -vf 'hwmap=derive_device=vaapi,scale_vaapi=format=nv12' \
+  -c:a aac \
+  -c:v h264_vaapi \
+  video.mkv</pre>
+
+<h2>Výsledok</h2>
+
+<p>Nasledujúce video som nahrával na svojom starom notebookvom i5-2520M (Sandy bridge). Pre efekt som GPU pekne vyťažil zbytočnými efektnmi.</p>
+
+<p><a href="https://www.youtube.com/watch?v=0qBSEeukp38" target="_blank"><img src="//img.youtube.com/vi/0qBSEeukp38/maxresdefault.jpg" alt="Video nahrávané pomocou ffmpegu"/></a></p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
