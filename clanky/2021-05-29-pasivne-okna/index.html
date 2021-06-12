@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Pasívne okná v Awesome WM</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Pasívne okná v Awesome WM</h1>
+
+	<p>V dnešnom mini blogu si ukážeme, ako zmeniť ľubovoľné okno na pasívne okno (tj. okno, ktoré nereaguje na myš).</p>
+</header>
+
+<h2>Využitie</h2>
+
+<p>Možno sa pýtate, na čo je také okno dobré? Nuž blog píšem v čase, keď sa hrajú MS v ľadovom hokeji. Chcel som popri ľahkom programovaní vedieť, ako hrajeme a nemal som poruke ďalší display. Takže som skúsil upraviť vlastnosti okna tak, aby bolo polopriehľadné, nad všetkými oknami a bolo úplne transparentné pre myš.</p>
+
+<h2>Ako na to?</h2>
+
+<p>Doprogramovať zmenu vlastností okna po stlačení klávesovej skratky je pomerne triviálna záležitosť. Najskôr pridáme klávesovú skratku do premennej <code>clientkey</code>. Ako klávesovú skratku som si zvolil <code>Meta-Shift-t</code>.</p>
+
+<pre class="code-lua">
+clientkeys = gears.table.join(
+    -- ...
+    awful.key({ modkey, "Shift" }, "t",
+        function (c)
+        -- telo funkcie
+        end,
+        {description = "transient client", group = "client"})
+</pre>
+
+<p>V obsluhe klávesovej skratky budem používať vlastnoť <code>transient_to_input</code> klienta <code>c</code>. Nedefinovaná vlastnosť má hodnotu <code>nil</code>. To nám umožní pri prvej aktivácii funkcie nastaviť jednorázovo niektoré užitočné vlastnosti okna, ako napr. zobrazenie nad ostatnými oknami, skrytie orámovania, zobrazenie na všetkých plochách a priehľadnosť. Neskôr je možné tieto vlastnosti zmeniť, ale nastavenie / zrušenie pastívneho okna už nebude mať vplyv na tieto vlastnosti.</p>
+
+<p>V nasledujúcom výpise je telo funkcie:</p>
+
+<pre class="code-lua">
+local cairo = require("lgi").cairo
+
+-- nastavenie pri prvej aktivácii
+if c.transient_to_input == nil then
+    c.ontop = true
+    c.sticky = true
+    c.opacity = .5
+    c.border_width = 0
+end
+
+if c.transient_to_input then
+    -- nastaviť aktívne
+    c.transient_to_input = false
+    c.focusable = true
+    c.shape_input = nil
+else
+    -- nastaviť neaktívne
+    c.transient_to_input = true
+    c.focusable = false
+    c.shape_input = cairo.ImageSurface(cairo.Format.RGB24, 0, 0)._native
+end
+</pre>
+
+<p>Vlastnosti <code>ontop</code>, <code>sticky</code>, <code>opacity</code> a <code>border_width</code> jednorázovo nastavujú zobrazenie nad ostatnými oknami, na všetkých plochách, priehľadnosť a šírku okraja.</p>
+
+<p>Hodnota <code>focusable</code> umožňuje zakázať focus okna pomocou klávesnice a prejdením myšou nad oknom. Focus sa dá stále získať kliknutím na titulok okna, alebo na názov okna v paneli.</p>
+
+<p>Najzaujímavejšou vlastnosťou je <code>shape_input</code>. V X11 sa dá oknu nastaviť plocha, ktorá reaguje na myš. V tomto prípade <code>cairo.ImageSurface(cairo.Format.RGB24, 0, 0)._native</code> vytvorí plochu s nulovou veľkosťou. Ak sa nastaví vlastnosť <code>shape_input</code>, bude okno kompletne ignorovať myš. Stále sa však dá focusovať kliknutím na paneli. Vďaka tomu je možné rovnakou klávesovou skratkou vrátiť okno do normálneho stavu.</p>
+
+<figure>
+	<a href="img/osd.png"><img src="img/osd.png" alt="Výsledok" /></a>
+	<figcaption>Obrázok <counter></counter>: Výsledok</figcaption>
+</figure>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
