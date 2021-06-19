@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Kedy pracujem - utilita na záznam štatistík o používaní PC</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Kedy pracujem - utilita na záznam štatistík o používaní PC</h1>
+
+	<p>Variabilná pracovná doba a práca z domu majú okrem svojich výhod aj nevýhody, napríklad rozkúskovanie práce. Ja som bol zvedavý, ako veľmi rozkúskovaný mám pracovný deň, tak som si napísal malý nástroj na zaznamenávanie činnosti pri PC.</p>
+</header>
+
+<p>Hlavný repozitár mám zverejnený na <a href="https://github.com/mireq/when-i-work">githube</a>. Na spustenie sledovania budeme potrebovať <a href="https://www.python.org/">python3</a> a <a href="https://github.com/moses-palmer/pynput">pynput</a>. Na vygenerovanie HTML výstupu sú navyše vyžadované balíky <a href="https://pythonhosted.org/pytz/">pytz</a> a <a href="https://numpy.org/">numpy</a>.</p>
+
+<h2>Používanie</h2>
+
+<p>Pred samotným spustením musia byť nainštalované vyššie uvedené balíky. Nainštalovať sa môžu buď ponmocou balíčkovacieho systému distribúcie, alebo pod užívateľom napríklad pomocou virtualenvu. Odporúčam skôr použitie distribučných balíkov. Ako príklad však použijem virtualenv, keďže ten je univerzálnejší.</p>
+
+<p>Ak je nainštalovaný python3 a virtualenv môžme vytvoriť nový adresár, v ktorom bude virtuálne prostredie pythonu a utilitka. Závislosti nainštalujeme vo virtuálnom prostredí pomocou nástroja pip.</p>
+
+<pre class="code-bash">
+mkdir activity_recording
+cd activity_recording
+git clone https://github.com/mireq/when-i-work.git
+python3 -m venv virtualenv
+# áno tu je ako prvý znak bodka
+. ./virtualenv/bin/activate
+pip install -r when-i-work/requirements.txt
+</pre>
+
+<p>Pre sledovanie aktivity stačí spustiť:</p>
+
+<pre>./virtualenv/bin/python when-i-work/activity_recording.py</pre>
+
+<p>Uvedený príkaz odporúčam spustiť po spustení grafického prostredia. V tom prípade treba uviesť absolútnu cestu k pythonu (z virtuálneho prostredia, nie systémovú binárku).</p>
+
+<p>Program zaznamenáva časy začiatku a konca používania klávesnice. Za interval, kedy sa používa počítač je považovaný interval, v ktorom sú stláčané klávesy na klávesnici v intervale nie väčšom než 60 sekúnd.</p>
+
+<p>Pri spustení program zaznamenáva intervaly do súboru <code>~/.work_log</code>. Je to obyčajný textový súbor, v ktorom na začiatku riadka je začiatočný čas a potom sú znakom <code>|</code> oddelené intervaly vo formáte <code>aktivita:počet sekúnd</code>, kde aktivita je buď <code>1</code> pre aktívny interval, alebo <code>0</code> pre neaktívny interval.</p>
+
+<p>Na parsovanie logu a HTML výstup je pripravený skript <code>parse.py</code>. Stačí ho spustiť (<code>./virtualenv/bin/python when-i-work/parse.py</code>) a v adresári so skriptom sa vytvorí súbor <code>work_log.html</code>.</p>
+
+<figure>
+	<a href="img/work.png"><img src="img/work.png" alt="Ukážka HTML výstupu" /></a>
+	<figcaption>Obrázok <counter></counter>: Ukážka HTML výstupu</figcaption>
+</figure>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
