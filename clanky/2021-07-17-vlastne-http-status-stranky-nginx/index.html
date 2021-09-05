@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Vlastné HTTP status stránky pre nginx</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Vlastné HTTP status stránky pre nginx</h1>
+
+	<p>V dnešnom blogu predstavím jednoduchý generátor stránok pre HTTP stavy a spôsob, ako nakonfigurovať nginx s možnosťou používať užívateľom definované chybové stránky.</p>
+</header>
+
+<p>Na svojom githube mám zverejnený skript <a href="https://github.com/mireq/http-status-pages/blob/master/generate.py">generate.py</a>. Ak máme nainštalovaný python3 s knižnicou jinja2 stačí spustiť <code>./generate.py</code> a výstup sa vygeneruje do adresára <code>output</code>.</p>
+
+<h2>Ako to funguje</h2>
+
+<p>Zoznam generovaný stránok sa nachádza v súbore <a href="https://github.com/mireq/http-status-pages/blob/master/settings.py">settings.py</a>. V tomto súbore je možné doplniť / odobrať stránky, prípadne im upraviť texty. Zoznam HTTP stavov je z <a href="http://webconcepts.info/concepts/http-status-code.json">tohto JSONu</a>.</p>
+
+<p>Šablóny stránok sú v adresári <code>templates</code>. Vyhľadávanie šablón pre stavu <em>123</em> má priority: <code>123.html</code>, <code>12x.html</code>, <code>1xx.html</code> a <code>error.html</code>. Použije sa prvá existujúca šablóna. Ak teda vytvorím šablónu <code>4xx.html</code>, použije sa pre všetky stavy začínajúce sa na 4 ak nie je definovaná špecifickejšia šablóna. Ak vytvorím ešte k tomu <code>404.html</code> bude pre stránku <em>404</em> použitá táto šablóna a pre všetky ostatné generickejšia <code>4xx.html</code>. Šablóny sú spracované knižnicou <a href="https://jinja.palletsprojects.com/en/latest/templates/">jinja2</a>.</p>
+
+<p>Štandardné šablóny je možné vidieť v pripravenom <a href="https://mireq.github.io/http-status-pages/demo.html">deme</a>. Pozrieť sa dajú aj jednotlivé stavy na <a href="https://mireq.github.io/http-status-pages/output/418.html">github stránkach</code>.</p>
+
+
+<figure>
+	<a href="//mireq.github.io/http-status-pages/status.png"><img src="//mireq.github.io/http-status-pages/status.png" alt="Štandardné šablóny" /></a>
+	<figcaption>Obrázok <counter></counter>: Štandardné šablóny</figcaption>
+</figure>
+
+
+<h2>Konfigurácia nginx</h2>
+
+<p>Najskôr je potrebné stránky umiestniť niekam, kam má <em>nginx</em> prístup. Ja používam adresár <code>/usr/share/nginx/html/error</code>. Konfigurujem <em>nginx</em> tak, aby štandardné error stránky pochádzali z globálneho adresára, ale aby sa zároveň dali nahrať do root adresára virtuálneho hostu, takže každý užívateľ môže mať vlastné error stránky ak chce. Konfigurácia vyzerá nasledovne:</p>
+
+<pre>error_page 400 /error/400.html;
+error_page 401 /error/401.html;
+error_page 402 /error/402.html;
+error_page 403 /error/403.html;
+error_page 404 /error/404.html;
+error_page 405 /error/405.html;
+error_page 406 /error/406.html;
+error_page 407 /error/407.html;
+error_page 408 /error/408.html;
+error_page 409 /error/409.html;
+error_page 410 /error/410.html;
+error_page 411 /error/411.html;
+error_page 412 /error/412.html;
+error_page 413 /error/413.html;
+error_page 414 /error/414.html;
+error_page 415 /error/415.html;
+error_page 416 /error/416.html;
+error_page 417 /error/417.html;
+error_page 418 /error/418.html;
+error_page 421 /error/421.html;
+error_page 422 /error/422.html;
+error_page 423 /error/423.html;
+error_page 424 /error/424.html;
+error_page 425 /error/425.html;
+error_page 426 /error/426.html;
+error_page 428 /error/428.html;
+error_page 429 /error/429.html;
+error_page 431 /error/431.html;
+error_page 451 /error/451.html;
+error_page 500 /error/500.html;
+error_page 501 /error/501.html;
+error_page 502 /error/502.html;
+error_page 503 /error/503.html;
+error_page 504 /error/504.html;
+error_page 505 /error/505.html;
+error_page 506 /error/506.html;
+error_page 507 /error/507.html;
+error_page 508 /error/508.html;
+error_page 510 /error/510.html;
+error_page 511 /error/511.html;
+recursive_error_pages on;
+
+location @system_wide_error_pages {
+	root /usr/share/nginx/html/;
+}
+
+location ~ ^/error/(.*)$ {
+	internal;
+	try_files /error/$1 @system_wide_error_pages;
+}</pre>
+
+<p>Pozrime sa na konfiguračný súbor zdola nahor. Pravidlo <code>location ~ ^/error/(.*)$ </code> platí pre všetky cesty začínajúce sa na <code>/error/</code>. Modifikátor <code>internal</code> znamená, že daný súbor je prístupný z <em>nginx</em> len interne. Užívateľ tak nemôže zobraziť error stránku pomocou URL adresy napr. https://domena/error/500.html. Direktíva <code>try_files</code> definuje prioritu vyhľadávania súboru. V tomto prípade sa najskôr hľadá v koreňovom adresári virtualhostu a potom v @system_wide_error_pages (zavináč označuje pomenovanú adresu nedostupnú zvonku). Zostáva už len definovať cesty pre chybové stránky (direktívy <code>error_page</code>) a prípadne zapnúť <code>recursive_error_pages</code>, čo znamená, že pri chybe načítania chybovej stránky sa nepoužije vstavaná chybová stránka, ale ďalej sa vyhľadáva vo vlastných stránkach.</p>
+
+<p>Tento súbor uložíme do <code>/etc/nginx/snippets/standard-error-pages.conf</code>. Pre použitie vo virtual hostoch stačí len pridať do sekcie <code>server { }</code> direktívu <code>include snippets/standard-error-pages.conf;</code>.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
