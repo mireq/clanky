@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Hrajeme sa s RAW zábermi z Androidu</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Hrajeme sa s RAW zábermi z Androidu</h1>
+
+	<p>V tomto článku sa pozrieme na niektoré nedostatky, ktoré majú fotoaparáty v telefóne a pokúsime sa aplikovať korekcie. Moje metódy merania nie sú úplne bežné, ale snažil som sa využiť zariadenia, ktoré mám doma bez nákupu drahých spektrometrov, či osvetlenia.</p>
+</header>
+
+<h2>Trocha teórie na začiatok</h2>
+
+<p>Hoc je fotografovanie z pohľadu používateľa jednoduchý proces v skutočnosti ide o pekne zložitý proces ako po hardvérovej, tak aj po softvérovej stránke.</p>
+
+<p>V momente, keď stlačíme spúšť sa dá do pohybu šošovka fotoaparátu, aby správne zaostrila objekt pred kamerou. Nasleduje zber fotónov, ktorý trvá určitú dobu (táto doba sa nazýva <em>doba expozície</em>) a digitalizácia s príslušným zosilnením. Úroveň zosilnenia poznáme pod skratkou <em>ISO</em>. Surové dáta zo snímača sú následne spracované softvérom a uložené napríklad ako <em>jpeg</em> obrázok.</p>
+
+<h3>Optika</h3>
+
+<p>Výrobca telefónu sa nás samozrejme bude snažiť presvedčiť, že optika telefónu je dokonalá. Pravdou je, že optika je vždy určitým kompromisom. Pre miniatúrnu optiku telefónu to platí obzvlášť. Na rozdiel od zrkadlovky má telefón pevne danú optiku, takže nie je problém pridať korekciu chýb optiky priamo do softvéru.</p>
+
+<p>Najčastejšími chybami optiky sú <em>vinetácia</em> (tmavšie rohy) a <em>chromatická aberácia</em> (spôsobená rozdielnym indexom lomu pre rôzne farby, na fotografii sa prejavuje farebnými okrajmi objektu). Obe sa dajú odstrániť pomocou softvéru bez viditeľnej degradácie obrazu.</p>
+
+<h3>Snímač</h3>
+
+<p>Obraz je zvyčajne snímaný CMOS, alebo CCD snímačom. Oba typy využívajú fotoelektrický jav, pri ktorom fotón pri náraze do atómu vyrazí elektrón. Na vyrazenie elektrónu stačí jediný fotón. Snímače sú prekvapivo citlivé a pri dobrom chladení sú schopné registrovať aj jednotlivé fotóny. Čím viacej fotónov dopadne na snímač, tým vznikne väčší elektrický náboj. Kapacita snímača je obmedzená, takže náboj pri expozícii najskôr rastie lineárne, ale na hornej hranici sa rast spomaľuje, až dosiahne saturáciu.</p>
+
+<p>Aby bol obraz farebný býva pred snímačom umiestnený farebný filter. Rozmiestnenie farebných plôch nie je typická obdĺžniková RGB mriežka, ako ju poznáme z obrazoviek. Namiesto nej sa používa <em>Bayerov vzor</em>. Štvorica pixelov má vždy zelené pixely usporiadané diagonálne, čo nám dáva 2 možnosti usporiadania. Zvyšné 2 pozície majú červené a zelené pixely, čo nám dokopy dáva 4 možnosti usporiadania (<code>GRBG</code>, <code>GBRG</code>, <code>RGGB</code> a <code>BGGR</code>).</p>
+
+<figure>
+	<a href="img/bayer.png"><img src="img/bayer.png" alt="Bayerov vzor" /></a>
+	<figcaption>Obrázok <counter></counter>: Bayerov vzor</figcaption>
+</figure>
+
+<p>Nazbieraný náboj sa následne prevedie z analógovej hodnoty na digitálnu. Signál sa najskôr zosilní (čím vyššie ISO, tým vyššie zosilnenie a tým vyšší šum) a následne sa preženie A/D prevodníkom. Výsledné hodnoty sú v určitom rozsahu, napríklad 0-1023. Snímač môže mať nulovú hodnotu vychýlenú (napr. 16), aby sa orezala začiatočná nelineárna časť. Tak isto môže byť hodnota blížiaca sa k hornej hranici nepoužiteľná v dôsledku nelineárneho priebehu.</p>
+
+<h2>Od RAW k JPEG</h2>
+
+<p>Spracovanie RAW obvykle v telefóne obvykle začína prevodom hodnôt pixelov na lineárne, začínajúce v nule. Ak je prevodník lineárny, postačuje odrátať hodnotu čiernej (pre vychýlený snímač).</p>
+
+<p>Následne sa aplikuje korekcia <em>vinetácie</em>. Tu sa zvyčajne hodnoty pixelov vynásobia faktorom, ktorý závisí od pozície pixelu. Čím je pixel ďalej od stredu, tým býva faktor vyšší.</p>
+
+<p>Úroveň červených, zelených a modrých pixelov sa násobí ďalším faktorom, pretože farebné spektrum sa zásadne mení podľa druhu osvetlenia. Svetlo pri východe / západe slnka obsahuje napríklad omnoho menej modrej zložky než cez poludnie. Táto transformácia sa volá <em>vyváženie bielej</em>.</p>
+
+<p>Nasleduje prevod z <em>Bayerovho vzoru</em> na <code>RGB</code> hodnoty napríklad pomocou algoritmu PPG<foot-note><a href="https://web.archive.org/web/20160923211135/https://sites.google.com/site/chklin/demosaic/">Pixel Grouping</a></foot-note>. Z obrázku vzoru si môžme všimnúť, že na plnú farebnú informáciu potrebujeme hodnoty zo 4 susedných pixelov. V skutočnosti sa všetky 4 pixely používajú na výpočet jasu, ale farebný odtieň má nižšie rozlíšenie. Na prvý pohľad to vyzerá ako limitácia, alebo klamanie zákazníka, pretože odtieň má nižšie rozlíšenie, ale ľudský zrak má tak isto nižšie rozlíšenie pre hodnotu farby. Výstup do JPEGu je často tiež vo farebnom priestore <code>YUV420</code>, ktorý má štvrtinové rozlíšenie farby.</p>
+
+<p>Spracovanie pokračuje voliteľnými krokmi, ako je doostrenie, odstránenie šumu, zvýšenie kontrastu farieb, odstránenie chromatickej aberácie atď. Posledným krokom je aplikácia gama krivky a vygenerovanie výstupu (napríklad JPEG). Tieto kroky už bude robiť softvér na vyvolávanie RAW, takže sa nimi v tomto článku nebudem zaoberať.</p>
+
+<h2>Prečo fotografovať do RAW</h2>
+
+<p>Fotografovanie do JPEGu je často postačujúce. Sú však okamihy, ktoré sa neopakujú a je veľmi nepríjemné, keď práve v tom okamihu automatika pokazí záber.</p>
+
+<p>Formát RAW má zvyčajne vyššiu bitovú hĺbku než JPEG. Kým JPEG má 256 úrovní jasu, RAW z môjho mobilu má 1024 úrovní. To umožňuje zo záberu vytiahnuť detaily, ktoré by v JPEGu ani neboli. V nasledujúcom obrázku je ukážka, ako sa zmení atmosféra, ak sa upraví kontrast v určitých oblastiach.</p>
+
+<figure>
+	<a href="img/jpg_raw.jpg"><img src="img/jpg_raw.jpg" alt="Vľavo JPEG, vpravo upravené RAW" /></a>
+	<figcaption>Obrázok <counter></counter>: Vľavo JPEG, vpravo upravené RAW</figcaption>
+</figure>
+<figure>
+	<a href="img/jpg_raw2.jpg"><img src="img/jpg_raw2.jpg" alt="Porovnanie celých obrázkov" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie celých obrázkov</figcaption>
+</figure>
+
+<p>Pri RAWe sa niekedy dajú zachrániť zdanlivé prepaly. Kým JPEG prešiel celým procesom násobenia pri korekcii vyváženia bielej, v RAWe kľudne môže byť zelená plne saturovaná, kým červená / modrá je na 80% maxima. Z RAWu je v takom prípade možné bez problémov korigovať prepal.</p>
+
+<p>Častým neduhom automatiky je zle odhadnuté vyváženie bielej. Je drastický rozdiel vo farebnom spektre poludňajšieho slnka a napríklad žiarovky. V bežnom živote si to moc neuvedomujeme, pretože takéto veci vie mozog automaticky vykompenzovať. Ten, kto niekedy filmoval v manuálnom režime s uzamknutým vyvážením bielej bude vedieť, aký brutálny rozdiel v podaní farieb majú rôzne zdroje svetla. Fotografie urobené vo formáte RAW majú uložené nespracované hodnoty zo snímača, takže úprava výváženia bielej sa dá urobiť jednoducho v softvéri pre úpravu RAW ukázaním na bielu plochu.</p>
+
+<h3>Čo k tomu potrebujeme</h3>
+
+<p>Keďže sa bavíme o Androide, budeme potrebovať Android telefón s podporou Camera 2 API a RAW formátom. To by pre väčšinu mobilov nemal byť problém, aj keď na niektorých je nutné povoliť <code>persist.camera.HAL3.enabled = 1</code> v <code>build.prop</code>. Ja používam napríklad low end Redmi 4A z roku 2016.</p>
+
+<p>Okrem hardvéru budeme potrebovať aj softvér, pretože vstavaný fotoaparát nevie fotografovať do RAW. Ja som si celkom obľúbil <a href="https://f-droid.org/en/packages/net.sourceforge.opencamera/">Open Camera</a>. Pre spracovanie RAWu osobne používam Darktble, skôr zo zvyku, nemám žiaden konkrétny dôvod, prečo som vybral práve Darktable.</p>
+
+<h2>Parametre optiky / senzoru</h2>
+
+<p>Softvér pre vyvolávanie RAW snímkov bežne obsahuje databázu objektívov a snímačov pre bežne používané fotoaparáty. To isté neplatí pre mobilné telefóny. Mňa k hľadaniu parametrov priviedol fakt, že vyvolané snímky mali hroznú vinetáciu, ružový nádych na okrajoch, zelený v strede a prepaly na oblakoch boli ružové.</p>
+
+<p>Skôr než budeme zisťovať parametre potrebujeme vedieť, aký senzor máme v mobile. Ja mám Xiaomi Redmi 4A. Jednoduché hľadanie na googli mi nedalo odpoveď, takže som siahol po aplikácii na zobrazenie hardvéru. Podľa <a href="https://play.google.com/store/apps/details?id=ru.andr7e.deviceinfohw">Device Info HW</a> mám <code>ov13850_q13v06k</code>. Konfiguráciu kamery, ktorá obsahuje len odkazy na binárky som našiel v <a href="https://github.com/xiaomi-rolex/android_vendor_xiaomi_rolex/blob/d40b6ae83c7b77a7a17487dc59235a3c934a4202/proprietary/vendor/etc/camera/ov13850_q13v06k_chromatix.xml">device tree</a>. Dekompilovať binárku tu vzhľadom na obsah nepomôže, keďže skoro celý súbor sa skladá z parametrov. Zdrojový kód je možné nájsť napríklad <a href="https://github.com/sethsong90/vendor_qcom_new/blob/879eb95b4bd4843e058b5ebae832f60d8afc7d73/vendor/qcom/proprietary/mm-camera/mm-camera2/media-controller/modules/sensors/chromatix/0309/chromatix_ov13850_q13v06k/3A/default_preview/chromatix_ov13850_q13v06k_default_preview_bu64297.h">tu</a>.</p>
+
+<figure>
+	<a href="img/redmi_4a_camera.jpg"><img src="img/redmi_4a_camera.jpg" alt="Fotoaparát na Redmi 4A" /></a>
+	<figcaption>Obrázok <counter></counter>: Fotoaparát na Redmi 4A</figcaption>
+</figure>
+
+<p>Podľa toho, čo som našiel na internete tadiaľ cesta nevedie. Rozhodol som sa teda parametre, ako čierny bod a vinetáciu zmerať sám pomocou nástrojov, ktoré som našiel v zásuvke.</p>
+
+<h2>Meranie parametrov</h2>
+
+<p>Zmerať čierny bod je triviálna úloha. Stačí zakryť objektív, cvaknúť RAW a pomocou softvéru sa pozrieť na priemernú hodnotu.</p>
+
+<p>Vinetácia vzniká kvôli nedostatku optiky. Na okraj snímača tak dopadá menej svetla než na stred. Pozrime sa na modelovú situáciu, v ktorej budeme mať snímač s rozlíšením neuveriteľné 3x3 pixely. Fotografovať budeme jednoliatu bielu plochu osvetlenú rovnomerne intenzitou svetla 100 lx. Napriek jednoliatej bielej ploche dostaneme zo snímača nasledujúcu <em>úroveň osvetlenia</em>:</p>
+
+<pre>
+50   80   50
+80  100   80
+50   80   50
+</pre>
+
+<p>Ak vieme, že sme fotografovali jednoliatu plochu, potom môžme ľahko vyrátať <em>útlm</em> pre každý pixel. Stačí hodnoty pixelov vydeliť maximom (100) a máme pole:</p>
+
+<pre>
+0.5  0.8  0.5
+0.8  1.0  0.8
+0.5  0.8  0.5
+</pre>
+
+<p>Keď vieme, že nameraná hodnota vznikla ako <em>hodnota * útlm</em>, potom vieme, že vynásobením nameranej hodnoty úrovne osvetlenia prevrátenou hodnotou útlmu dostaneme pôvodnú úroveň osvetlenia - <em>pôvodná hodnota = nameraná hodnota * (1 / útlm)</em>. Pole prevrátených hodnôt vyzerá nasledovne:</p>
+
+<pre>
+2.00  1.25  2.00
+1.25  1.00  1.25
+2.00  1.25  2.00
+</pre>
+
+<p>Keď každý prvok poľa nameraných hodnôt vynásobíme týmto poľom dostaneme pôvodné neskreslené hodnoty:</p>
+
+<pre>
+100  100  100
+100  100  100
+100  100  100
+</pre>
+
+<p>Ako to už býva zvykom, ten najväčší problém býva ukrytý v detailoch. V posledných odstavcoch som písal o úrovni osvetlenia. Na jednotkách až tak nezáleží, dôležité je, aby som vedel, že hodnota napríklad 100 je dvojnásobkom 50. To platí len, keď je nameraná hodnota zo snímača <em>lineárne závislá</em> od úrovne osvetlenia. Ideálne by mala byť lineárna, ale istí si nemôžme byť. Takže ako zmerať túto krivku?</p>
+
+<p>V prvom rade budeme potrebovať aplikáciu pre Android, ktorá bude ovládať kameru a prenášať obrázky do počítača. Ďalej budeme potrebovať hardvér, ktorý umožní plynulé <em>lineárne</em> stmievanie a softvér pre kalibráciu (bude riadiť kameru a stmievanie).</p>
+
+<h2>Prenášame fotografie z Androidu</h2>
+
+<p>Nenašiel som žiaden pekný softvér, pre uskutočnenie toho, čo som zamýšľal. Ak poznáte nejakú peknú aplikáciu, tak do komentárov s ňou.</p>
+
+<p>Bez vhodnej aplikácie som sa ocitol pred dilemou, ako a v čom naprogramovať jednoduché ovládanie kamery a prenos. Ovládam dokopy tak 10-15 jazykov, ale obľubujem python, pretože mi umožňuje narýchlo pozliepať jednoduché nástroje, má skvelý shell (ipython), takže môžem aj bez dokumentácie jednoducho systémom pokus-omyl zostaviť čo potrebujem a hlavne <em>nemusím čakať na kompiláciu</em>.</p>
+
+<p>Asi bolo naivné myslieť si, že nainštalujem balík, otvorím <code>adb shell</code> a spustím python. Jednoducho Android má tak sprznený userspace, ako je to len možné. Ani termux ani QPython neboli schodné. Ako jediné schodné riešenie som našiel <a href="https://github.com/kivy/kivy-remote-shell">kivy-remote-shell</a>. Lenže link na binárku nefunguje a ja som aj tak musel nainštalovať celý ten bordel okolo Androidu. No aj tak si hovorím, že za tých 6 hodín sťahovania a hučania chladiča v noci to bude stáť, keď potom budem programovať bez kompilácie. Keby niekto chcel binárku, tak <a href="https://github.com/mireq/android-camera-sensor-calibrate/releases/download/0.1/remoteshell-0.2-armeabi-v7a-debug.apk">tu je môj build</a>.</p>
+
+<p>Takže mám python shell a podľa <a href="https://wiki.python.org/moin/Android">dokumentácie</a> môžem cez PyJNIus volať všetky API Androidu. Uznávam, že možné to je. Dokonca je možné implementovať java interface v pythone. Čo však nie je možné - implementovať abstraktnú  triedu, ktorá je nevyhnutná na získanie záberu z kamery. Oficiálne odporúčanie je implementovať si abstraktné triedy v jave, čo zrušilo celý môj zámer vyhnúť sa kompilácii. Tak som sa nakoniec po dni zabitom slepou uličkou rozhodol použiť Javu.</p>
+
+<p>Kód som vtesnal do <a href="https://github.com/mireq/android-camera-sensor-calibrate/blob/e228ecd6c43c7073eee6f3fa3c1384374d17b6dd/src/sk/linuxos/CameraCalibrate.java">jediného súboru</a>. Viem, že je to proti filozofii Javy, ale mne sa nechcelo babrať s viacerými súbormi pre totálne jednoduchý nástroj. Na githube mám zverejnené <a href="https://github.com/mireq/android-camera-sensor-calibrate/releases/download/0.1/CalibrateCamera.apk">skompilované apk</a>.</p>
+
+<h3>Pár slov ku kompiácii</h3>
+
+<p>Javisti majú v obľube rôzne šialené XML a IDE, ktoré nie sú schopné ani hodinu po štarte schopné skompilovať jednoduchý Hello world. Mňa jednoducho prestalo baviť čakanie a pokúsil som sa všetko skompilovať ručne z konzoly. Tento postup, ktorý tu popisujem nie je oficiálne podporovaný a to, že funguje v čase písania článku neznamená, že bude fungovať o niekoľko dní neskôr.</p>
+
+<p>Na začiatok budeme potrebovať Java JDK. Odporúčam nainštalovať z distribučných zdrojov.</p>
+
+<p>Zo stránky <a href="https://developer.android.com/studio/index.html#downloads">developer.android.com</a> stiahneme "Command line tools only". Archív som u seba rozbalil do adresára <code>/opt/android-sdk/cmdline-tools/latest</code> a celému adresáru som zmenil vlastníka na užívateľa, pod ktorým budem vyvíjať. Pridal som cestu k binárkam do <code>PATH</code>.</p>
+
+<pre class="code-bash">export ANDROID_HOME=/opt/android-sdk
+export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin</pre>
+
+<p>Ďalej je potrebné nainštalovať príslušné SDK a nástroje pre zostavovanie balíkov:</p>
+
+<pre class="code-bash">sdkmanager 'platforms;android-31' 'build-tools;31.0.0' platform-tools</pre>
+
+<p>Doplníme cesty k ďalším nástrojom:</p>
+
+<pre class="code-bash">
+export PATH=$PATH:$ANDROID_HOME/build-tools/31.0.0:$ANDROID_HOME/platform-tools::$ANDROID_HOME/tools
+export ANDROID_PLATFORM=$ANDROID_HOME/platforms/android-31
+</pre>
+
+<p>Skompilovať a nainštalovať aplikáciu je teraz otázkou pár príkazov:</p>
+
+<pre class="code-bash">
+# Kompilácia java kódu
+javac -d build -bootclasspath $ANDROID_PLATFORM/android.jar -classpath src -source 1.7 -target 1.7 src/sk/linuxos/*.java
+
+# Prevod java bytekódu na DEX bytekód
+d8 build/sk/linuxos/*.class --release --output build/dex --no-desugaring
+
+# Zabalenie resorce súborov
+aapt package -f -F build/CalibrateCamera.apkPart -I $ANDROID_PLATFORM/android.jar -M AndroidManifest.xml -S res -v
+
+# Vytvorenie apk súboru
+CLASSPATH=$ANDROID_HOME/tools/lib/* java com.android.sdklib.build.ApkBuilderMain build/CalibrateCamera.apkUnalign -d -f build/dex/classes.dex -v -z build/CalibrateCamera.apkPart
+
+# Zarovnanie nekomprimovaných súborov voči začiatku súboru
+zipalign -f -v 4 build/CalibrateCamera.apkUnalign build/CalibrateCamera.apk
+
+# Inštalácia do zariadenia
+adb install -r build/CalibrateCamera.apk
+</pre>
+
+<p>Pre inštaláciu je potrebné mať zapnutý režim vývojára v Androide, povolenú inštaláciu cez USB a pravdepodobne bude potrebné prvú inštaláciu potvrdiť na mobile. Pri aktualizácii už potvrdenie nie je nutné.</p>
+
+<h3>Použitie aplikácie</h3>
+
+<p>Keďže som lenivý implementovať kontrolu práv, bude aplikácia automaticky predpokladať, že má prístup ku kamere. Pred spustením je nutné zobraziť informácie o aplikácii, prekliknúť sa na povolenia a povoliť prístup ku kamere, inak havaruje.</p>
+
+<figure>
+	<a href="img/cam_cal_settings.png"><img src="img/cam_cal_settings.png" alt="Nastavenie práv" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie práv</figcaption>
+</figure>
+
+<p>Pred spustením odporúčam zapnúť aj režim vývojára a spustiť si logovanie:</p>
+
+<pre class="code-bash">adb logcat sk.linuxos.CameraCalibrate:V *:S AndroidRuntime:E</pre>
+
+<p>Aplikácia prijíma príkazy cez TCP na porte 8421. Aby bol prenos dát čo najrýchlejší odporúčam presmerovať tento port cez USB príkazom:</p>
+
+<pre class="code-bash">adb forward tcp:8421 tcp:8421</pre>
+
+<p>Po spustení aplikácie buď cez ikonku, alebo v konzole príkazom <code>adb shell am start -n sk.linuxos/.CameraCalibrate</code> by sa mal v logu objaviť výpis podobný tomuto:</p>
+
+<pre>
+10-09 17:13:38.656 24197 24197 V sk.linuxos.CameraCalibrate: RAW size: 4208x3120
+10-09 17:13:38.942 24197 24197 V sk.linuxos.CameraCalibrate: Supported ISO: 100-1550
+10-09 17:13:38.942 24197 24197 V sk.linuxos.CameraCalibrate: Supported Exposure: 12367-328094112
+10-09 17:13:39.151 24197 24197 V sk.linuxos.CameraCalibrate: Camera opened
+</pre>
+
+<p>Aj všetko funguje správne, je možné komunikovať s telefónom cez príkazy posielané na port 8421. Takto vyzerá napríklad prečítanie rozsahu hodnoty ISO:</p>
+
+<pre class="code-bash">
+echo "getIsoRange\nquit"|socat -,ignoreeof TCP4:127.0.0.1:8421
+&gt; 100 1550
+</pre>
+
+<h3>Podrobnejšie informácie o fungovaní</h3>
+
+<p>K tejto časti odporúčam otvoriť si <a href="https://github.com/mireq/android-camera-sensor-calibrate/blob/e228ecd6c43c7073eee6f3fa3c1384374d17b6dd/src/sk/linuxos/CameraCalibrate.java">kompletný zdrojový kód</a>.</p>
+
+<p>Mobilné telefóny majú zvyčajne viacej kamier. Ja vyberám konkrétne zadnú kameru, poslednú v zozname kamier (keďže mám len jednu neimplementoval som lepší výber).</p>
+
+<pre class="code-java">
+CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+String[] cameraIdList = cameraManager.getCameraIdList();
+String mainCamera = null;
+CameraCharacteristics mainCameraCharacteristics = null;
+for (String cameraId: cameraIdList) {
+	CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraId);
+	if (characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK) {
+		mainCamera = cameraId;
+		mainCameraCharacteristics = characteristics;
+	}
+}
+</pre>
+
+<p>Sieťová vrstva je totálne odfláknutá a zvládne maximálne 1 klienta. Na to, čo potrebujeme postačujúce.</p>
+
+<p>Implementované sú nasledujúce príkazy:</p>
+
+<dl>
+	<dt>quit</dt>
+	<dd>Ukončenie spojenia</dd>
+	<dt>getResolution</dt>
+	<dd>Vráti rozlíšenie ako 2 čísla oddelené medzerou ukončené novým riadkom</dd>
+	<dt>getBytesPerPixel</dt>
+	<dd>Vráti počet bytov na pixel ukončený novým riadkom</dd>
+	<dt>getIsoRange</dt>
+	<dd>Vráti minimálna a maximálne ISO oddelené medzerou ukončené novým riadkom</dd>
+	<dt>getExposureRange</dt>
+	<dd>Vráti minimálnu a maximálnu dobu expozície oddelenú medzerou ukončené novým riadkom</dd>
+	<dt>getPixelPattern</dt>
+	<dd>Vráti rozloženie pixelov, napr. BGGR ukončené novým riadkom</dd>
+	<dt>setIso hodnota</dt>
+	<dd>Nastavenie ISO</dd>
+	<dt>setExposure hodnota</dt>
+	<dd>Nastavenie expozície</dd>
+	<dt>getRaw [x y w h [počet]]</dt>
+	<dd>Vráti zachytené dáta obrázka, alebo výrezu. Voliteľný parameter počet umožňuje zachytiť sériu (ide o maximálnu rýchlosť snímania, snímanie je omnoho rýchlejšie než postupné volanie getRaw). Vrátené dáta obsahujú najskôr hlavičku s hodnotami v nových riadkoch a nakoniec <code>data počet_bytov</code> nasledované surovými dátami.</dd>
+</dl>
+
+<pre class="code-bash">
+echo "setIso 100\nsetExposure 32809411\ngetRaw 0 0 0 0\nquit"|socat -,ignoreeof TCP4:127.0.0.1:8421
+&gt; color_correction_gains: 1.826987 1.0 1.0 1.555144
+&gt; black_level: 16 16 16 16
+&gt; white_level: 1023
+&gt; data: 0
+</pre>
+
+<h2>Stmievateľný zdroj svetla</h2>
+
+<p>Lineárne stmievanie zdroja svetla nie je tak jednoduché, ako na prvý pohľad vyzerá. Či už chceme stmievať žiarovku, LED, či iný zdroj svetla, v žiadnom prípade zdroj nereaguje na zmenu prúdu, alebo napätia lineárne. Okrem toho ani samotné zdroje, ako napríklad žiarovka nemusia mať stabilné farebné spektrum.</p>
+
+<p>Na začiatku som popisoval optický snímač ako zariadenie, ktoré zbiera elektrický náboj. Principiálne je jedno, či snímač osvetlíme celú dobu slabším svetlom, alebo ho osvetlíme blikajúcim zdrojom svetla s nastaviteľnou dĺžkou doby svietenia.</p>
+
+<p>Ideálnym zdrojom svetla je monochomatická LED dióda. Pozor na biele LED, v drvivej väčšine sú to modré / ultrafialové LED s vrstvou luminoforu. Pre luminofor je typické, že žiari chvíľu po vypnutí zdroja svetla. Odporúčam použiť 525nm zelenú LED (pretože zelené pixely majú väčší zisk, niekedy sú dokonca fyzicky väčšie).</p>
+
+<p>Budeme teda potrebovať:</p>
+
+<ul>
+	<li>kus papiera</li>
+	<li>lepiacu pásku</li>
+	<li>zelenú LED</li>
+	<li>mikrokontrolér s PWM</li>
+	<li>štipec</li>
+</ul>
+
+<p>Šošovku prelepíme kusom papiera. LED pripojíme k mikrokontroléru a štipcom pripevníme k šošovke.</p>
+
+<p>Ja som použil ako mikrokontrolér ESP32, ktoré sa mi povaľovalo v zásuvke. Samozrejme nebol by problém použiť napríklad STM32, či AVR.</p>
+
+<figure>
+	<a href="img/hw.jpg"><img src="img/hw.jpg" alt="Hardvér" /></a>
+	<figcaption>Obrázok <counter></counter>: Hardvér</figcaption>
+</figure>
+
+<p>Zdrojové kódy pre ESP32 mám <a href="https://github.com/mireq/android-camera-sensor-calibrate/blob/e228ecd6c43c7073eee6f3fa3c1384374d17b6dd/hardware/esp32/main/main.c">zverejnené v repozitári</a>. Hardvér prijíma cez UART nasledujúce príkazy:</p>
+
+<dl>
+	<dt>f hodnota</dt>
+	<dd>Nastavenie frekvencie v HZ</dd>
+	<dt>r hodnota</dt>
+	<dd>Nastavenie rozlíšenia (počtu krokov) PWM v bitoch (<em>počet krokov = 2 <sup>hodnota</sup></em>)</dd>
+	<dt>v hodnota</dt>
+	<dd>Nastavenie dĺžky intervalu zapnutia (ak je rozlíšenie 8, potom minimum je 0 a maximum 255)</dd>
+	<dt>a</dt>
+	<dd>Aplikovať nastavenia</dd>
+</dl>
+
+<h2>Kalibrácia</h2>
+
+<p>Pre kalibráciu som napísal sadu nástrojov <a href="https://github.com/mireq/android-camera-sensor-calibrate/blob/e228ecd6c43c7073eee6f3fa3c1384374d17b6dd/tools/calibreate_tools.py">calibrate_tools.py</a>. Pre spustenie budeme potrebovať numpy, matplotlib a opencv.</p>
+
+<p>Pomoc sa zobrazí volaním <code>python calibrate_tools.py --help</code>.</p>
+
+<pre>
+Calibrate tools
+
+positional arguments:
+  {get_resolution,get_bytes_per_pixel,get_iso_range,get_exposure_range,get_pixel_pattern,show,measure,measure_frequency_response,show_frequency_response,measure_gamma,show_gamma_response,create_gamma_curve,write_camera_info,generate_dark_frame,save_raw,write_vignette}
+                        Command
+    get_resolution      Get resolution
+    get_bytes_per_pixel
+                        Get bytes per pixel
+    get_iso_range       Get iso range
+    get_exposure_range  Get exposure range
+    get_pixel_pattern   Get pixel pattern
+    show                Show image
+    measure             Measure single frame
+    measure_frequency_response
+                        Measure frequency response
+    show_frequency_response
+                        Show frequency response
+    measure_gamma       Measure gamma
+    show_gamma_response
+                        Show frequency response
+    create_gamma_curve  Create gamma curve
+    write_camera_info   Camera info
+    generate_dark_frame
+                        Generate dark frame
+    save_raw            Save raw
+    write_vignette      Write vignette map
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --port PORT           Port
+  --host HOST           Host
+  --tty TTY             TTY
+</pre>
+
+<p>Jednotlivé podprogramy sa spúšťajú príkazom <code>python calibrate_tools.py prikaz parametre</code>. Dodatočné parametre sa dajú zobraziť príkazom <code>python calibrate_tools.py prikaz --help</code>.</p>
+
+<pre>
+python calibrate_tools.py measure --help
+usage: calibreate_tools.py measure [-h] [--iso ISO] [--exposure EXPOSURE] [--size SIZE] [--color {R,G,B}] [--show]
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --iso ISO            ISO
+  --exposure EXPOSURE  Exposure time
+  --size SIZE          Capture area size
+  --color {R,G,B}      Color component
+  --show               Show image
+</pre>
+
+<p>Najskôr uložíme informácie o kamere príkazom <code>python calibrate_tools.py write_camera_info camera.json</code>. Výstup <code>camera.json</code> z môjho telefónu vyzerá nasledovne:</p>
+
+<pre class="code-js">
+{
+	"resolution": [
+		4208,
+		3120
+	],
+	"iso_range": [
+		100,
+		1550
+	],
+	"exposure_range": [
+		1.2367e-05,
+		0.328094112
+	],
+	"bytes_per_pixel": 2,
+	"pixel_pattern": "BGGR",
+	"black_level": [
+		16,
+		16,
+		16,
+		16
+	],
+	"white_level": 1023
+}
+</pre>
+
+<p>Väčšina meraní má voliteľný parameter <code>--size</code>, ktorý určuje, aká veľká plocha senzoru sa použije na meranie. Štandardne sa používa oblasť o veľkosti 100x100 pixelov. Mala by byť dosť malá, aby sa na nej ešte neprejavovala vinetácia, ale dosť veľká, aby sa dalo spriemerovať väčšie množstvo pixelov.</p>
+
+<h3>Určenie doby expozície</h3>
+
+<p>Teraz je pre nás zaujímavá hlavne hodnota bielej (1023) a rozsah doby expozície. Teraz nastavíme PWM na maximálny jas zápisom nasledujúcich príkazov na UART mikrokontroléru:</p>
+
+<pre>
+r 8
+f 10000
+v 255
+a
+</pre>
+
+<p>Počas kalibrácie sa doba expozície nastavuje ručne. Nastavená by mala byť tak, aby pri plnom jase dochádzalo k úplnému prepalu (všetky nemŕtve pixely by mali v tomto prípade hodnotu 1023). Na nájdenie vhodnej hodnoty použijeme nástroj measure.</p>
+
+<pre>
+
+python calibrate_tools.py measure --exposure 0.01
+Mean: 270.0773966578716, stdev: 2.4867616235027503
+
+python calibrate_tools.py measure --exposure 0.02
+Mean: 508.9207836456559, stdev: 3.728845256883643
+
+python calibrate_tools.py measure --exposure 0.04
+Mean: 975.359126984127, stdev: 4.529225645971837
+
+python calibrate_tools.py measure --exposure 0.05
+Mean: 1022.6521264994548, stdev: 0.4762956310566431
+
+python calibrate_tools.py measure --exposure 0.06
+Mean: 1022.6497597437267, stdev: 0.4770450913267325</pre>
+
+<p>Nad hodnotou 0.05 už nestúpa nameraná hodnota. V tomto prípade vyzerá ako ideálna hodnota 0.05 s. Od teraz budeme pri kalibračných utilitách používať vybranú expozičnú dobu (<code>--exposure 0.05</code>).</p>
+
+<h3>Určenie frekvencie PWM modulácie</h3>
+
+<p>Frekvencia PWM modulácie by mala byť dostatočne vysoká, aby sa nedochádzalo k nerovnomernému osvetleniu po sebe idúcich snímkov, ale zároveň dostatočne nízka na to, aby sa neprejavovalo skreslenie v dôsledku kapacity / indukcie prívodných vodičov.</p>
+
+<p>Vytvoril som jednoduchý nástroj <code>measure_frequency_response</code>, ktorý nastaví jas na 50% a postupne meria výstup snímača pre rôzne frekvencie PWM modulácie.</p>
+
+<figure>
+	<a href="img/frequency_guess.png"><img src="img/frequency_guess.png" alt="Očakávaný výsledok merania" /></a>
+	<figcaption>Obrázok <counter></counter></figcaption>
+</figure>
+
+<p>V nasledujúcom grafe je modrá čiara priemerná hodnota. Tmavo-modrá oblasť tesne okolo čiary je štandardná odchýlka v rámci snímkov (vyráta sa pre každý snímok zvlášť a potom sa z nej vypočíta priemer). Svetlo-modrá oblasť je štandardná odchýlka priemerných hodnôt medzi snímkami na danej frekvencii. Z grafu môžme vidieť, že stabilná hodnota je v oblasti 1000 - 100000 Hz. Volím teda niekde v strede - 39367 Hz (nechcem nikde chytať interferenciu, preto volím prvočíslo).</p>
+
+<figure>
+	<a href="img/frequency.png"><img src="img/frequency.png" alt="Meranie odozvy na frekvenciu" /></a>
+	<figcaption>Obrázok <counter></counter>: Meranie odozvy na frekvenciu</figcaption>
+</figure>
+
+<h3>Určenie odozvy snímača na úroveň osvetlenia</h3>
+
+<p>Meranie odozvy snímača na zmenu osvetlenia spustíme príkazom:</p>
+
+<pre>python calibrate_tools.py measure_gamma --exposure=0.05 --points=2048 --frequency=39367</pre>
+
+<p>Po 20480 snímkoch nám v adresári <code>../output</code> vznikne súbor <code>gamma_iso100_exp5000000.csv</code> s konkrétnou odozvou snímača. Zobraziť výsledok je možné príkazom <code>python calibrate_tools.py show_frequency_response ../output/gamma_iso100_exp5000000.csv</code>.</p>
+
+<figure>
+	<a href="img/response.png"><img src="img/response.png" alt="Odozva snímača na úroveň svetla" /></a>
+	<figcaption>Obrázok <counter></counter>: Odozva snímača na úroveň svetla</figcaption>
+</figure>
+
+<p>Prekvapujúco lineárne až na hodnoty presahujúce 1010. Podľa merania by sa môj problém s ružovými prepalmi dal vyriešiť posunutím bieleho bodu v RAW na 1010. Ešte pre istotu som si cez graf nakreslil lineárnu regresnú krivku (oranžová). Prekrytie s modrou je nečakane presné.</p>
+
+<figure>
+	<a href="img/response_normalized.png"><img src="img/response_normalized.png" alt="Odozva snímača na úroveň svetla a lineárna regresia" /></a>
+	<figcaption>Obrázok <counter></counter>: Odozva snímača na úroveň svetla a lineárna regresia</figcaption>
+</figure>
+
+<p>Korekčnú tabuľku (v tomto prípade nie je ani potrebná) môžme vytvoriť príkazom <code>python calibrate_tools.py create_gamma_curve ../output/gamma_iso100_exp5000000.csv --black_level=16 --white_level=1010</code>. Výsledný súbor <code>../output/gamma_iso100_exp5000000.json</code> stačí potom pridať do <code>camera.json</code>, aby sa použil pri korekcii.</p>
+
+<pre class="code-js">
+{
+	"resolution": [
+		4208,
+		3120
+	],
+	"iso_range": [
+		100,
+		1550
+	],
+	"exposure_range": [
+		1.2367e-05,
+		0.328094112
+	],
+	"bytes_per_pixel": 2,
+	"pixel_pattern": "BGGR",
+	"black_level": [
+		16,
+		16,
+		16,
+		16
+	],
+	"white_level": 1023,
+	"gamma": "../output/gamma_iso100_exp5000000.json",
+	"black_frame": "../output/black_frame.npy",
+	"vignette_map": "../output/vignette_map.npy"
+}
+</pre>
+
+<h3>Korekcia čierneho snímku</h3>
+
+<p>Aj keď na snímač nedopadá svetlo na výstupe nameriame určitý šum. Časť šumu je spôsobená teplom a časť je statický šum v dôsledku nedokonalej výroby zosilňovačov. Pri korekcii čierneho snímku vytvoríme veľké množstvo záberov so zatieneným objektívom. Zábery sa spriemerujú, čím sa zbavíme náhodného tepelného šumu a zostane len dynamický.</p>
+
+<p>Pre vygenerovanie čierneho snímku stačí zakryť objektív a spustiť príkaz:</p>
+
+<pre>python calibrate_tools.py generate_dark_frame --count=100 --exposure=0.05 ../output/black_frame.npy</pre>
+
+<h3>Korekcia vinetácie</h3>
+
+<p>Asi najväčší problém, ktorý mám pri fotografiách z mobilu sú extrémne tmavé rohy. Aby som presne zmeral, aký zlý je tento problém, prelepil som objektív tenkým papierom (ak by niekoho zaujímalo, použil som vyblednutý cestovný lístok, pretože sa mi štruktúra tohto papiera zdala najhomogénnejšia). Objektív som rovnomerne osvetlil a nastavil expozíciu tak, aby maximum bolo tesne pred hodnotou, kde je snímač už nelineárny. V nasledujúcom snímku dávam do pozornosti rozsah hodnôt vpravo. Pritom snímač by mal byť takmer dokonale rovnomerne osvetlený.</p>
+
+<figure>
+	<a href="img/vignette_raw.png"><img src="img/vignette_raw.png" alt="Rovnomerne osvetlený záber" /></a>
+	<figcaption>Obrázok <counter></counter>: "Rovnomerne" osvetlený záber</figcaption>
+</figure>
+
+<p>Korekčná matica je invertovaný normalizovaný biely snímok. Rozlíšenie korekčnej matice je znížené, aby sa redukoval šum. Vytvoriť ho môžme nasledujúcim príkazom:</p>
+
+<pre>python calibrate_tools.py write_vignette ../output/gamma_iso100_exp5000000.json ../output/vignette_map.npy --exposure 0.1</pre>
+
+<figure>
+	<a href="img/vignette_map.png"><img src="img/vignette_map.png" alt="Matica koeficientov, ktorými sa násobia hodnoty pixelov" /></a>
+	<figcaption>Obrázok <counter></counter>: Matica koeficientov, ktorými sa násobia hodnoty pixelov</figcaption>
+</figure>
+
+<h2>Aplikovanie korekcií</h2>
+
+<p>Nenašiel som žiadnu knižnicu na modifikáciu RAW. Našťastie z Androidu lezú .dng súbory bez kompresie. Pri písaní <code>fix_raw.py</code> som sa preto spoliehal na to, že na konci súboru sú surové dáta a ja ich môžem beztrestne nahradiť. Korekcie sa aplikujú príkazom <code>python fix_raw.py camera.json zle.dng opravene.dng</code>.</p>
+
+<figure>
+	<a href="img/kika.jpg"><img src="img/kika.jpg" alt="Hore JPEG, v strede RAW bez korekcií, dole RAW s korekciami" /></a>
+	<figcaption>Obrázok <counter></counter>: Hore JPEG z telefónu, v strede RAW bez korekcií, dole RAW s korekciami</figcaption>
+</figure>
+
+<h2>Záver</h2>
+
+<p>Zábery s aplikovanou korekciou vyzerajú výrazne lepšie než neupravené, či pôvodné JPEGy. Či to stojí za celú námahu? Neviem. Mojim hlavným cieľom bolo naučiť sa niečo nové a to som si splnil.</p>
+
+<p>Korekcia, ktorú som robil je len taký základ. Pokračovať by sme mohli napríklad opravou geometrie šošovky, chromatickou aberáciou, miernou stratou saturácie v rohoch … Nemyslím si, že by tieto zostávajúce nedostatky boli nejak závažné.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
