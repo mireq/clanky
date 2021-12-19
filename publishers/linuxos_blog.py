@@ -93,6 +93,7 @@ class Publisher(BasePublisher):
 				'original_perex_format': 'html',
 				'original_content': 'draft',
 				'original_content_format': 'html',
+				'presentation_image': '',
 				'create': '1',
 				'pub_time': '01.01.2100 00:00:00',
 			}
@@ -101,6 +102,8 @@ class Publisher(BasePublisher):
 			response = self.session.post(create_url, data=form_data)
 			url = urlparse(response.url)
 			path = url.path
+			if path == '/blog/admin/create-post/':
+				raise RuntimeError("Article not created")
 			article_id = re.match(r'^.*/([^/]*)/$', path).group(1)
 			self.set_metadata('id', article_id, section=self.server)
 		return article_id
