@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Minirecenzia Thinkpad P14s gen 2 (AMD) pod linuxom</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Minirecenzia Thinkpad P14s gen 2 (AMD) pod linuxom</h1>
+
+	<p>Už nejaký ten mesiac mám nový Thinkpad. Rozhodol som sa podeliť o svoje skúsenosti s týmto notebook pod Linuxom. Dopredu upozorňujem, že recenzie sú vždy subjektívne a ja sa nebudem absolútne tváriť objektívne. Jednoducho sú veci, ktoré sú pre mňa u notebooku dôležité a sú naopak veci, ktoré dôležité pre mňa nie sú, preto budem možno prikladať veľkú váhu niečomu, nad čím by iný mávol rukou, alebo naopak zanedbám niečo, čo je pre niekoho iného dôležité.</p>
+</header>
+
+<figure>
+	<a href="img/thinkpad_p14s_gen2.jpg"><img src="img/thinkpad_p14s_gen2.jpg" alt="Thinkpad P14s gen 2" /></a>
+	<figcaption>Obrázok <counter></counter>: Thinkpad P14s gen 2</figcaption>
+</figure>
+
+<h2>Parametre</h2>
+
+<p>Presný model, ktorý mám je 21A00003CK. Ide o model vybavený procesorom AMD Ryzen 7 PRO 5850U s 32 GB RAM a 14" LCD s rozlíšením 3840x2160px.</p>
+
+<figure><a href="img/ryzen.jpg"><img src="img/ryzen.jpg" alt="Ryzen" /></a></figure>
+
+<h2>Celkový dojem a používanie</h2>
+
+<p>Notebook je klasický thinkpad. Nie je to dizajnovo najkrajší notebook na trhu, ale thinkpady boli vždy považované za pracovné nástroje (trápi niekoho dizajn kladiva?). Telo je plastové, nepôsobí prémiovo, ale osobne dávam prednosť plastu pred hliníkom.</p>
+
+<p>Plastové časti sú pomerne mäkké, bez extra výstuží. Pri thinkpade by som bol ochotný tolerovať hrubšie, ťažšie telo výmenou za lepšiu ochranu vnútorností. Aby som vysvetlil, aký zlý je tento problém popíšem určitú hypotetickú situáciu, ktorá určite, ale určite nenastane. Tá situácia znie: otvorím notebook potiahnutím LCD za okraj, namiesto stredu. Viem, je to ťažko predstaviteľné, ale občas otváram notebook tak, že podržím spodnú časť v strede a otváram LCD naľavo. Po otvorení je čierna farba naľavo o niečo svetlejšia, pretože pri otvorení sa trochu ohol LCD panel a plastové časti zostali vlastným trením v mierne ohnutom stave. V podstate stačí trochu ťuknúť do ľavého okraja a čierna bude opäť rovnomerná.</p>
+
+<p>Inak sa notebook používa veľmi príjemne. Procesor AMD Ryzen 7 PRO 5850U je veľmi výkonný a má nízku spotrebu. Chladenie počujem len výnimočne (mám Gentoo a chladič sa niekedy pri kratšej kompilácii ani neroztočí). Za bežných okolností je chladenie veľmi tiché, aj keď pri odpojení riadenia otáčok kľudne prekoná aj vysávač (zatiaľ som to počul len 2x a vždy len pri aktualizácii BIOSu).</p>
+
+<p>Keď sme pri BIOSe / UEFI … ten je hrozný. Je pomalý, niektoré voľby nefungujú (napríklad deaktivácia zariadenia znamená len uloženie príznaku, ktorý si má OS prečítať a podľa toho neinicializovať zariadenie).</p>
+
+<h2>Display</h2>
+
+<p>Pri výbere displaya som sa rozhodoval hlavne podľa jasu a gamutu. Podsvietenie 500cd/m² a gamut 100% DCI-P3 mal len UHD panel (3840x2160). Použitie UHD na 14" som považoval za zbytočnosť, ale keďže nebola iná voľba, akceptoval som aj UHD.</p>
+
+<p>Prvý týždeň som pracoval s full HD rozlíšením a so zapnutým škálovaním (príkaz <code>xrandr --output eDP --scale 0.5x0.5 --filter nearest</code>), pretože sa mi nechcelo nastavovať prostredie na použitie s vyšším DPI. Nakoniec som vyskúšal aj natívne rozlíšenie a musím uznať, že malé fonty, ktoré zvyknem používať sú v UHD rozlíšení sú výrazne lepšie čitateľné. Nakoniec som spokojný, že som si nevybral „len“ full HD panel.</p>
+
+<p>Thinkpady (aspoň od prebratia spoločnosťou Lenovo) sú známe LCD panelmi mizernej kvality. Tento model je však výnimkou. Panel je vážne vynikajúci. Kontrast je dobrý (ok, OLED to nie je, ale v rámci LCD patrí k tomu najlepšiemu na trhu). Podsvietenie konečne nebliká príšenými 100Hz, ale PWM je na frekvencii cez 10 kHz. Oproti mojej starej T420 má podsvietenie teplejšiu farbu. Celkovo sa na display pozerá veľmi príjemne, či je deň, alebo noc.</p>
+
+<p>Display je kalibrovaný, čo ocenia hlavne ľudia pracujúci s digitálnou fotografiou, videom, alebo grafikou. Farby sú vážne výborné. Vážne. Pri prvom zapnutí som premýšľal, či som už niekedy videl tak sýte farby.</p>
+
+<p>Okrem toho je panel 30-bitový (10 bitov na farbu) a podporuje HDR. Maximálna obnovovacia frekvencia je 60Hz. Podporuje aj funkciu <em>Panel Self Refresh</em>, ktorá umožňuje vypnúť generovanie video výstup GPU, kým display zobrazuje statický obsah.</p>
+
+<figure><a href="img/calibrated.jpg"><img src="img/calibrated.jpg" alt="Kalibrovaný LCD" /></a></figure>
+
+<figure>
+	<a href="img/lcd.jpg"><img src="img/lcd_thumb.jpg" alt="Porovnanie s T420 (vľavo)" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie s T420 (vľavo)</figcaption>
+</figure>
+
+<h2>Klávesnica</h2>
+
+<p>Nemám rád nové rozloženie klávesnice. Na druhej strane dojem z písania na klávesnici je vynikajúci. Klávesy sú skvele tvarované, odozva na stlačenie je vynikajúca. Vlastne prvý deň som pracoval 12 hodín len preto, že sa mi páčil pocit pri písaní na klávesnici. Ako celok je môj dojem zmiešaný. Na jednej strane je tu layout, ktorý nemám až tak rád, pretože často píšem na externej klávesnici so štandardným rozložením, na druhej strane sa mi veľmi páči, ako príjemne sa na tejto klávesnici píše.</p>
+
+<h2>Touchpad / trackpoint</h2>
+
+<p>Ako používateľ trackpointu nebudem touchpad hodnotiť, pretože nemám s čím porovnávať. Vlastne niečo zhodnotiť môžem. Funguje strašne. Ešte drobnosť - vypnutie v BIOSe nefunguje. Teda funguje niekedy vo windowse, ale v linuxe nikdy, pretože BIOS ukladá len príznak, ale zariadenie stále generuje udalosti.</p>
+
+<p>Obe zariadenia sú pripojené na 2 samostatné zbernice. Prvou je staré PS/2. Ak by niekoho zaujímalo, prečo nie USB HID - PS2 má omnoho nižšiu spotrebu. Pri USB protokole musí master zariadenie neustále kontrolovať, či slave zariadenie nemá niečo nové. Pri PS2 sa používa prerušenie, takže CPU môže po celu dobu spať, kým nedostane požiadavku o na spracovanie udalosti. Maximálna vzorkovacia frekvencia cez PS/2 je 80Hz (dá sa vyskúšať napríklad príkazom <code>evhz</code>). Problém je, že pri priblížení rukou k touchpadu dochádza k odosielaniu udalostí z oboch zariadení súčasne s multiplexom, takže vzorkovacia frekvencia trackpointu pri bežnej práci poklesne pod 40Hz, čo je celkom slušné sekanie.</p>
+
+<p>Na začiatku som písal, že obe zariadenia sú pripojené na 2 zbernice. Tou druhou zbernicou je SMBus. Problém je, že ovládač SMBus zbernice pre nové AMD nefunguje a aj keby fungoval, neimplementuje SMBus host notify protokol. Keby niekoho zaujímali podrobnosti, tak <a href="https://www.abclinuxu.cz/poradna/hardware/show/474570">tu je môj dotaz vo fóre</a> a aktuálne problém riešim s vývojármi jadra a snažím sa získať od AMD dokumentáciu, aby bolo možné ovládač opraviť / doplniť.</p>
+
+<h2>Výkon a spotreba</h2>
+
+<p>Nechcem sa babrať s konkrétnymi benchmarkmi, keď sa dajú <a href="https://www.phoronix.com/scan.php?page=article&item=amd-ryzen7pro-5850u&num=1">ľahko nájsť na internete</a>. Pre bežnú prácu je výkonu až až. Nie som človek, ktorý by sa vyžíval v syntetických benchmarkoch, riadil sa spotrebou pri spúšťaní benchmarku atď. Som programátor, mojim pracovným nástrojom je textový editor. Zaujíma ma preto práve spotreba pri bežnom písaní, kedy počítač medzi jednotlivými stlačeniami klávesy nerobí prakticky nič.</p>
+
+<p>Minimálna spotreba, na ktorú som sa dostal pri ničnerobení (so zapnutou wifi a minimálnym jasom) je 3,1 W. Škálovanie frekvencie mám nastavené na <a href="https://www.kernel.org/doc/Documentation/cpu-freq/governors.txt">conservative</a> a ako driver používam <code>amd_pstate</code> (zatiaľ nie je vo vanilla kerneli). Keby niekto chcel skúsiť, upozorňujem, že driver zatiaľ nemá implementované nastavenie registrov po prebudení z hibernácie. Aby škálovanie začalo fungovať aj po prebudení, je potrebné spustiť príkaz <code>wrmsr 0xc00102b1 1</code>, alebo doplniť príslušnú funkciu v kerneli.</p>
+
+<p>Okrem toho mám pri fungovaní na baterku nastavené šetrenie pri prekresľovaní panelu a to znížením obnovovacej frekvencie na 30Hz a zapnutím funkcie <em>Panel Self Refresh</em>, kedy sa pri statickom obraze zastaví odosielanie obrazu do panelu. Používam nasledujúce príkazy:</p>
+
+<pre class="code-bash">
+$ xrandr --newmode "3840x2160_30.00" 338.75  3840 4080 4488 5136  2160 2163 2168 2200 -hsync +vsync
+$ xrandr --addmode eDP "3840x2160_30.00"
+$ xrandr -r 30 # obnovovacia frekvencia 30 Hz
+# echo -1 &gt;  /sys/module/drm/parameters/vblankoffdelay # zapnutie panel self refresh
+</pre>
+
+<p>Teoreticky by sa mala dať spotreba výrazne znížiť s podporou <em>S0iX</em>, ale mám taký pocit, že podpora v Linuxe ešte nie je poriadne implementovaná ani pre Intel. Spotreba SoC CPU pri nečinnosti je 1.4 W. Ťažko povedať, o koľko by sa dala znížiť pri použití <em>S0i1</em>.</p>
+
+<figure>
+	<a href="img/powertop.png"><img src="img/powertop.png" alt="Powertop" /></a>
+	<figcaption>Obrázok <counter></counter>: Powertop</figcaption>
+</figure>
+
+<figure>
+	<a href="img/ryzen_monitor.png"><img src="img/ryzen_monitor.png" alt="Ryzen monitor" /></a>
+	<figcaption>Obrázok <counter></counter>: Ryzen monitor</figcaption>
+</figure>
+
+<figure>
+	<a href="img/power_usage.png"><img src="img/power_usage.png" alt="Spotreba pri programovaní" /></a>
+	<figcaption>Obrázok <counter></counter>: Spotreba pri programovaní</figcaption>
+</figure>
+
+<h2>Wifi</h2>
+
+<p>Pôvodná wifi karta RTL8852AE bola tak skvelá, že som ju hneď v prvý deň vymenil za Intel AX210 ;-) Ale teraz vážne. Táto wifi má ovládač mimo jadra. Narýchlo som vyskúšal ovládač a fungovala bez väčších problémov. Nerád sa babrem s ovládačmi <a href="https://github.com/lwfinger/rtw89">mimo jadra</a>, preto som ju hneď v prvý deň vymenil za Intel AX210. Prečo nevyužiť možnosť rozobrať úplne nový notebook hneď v prvý deň? ;)</p>
+
+<p>Rýchlosť, dosah a spotreba sú zhruba rovnaké. Pre výmenu je potrebné odmontovať celú spodnú časť notebooku. Odporúčam používať plastový nástroj na rozoberanie elektroniky, inak to skončí polámanými nechtami, ako v mojom prípade.</p>
+
+<figure>
+	<a href="https://www.youtube.com/watch?v=K_lJcciszsw" target="_blank"><img src="//img.youtube.com/vi/K_lJcciszsw/maxresdefault.jpg" alt="Výmena wifi" /></a>
+	<figcaption>Video <counter name="video"></counter>: Výmena wifi</figcaption>
+</figure>
+
+<h2>Porty</h2>
+
+<p>Na pravej strane nájdeme USB A port, čítačku smart card kariet a ethernet. Na ľavej strane sú 2x USB-C konektory, jeden USB A konektor, dokovací konektor, jack (bez S/PDIF) a čítačku mikro SD kariet. Vzadu nájdeme už len slot pre SIM kartu. Všetky USB konektory sú bez podpory thunderboltu (pretože zatiaľ je to intel exkluzivita). Oba USB-C majú podporu pre DisplayPort režim.</p>
+
+<p>Nenájdeme tu žiaden samostatný napájací konektor. Ako napájanie je možné použiť ktorýkoľvek z USB-C konektorov.</p>
+
+<h2>Fungovanie pod Linuxom</h2>
+
+<p>Väčšina hardvéru funguje absolútne bez problémov. Pokiaľ viem problematický býva 4G modem, ktorý ja ale nemám, takže ho neviem zhodnotiť.</p>
+
+<p>AMD má celkom dobrú podporu pod Linuxom, aj keď na spotrebe by mohli trochu zapracovať. CPU pracuje korektne okrem problémov s SMBusom, ktorý som naznačil pri touchpade / trackpointe. GPU AMD Radeon RX Vega 8 funguje dobre. Za bežných okolností by som možno napísal, že výkon je skvelý, ale mám 4K display, nejaké to náročnejšie hranie sa so shadermi pri natívnom rozlíšení nezvládne, ale inak fajn.</p>
+
+<p>Akcelerácia videa funguje bez problémov, enkódovanie videa tak isto (aj keď YUV444 z open source ovládačov nevymačkám). Pre podporu OpenCL je potrebné použiť binárne ovládače, to isté platí aj pre väčšiu podporu formátov enkódovaného videa. Open source GPU ovládače majú mimochodom výrazne vyšší výkon než binárne, takže ak chcete podporu OpenCL, odporúčam nainštalovať len túto časť a GPU ovládač nechať open source.</p>
+
+<p>Čítačka smart card funguje normálne s pcscd (pár krát som sa cez ňu už prihlasoval na slovensko.sk), čítačka odtlačkov prstov funguje tiež bez problémov.</p>
+
+<p>Podpora vysokého DPI na Linuxe nie je úplne dokonalá, ale v zásade mám taký pocit, že je tu menej problémov než na Windowse, kde každá druhá aplikácia má rozmazané GUI. Mimochodom display má rozlíšenie 315 PPI, takže pixely by mali byť po zaokrúhlení 9x väčšie než na bežnom displayi (3x3).</p>
+
+<p>Kamera funguje, infra kamera funguje, obraz je v porovnaní s mobilom hrozný. V podstate ku kamere som sa nevyjadroval, pretože na konferencie používam kameru z mobilu. Mimochodom obe kamery majú mechanické uzatváranie, takže nie je potrebné používať nejaké nálepky. Mikrofón funguje, kvalitu som neskúmal. Reproduktory sú výrazne lepšie než pri T420 a sú umiestnené nad klávesnicou.</p>
+
+<h2>Pár poznámok od večne nespokojného používateľa</h2>
+
+<p>Notebook ako celok hodnotím príjemne. No sú veci, ktoré by som na mieste výrobcu asi urobil inak.</p>
+
+<p>Asi najviac ma trápi napájanie, ktoré je riešené, ako u väčšiny nových notebookov - teda cez USB-C. Nehovorím, že USB-C má slabú životnosť pri bežnom používaní, ale u starého notebooku sa mi pár krát stalo, že som zakopol o kábel a v podstate sa nestalo nič vážne, len som kábel vytiahol z konektoru. Okrem toho konektor bol zozadu, takže riziko bolo minimálne. Tu by podobný incident zrejme skončil zničením konektoru. Staršie thinkpady mali napájanie na samostatnej malej doske, ktorá sa dala kúpiť za pár drobných a výmena zabrala pár minút. Nové notebooky od Apple rátali s prípadným zničením USB-C a preto majú konektory na samostatnej doske, ktorá sa dá pomerne ľahko vymeniť. Tu sa však Lenovo vydalo horšou cestou než Apple a USB-C konektory sú priamo na matičnej doske. Ich poškodenie znamená veľmi náročnú a nebezpečnú opravu.</p>
+
+<p>Ďalšia drobnosť, ktorá ma irituje je absencia konektorov. Pamätám si časy, keď som sa smial z Apple užívateľov, keď všade nosili rôzne redukcie. Moja situácia teraz? Aktuálne si tak chodím na bežeckom páse, notebook mám položený vedľa, pred sebou monitor, ktorý má len VGA. Samozrejme musel som kúpiť dokovaciu stanicu s VGA (alebo USB-C - VGA).</p>
+
+<p>Na VGA som kúpil <em>Vention USB-C to HDMI/VGA/USB 3.0/PD</em>. Čítal som síce o nejakých problémoch s EDID a môj monitor permanentne zasiela EDID so zlým kontrolným súčtom, takže ma vôbec neprekvapilo, že mi hlási zlé rozlíšenie. Okrem štandardných režimov v EDIDe pribudol doplňujúci blok s fallback režimom, ktorý môj monitor nepodporuje. Nakoniec som si napísal udev pravidlo:</p>
+
+<pre># /etc/udev/rules.d/98-monitor-hotplug.rules
+KERNEL=="card0", SUBSYSTEM=="drm", ACTION=="change", RUN+="/bin/bash /etc/acpi/actions/monitor_plug.sh"</pre>
+
+<p>Skript, ktorý nahradí EDID je pomerne jednoduchý:</p>
+
+<pre class="code-bash">
+#!/bin/bash
+
+CARD=/sys/devices/pci0000:00/0000:00:08.1/0000:07:00.0/drm/card0/
+DISPLAYS=`find "$CARD" -mindepth 1 -maxdepth 1 -type d -name "card0-*" -exec bash -c "basename {}|cut -d '-' -f 2-" \;`
+
+for disp in $DISPLAYS; do
+	if cat $CARD/card0-$disp/edid|cmp -s /etc/acpi/actions/1280x1024_bad.edid; then
+		echo "Fixing edid for $disp"
+		cat /etc/acpi/actions/1280x1024.edid &gt; /sys/kernel/debug/dri/0/$disp/edid_override;
+	fi
+done
+</pre>
+
+<p>Dobre, uznávam, možno by som na moderný notebook nenamontoval VGA, ale čo ma viac mrzí je absencia DisplayPort-u. Na pracovnom stole mám totiž monitor, kde mám HDMI obsadené Xboxom a nechcem neustále prepájať káble, takže som musel nájsť dokovaciu stanicu s DisplayPortom a 65W USB PD. Jednoduché? Ani nie, pretože väčšina dokovacích staníc s DisplayPortom využíva thunderbolt rozhranie, takže výber bol minimálny. Nakoniec som kúpil stanicu <a href="https://xm.cz/blog/usb-c-adapter-od-xiaomi-4v1/">od Xiaomi</a>. V podstate ide o najblbšie možné riešenie, pretože USB 3 má samostatné vodiče pre USB 2 (stačí vyviesť do samostatného konektoru), vodiče pre DP v alternate móde (zase stačí vyviesť a nemal by byť problém), takže väčšina signálov sa nijako neupravuje, len sa vyvedie na správne konektory.</p>
+
+<p>Možno som trochu staromódny, ale mám rád notebooky s rôznymi stavovými LED. Podľa možnosti chcem vidieť, keď nejaká služba začne zbesilo zapisovať na disk, alebo karta prehliadača na pozadí začne niečo sťahovať. Tu však máme vpredu len 4 LED diódy - power, FN lock, vypnuté reproduktory a vypnutý mikrofón. Všetky LED sú softvérovo ovládateľné a 2 z toho sú mi nanič (power a FnLock), takže ich môžem premapovať na aktivitu wifi a aktivitu disku. Mohol by som, keby FnLock reagoval okamžite, ale zmena stavu LED trvá pri tomto stroji asi 0.3s, čo je príliš dlho. Power však reaguje okamžite, takže nasledujúce skripty spúšťam pred zapnutím a po zapnutí wifi. Počas pripájania sa k prístupovému bodu LED bliká, po pripojení svieti pri prenose dát.</p>
+
+<pre class="code-bash"># pred zapnutím blikanie
+modprobe ledtrig_timer
+echo timer &gt; /sys/class/leds/tpacpi::power/trigger
+
+# po zapnutí aktivita siete
+modprobe ledtrig_netdev
+echo netdev &gt; /sys/class/leds/tpacpi::power/trigger
+echo 1 &gt; /sys/class/leds/tpacpi::power/rx
+echo 1 &gt; /sys/class/leds/tpacpi::power/tx
+echo wlp3s0 &gt; /sys/class/leds/tpacpi\:\:power/device_name
+</pre>
+
+<h2>Bonusové fotorafie matičnej dosky</h2>
+
+<figure>
+	<a href="img/mb.jpg"><img src="img/mb_annotated.jpg" alt="Matičná doska" /></a>
+	<figcaption>Obrázok <counter></counter>: Matičná doska</figcaption>
+</figure>
+
+<figure>
+	<a href="img/usb_c.jpg"><img src="img/usb_c.jpg" alt="Blok USB-C konektorov" /></a>
+	<figcaption>Obrázok <counter></counter>: Blok USB-C konektorov</figcaption>
+</figure>
+
+<p>Väčšina konektorov je schovaná pod masívnym plechom, aby sa znížila pravdepodobnosť poškodenia matičnej dosky pri nešetrnom zaobchádzaní.</p>
+
+<figure>
+	<a href="img/always_on_usb_a.jpg"><img src="img/always_on_usb_a.jpg" alt="Always on USB" /></a>
+	<figcaption>Obrázok <counter></counter>: Always on USB</figcaption>
+</figure>
+
+<p>Always on USB 3.2 je na samostatnej malej doske pripojený flex káblom. Prečo sa takto nedali oddeliť aj USB-C konektory?</p>
+
+<figure>
+	<a href="img/lid_sensor.jpg"><img src="img/lid_sensor.jpg" alt="Senzor zavretého veka" /></a>
+	<figcaption>Obrázok <counter></counter>: Senzor zavretého veka</figcaption>
+</figure>
+
+<figure>
+	<a href="img/mb_2.jpg"><img src="img/mb_2.jpg" alt="Detail matičnej dosky" /></a>
+	<figcaption>Obrázok <counter></counter>: Detail matičnej dosky</figcaption>
+</figure>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
