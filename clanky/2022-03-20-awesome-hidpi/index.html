@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>HiDPI display s ľahkým deskopovým prostredím (awesome)</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>HiDPI display s ľahkým deskopovým prostredím (awesome)</h1>
+
+	<p>V dnešnom článku sa pozrieme, na aké problémy je možné naraziť pri používaní HiDPI displaya s ľahkým desktopovým prostredím a ako sa dá väčšina z nich vyriešiť.</p>
+</header>
+
+<p>Na začiatok predstavím trochu display, ktorý mám. Panel vyrába <em>CSOT</em> (nie tá s jogurtmi, okrem toho píše sa trochu inak). Konkrétne je to panel <a href="https://www.panelook.com/MNE001EA1-4_CSOT_14.0_LCM_overview_51481.html">MNE001EA1-5</a>. Pôvodne som ani nechcel HiDPI display kvôli vysokej spotrebe, ale thinkpady s 10-bitovým panelom, 500 cd/m² svietivosťou a gamutom 100% DCI-P3 mali len UHD panely. Aj v súčasnosti je Lenovo schopné do high end modelov namontovať panel so svietivosťou 250 cd/m² a gamutom 45% NTSC.</p>
+
+<p>Pre lepšiu predstavu pripomínam, že tento display má rozlíšenie 315 PPI. Na bežnom monitore zvyknem používať písmo s výškou 8 pixelov. Ak by som text tejto veľkosti na tomto displayi mal by výšku 174 mm / 2160 * 8 = <strong>0.64 mm</strong>.</p>
+
+<p>Základná otázka znie, funguje HiDPI display v linuxe v pohode? Ani náhodou. Presnejšie povedané v desktopovom prostredí so všetkými aplikáciami z jedného grafického toolkitu to ako-tak funguje. V ľahkom prostredí ani náhodou. Stojí HiDPI display vôbec za námahu? Podľa mňa rozhodne áno!</p>
+
+<figure>
+	<a href="img/hi_lo_dpi.jpg"><img src="img/hi_lo_dpi.jpg" alt="Porovnanie displayov" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie displayov</figcaption>
+</figure>
+
+<p>Text je pri rovnakej veľkosti s vyšším rozlíšením rozhodne čitateľnejší. Nie je to však len o estetike. Môžem bez problémov zmenšiť ovládacie prvky o 30% oproti starému notebooku a vďaka vynikajúcej ostrosti to nezhorší čitateľnosť. V podstate tým získavam 30% priestoru navyše.</p>
+
+<h2>Nastavenie desktopu pre HiDPI</h2>
+
+<p>Ako užívateľ awesome WM som nepotreboval nastaviť nič, aby mi prostredie nabehlo so správnou veľkosťou elementov. To je síce fajn, že sa DPI zistí automaticky z EDID displaya, ale u väčšiny aplikácií to nie je tak jednoduché.</p>
+
+<p>Aplikácie a toolkity najčastejšie načítavajú hodnotu DPI z databázy <code>xrdb</code>. Základná hodnota DPI je <code>96</code>. Pre <code>2x</code> škálovanie (preferujem celočíselné hodnoty, aby zostali ikony aplikácií pekne ostré) zvolím hodnotu <code>192</code>. Zároveň je vhodné nastaviť aj väčší kurzor. Po nastavení DPI a veľkosti kurzora v súbore <code>~/.Xresources</code> a načítaní databázy (<code>xrdb -merge ~/.Xresources</code>) by väčšina novo spustených aplikácií mala fungovať relatívne dobre.</p>
+
+<pre>
+Xcursor.theme: Simple-Black
+Xcursor.size: 48
+Xft.dpi: 192
+</pre>
+
+<h3>GTK3</h3>
+
+<p>Veľkosť textu sa automaticky načítava z <code>xrdb</code>. Zvyšné ovládacie prvky zostávajú malé. Pre mňa síce fajn, pretože neznášam GTK-čkovu rozťahanosť, ale inak je to nesprávne. Riešením je nastavenie premennej prostredia <code>GDK_SCALE=2</code>. Vlastne ani nie … táto premenná síce zväčší všetky prvky, ale zároveň zväčší aj fonty, ktoré už sú automaticky väčšie podľa hodnoty z <code>xrdb</code>. Celkovo sú potom fonty 4x väčšie a ovládacie prvky 2x väčšie. Našťastie je tu <code>GDK_DPI_SCALE=0.5</code>, čo spolu s <code>GDK_SCALE=2</code> dá správnu veľkosť fontov a ovládacích prvkov. Pri takom nastavení nie je možné meniť DPI počas behu aplikácie, preto túto možnosť neodporúčam.</p>
+
+<h3>Qt</h3>
+
+<p>Veľkosť textu je rovnako, ako v prípade GTK načítaná z <code>xrdb</code>. Ovládacie prvky majú niekedy správnu veľkosť, inokedy sú malé. S premennou prostredia <code>QT_AUTO_SCREEN_SCALE_FACTOR=1</code> všetky veľkosti fungujú správne. Presnejšie povedané, nenarazil som na aplikáciu, ktorá by robila problém.</p>
+
+<h3>Firefox / Chrome</h3>
+
+<p>Tu som nezaznamenal žiadne problémy. Aplikácie fungujú korektne a načítajú hodnotu DPI z <code>xrdb</code>.</p>
+
+<h3>Java</h3>
+
+<p>Java nevie načítavať <code>xrdb</code>. Každý toolkit nastavuje veľkosť inak. Napríklad AWT/Swing používa parameter <code>java -Dsun.java2d.uiScale=2</code>, zatiaľ čo JavaFX sa musí volať s <code>java -Dglass.gtk.uiScale=2.0</code>. Nastavenie cez parametre prostredia nefunguje. Zábavné to začne byť až u aplikácií, ktoré majú nejaký spúšťací shell skript (čo je asi väčšina). V praxi to znamená, že pre väčšinu aplikácií sa musí upraviť spúšťací skript. Naposledy som takto musel do súboru <a href="https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/RuntimeScripts/Linux/support/launch.sh#L45">launch.sh</a> projektu <a href="https://github.com/NationalSecurityAgency/ghidra">ghidra</a> pridať <code>VMARG_LIST+=" -Dsun.java2d.uiScale=2"</code>.</p>
+
+<h3>Ostatné aplikácie</h3>
+
+<p>Podpora DPI je v aplikáciách, ktoré nepoužívajú GTK/Qt rôzna. Niektoré ako-tak fungujú, iné vôbec. Vždy závisí od konkrétnej aplikácie.</p>
+
+<h2>Pripájame externý monitor s iným DPI</h2>
+
+<p>Rôzne DPI na rôznych monitoroch je v aktuálnom X.org nemožné. Vážne, nefunguje to. Na Linuxe je rozbité aj statické nastavenie DPI. Akákoľvek podpora 2 monitorov s rôznymi DPI je sci-fi.</p>
+
+<p>Jediné, čo môžem odporúčať je nastavenie škálovania cez <code>xrandr</code>. Ak má môj HiDPI display identifikátor <code>eDP</code>, potom stačí tento príkaz pre zníženie rozlíšenia na polovicu:</p>
+
+<pre>xrandr --output eDP --scale 0.5x0.5 --filter nearest</pre>
+
+<p>Teraz už stačí len zmeniť DPI. Problém je, že aplikácie a desktop kontrolujú hodnotu <code>xrdb</code> len pri štarte.</p>
+
+<figure>
+	<a href="img/set_dpi_nefunguje.jpg"><img src="img/set_dpi_nefunguje.jpg" alt="Nastavenie DPI nefunguje" /></a>
+</figure>
+
+<h2>Zmena veľkosti bez reštartu aplikácií</h2>
+
+<p>Notifikovať aplikácie o zmene vlastnosti, akou je napr. DPI má na starosti protokol <a href="https://www.freedesktop.org/wiki/Specifications/XSettingsRegistry/">XSETTINGS</a>. Zvyčajne je implementovaný v desktopovom prostredí, ale neplatí to pre ľahké prostredia. Preto existuje utilitka <a href="https://github.com/derat/xsettingsd">xsettingsd</a>. Aplikácia <code>xsettingsd</code> funguje ako daemon, ktorý po poslaní signálu <code>HUP</code> načíta konfiguráciu a notifikuje aplikácie o zmene vlastnosti.</p>
+
+<p>Hodnota DPI v <code>xsettings</code> je 1024-násobkom želanej hodnoty. Pre nastavenie 192 bude v konfiguračnom <code>~/.xsettings</code> 196608:</p>
+
+<pre>Xft/DPI 196608</pre>
+
+<p>Ak chcem zmeniť hodnotu DPI na <code>96</code>, upravím číslo v <code>~/.xsettingsd</code> na <code>98304</code>, pošlem signál <code>HUP</code> príkazom <code>killall -HUP xsettingsd</code> a väčšina aplikácií zmení veľkosť prvkov. Väčšina, ale nie všetky.</p>
+
+<h3>Awesome</h3>
+
+<p>Najjednoduchším riešením je úprava <code>xrdb</code> databázy a reštart <code>awesome</code>:</p>
+
+<pre class="code-bash">
+echo -e "Xft.dpi: 192\nXcursor.size: 24\n"|xrdb -merge
+echo 'awesome.restart()' | awesome-client
+</pre>
+
+<p>Zmeniť DPI je možné aj bez reštartu. Ja som kvôli tomu exportoval funkciu <a href="https://github.com/mireq/awesome-wm-config/blob/9bdaae21dd143fcb41d90267087e664cbd289767/rc.lua#L1192">change_dpi</a> a volám ju namiesto <code>awesome.restart</code>:</p>
+
+<pre class="code-bash">echo "local beautiful=require('beautiful'); beautiful.change_dpi(96)"|awesome-client</pre>
+
+<p>Problémom je veľkosť kurzora, ktorá sa bez reštartu awesome nedá zmeniť. Musel som kvôli tomu upraviť zdrojové kódy <code>awesome</code>. Výsledkom je <a href="https://github.com/mireq/awesome-wm-config/blob/0050ee71937a9466119e125e0b108f274db69be3/patches/awesome_set_cursor_size.patch">tento patch</a> s funkciou <code>set_cursor_size</code>.</p>
+
+<h3>Kurzory v aplikáciách</h3>
+
+<p>Zmena kurzora sa prejaví až u novo spustených aplikácií. V už bežiacich aplikáciách sa dajú nahradiť bitmapy cez <a href="https://github.com/mireq/awesome-wm-config/blob/0050ee71937a9466119e125e0b108f274db69be3/tools/set_cursor_theme">škaredý hack</a>. Nie je to pekné, niekedy to nefunguje kvôli cache, ale väčšinou to stačí. Téma a veľkosť kurzoru sa mení príkazom <code>$AWESOME_DIR/tools/set_cursor_theme téma veľkosť</code>.</p>
+
+<h3>rxvt-unicode</h3>
+
+<p>Novo naštartované inštancie <code>urxvt</code> akceptujú nastavenia z <code>xrdb</code>, ale už bežiace inštancie nepodporujú zmenu DPI. Jediným použiteľným riešením je odoslanie escape sekvencie pre zmenu fontu každej bežiacej inštancii:</p>
+
+<pre class="code-bash">
+urxvt_font_size=$(echo "scale = 5; ($dpi*8*100/75)/96"|bc)
+find /dev/pts -user $USER -exec bash -c "echo -ne \"\e]710;xft:DejaVu\ Sans\ Mono:style=normal:pixelsize=${urxvt_font_size}\a\" &gt; {}" \;
+</pre>
+
+<h2>Záver</h2>
+
+<p>Výsledkom mojich úprav je možnosť používať HiDPI a zároveň možnosť pripojiť externý monitor a zmeniť DPI bez nutnosti reštartovať prostredie, či aplikácie. Hodnota DPI sa nastavuje podľa monitora s nižším DPI (dá sa to aj opačne, ale sú s tým väčšie problémy pri zapnutom hintingu).</p>
+
+<figure>
+	<a href="https://www.youtube.com/watch?v=GZSCcyE-hAE" target="_blank"><img src="//img.youtube.com/vi/GZSCcyE-hAE/maxresdefault.jpg" alt="Výmena wifi" /></a>
+	<figcaption>Video <counter name="video"></counter>: Zmena DPI bez reštartu prostredia</figcaption>
+</figure>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
