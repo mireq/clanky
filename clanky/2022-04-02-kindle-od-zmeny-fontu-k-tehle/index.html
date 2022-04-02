@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Kindle - od zmeny fontu k tehle</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Kindle - od zmeny fontu k tehle</h1>
+
+	<p>Niekedy jednoducho znejúci nápad vedie k neočakávanej sérii udalostí. Nedávno som sa rozhodol zmeniť font v čítačke amazon kindle paperwhite 2 a skončil som takmer s tehlou. Všetko našťastie dopadlo dobre, ale potrápil som sa pekných pár hodín :)</p>
+</header>
+
+<p>Pohodový víkend si zvyčajne chcem spríjemniť čítaním knihy s mačkou na kolenách. Často moje víkendy končia tak, že si na kindla vôbec nenájdem čas. Minulý víkend bol trochu výnimočný tým, že som s kindlom paradoxne trávil viac času, než by som chcel.</p>
+
+<figure>
+	<a href="img/spolocnost_pri_citani.jpg"><img src="img/spolocnost_pri_citani.jpg" alt="Spoločnosť pri čítaní" /></a>
+	<figcaption>Obrázok <counter></counter>: Spoločnosť pri čítaní</figcaption>
+</figure>
+
+<p>Doteraz som používal firmvér vo verzii 5.9.6, čo je prvá verzia podporujúca vlastné fonty. Na vyššiu verziu som nechcel moc aktualizovať, pretože mám jailbreak a čím je verzia vyššia, tým viacej možností má amazon ako ho odstrániť na diaľku. Takže situácia je taká, že podporu vlastných fontov mám a stačí ich nahrať do pripraveného adresára.</p>
+
+<p>Vyberám si font <a href="https://en.wikipedia.org/wiki/Literata">Literata</a>, pretože sa mi číta lepšie než ktorýkoľvek vstavaný font. Skopírujem do príslušného adresára, zmením font v nastaveniach a funguje to.</p>
+
+<figure>
+	<a href="img/plan.jpg"><img src="img/plan.jpg" alt="Niečo nevychádza podľa plánu" /></a>
+</figure>
+
+<p>Problém nastáva po zatvorení knihy. Čítačka si totiž nepamätá pozíciu v rámci kapitoly a preskočí na začiatok ďalšej kapitoly. Skúšal som aj iné fonty a iné knihy, ale problém nastáva vždy s vlastným fontom. Predpokladám, že je to chyba vo firmvéri a preto sa chystám aktualizovať.</p>
+
+<p>Pre aktualizáciu bez jailbreaku stačí zapnúť wifi a o všetko sa postará firmvér. S jailbreakom je potrebné najskôr zabezpečiť, aby prežil. Na to slúži <a href="https://www.mobileread.com/forums/showpost.php?p=3004892&postcount=1597">JailBreak HotFix</a>. Stačí stiahnuť binárku, skopírovať do kindla a cez menu spustiť upgrade (inštaluje sa tak isto, ako upgrade firmvéru).</p>
+
+<p>Nemôžem si odpustiť kritiku na adresu komunity. Nikdy som nechápal tieto fórumcentrické komunity. Namiesto prehľadne usporiadaných projektov, je to jeden veľký chaos nahádzaný kade-tade vo fóre. Väčšina návodov je typu stiahni toto, pričom link smeruje na jednu tému so zoznamom podprojektov, kde odkaz na projekt vedie späť na stránku, z ktorej som práve prišiel, takže môžem takto maximálne cyklicky klikať. Aspoň odkaz na binárku funguje, ale k zdrojovým kódom, alebo na subfórum projektu sa neviem dostať. Na jednej starne sa komunita sťažuje, že nie je záujem o vývoj, na druhej strane nikto poriadne nezverejňuje zdrojové kódy, takže ani neviem ako by som sa zapojil. Len tak mimochodom, amazon v tomto smere ide príkladom a zdrojové kódy pre čítačky <a href="https://www.amazon.com/gp/help/customer/display.html?nodeId=200203720">zverejňuje</a>.</p>
+
+<p>Takže aby som to zhrnul, najskôr som nainštaloval <a href="https://www.mobileread.com/forums/showpost.php?p=3004892&postcount=1597">JailBreak HotFix</a>, potom som od amazonu stiahol aktuálnu verziu firmvéru, nahral do kindla a spustil s som upgrade z menu. Všetko prebehlo bez problémov. Ďalej som aktualizoval ešte dodatočné balíky, ako menu <a href="https://bitbucket.org/ixtab/kindlelauncher/src/master/">KindleLauncher KUAL</a>, emulátor terminálu a SSH.</p>
+
+<figure>
+	<a href="img/kual.png"><img src="img/kual.png" alt="KUAL menu" /></a>
+	<figcaption>Obrázok <counter></counter>: KUAL menu</figcaption>
+</figure>
+
+<p>Menu KUAL je implementované ako kniha so vstavaným java appletom (tzv. kindlet). Rozšírenia sa zvyčajne spúšťajú cez menu. Ak chcem napríklad spustiť SSH, musím ísť cez menu. Kindle štandardne funguje ako mass storage zariadenie, ale po zapnutí SSH sa zmení na USB sieťovku bez mass storage. Je celkom logické, že SSH nešteartuje automaticky pri boote.</p>
+
+<p>Keď už som si zašpinil ruky, rozhodol som sa rovno urobiť akože registráciu kindla. Nie je to nutné, ale sprístupní to niektoré funnkcie, ako napríklad kolekcie. To je pomerne jednoduché, stačí vytvoriť súbor <code>/var/local/java/prefs/reginfo</code>, zmeniť jeho práva <code>chmod 444 /var/local/java/prefs/reginfo &amp;&amp; chown root:root /var/local/java/prefs/reginfo &amp;&amp; chattr +i /var/local/java/prefs/reginfo</code> a reštartovať. Môj súbor vyzerá takto:</p>
+
+<pre>#Mon Jul 29 22:44:35 GMT+02:00 2019
+givenName=Myorivate
+userId=amzn1.account.HDGD6DJS6SJDhD4DJD8SPNSGC5SF
+deviceName=My private kindle
+userName=My private kindle
+deviceEmailAddress=myprivatekindle@kindle.com</pre>
+
+<p>Tento súbor je OK, ale pôvodne som skopíroval šablónu z fóra bez jedného znaku. Po reštarte mi nenabehlo GUI.</p>
+
+<p>Problém je v tom, že súbor <code>/var/local/java/prefs/reginfo</code> nie je dostupný cez mass storage a do menu sa nedostanem pretože GUI nefunguje. Nemilá situácia, za ktorú si môžem sám. Plynie z toho jedno dôležité ponaučenie - pri experimentovaní je vždy potrebné povoliť SSH pri boote. Teraz už nezostáva iná možnosť než otvoriť kindle a pripojiť sa cez UART prevodník na sériovú konzolu. Alebo žeby nie?</p>
+
+<p>Najskôr som začal hľadať návody na pripojenie UARTu a oprášil som svoj prevodník, ale predtým som dal šancu ešte jednému pokusu. Podarilo sa mi naštartovať integrovaný prehliadač. Vyhľadávacie políčko v prehliadači fungovalo a dal sa v ňom nájsť KUAL dokument. Ťuknem na KUAL a tadaaa, mám menu. Takto sa mi podarilo naštartovať SSH, odstrániť <code>reginfo</code> a zapnúť SSH pri štarte. Druhý pokus o vytvorenie registračného súboru bol takmer úspešný. Takmer …</p>
+
+<p>Po reštarte ma čakalo nepríjemné prekvapenie. Kindle začal neskutočne žrať baterku. Rádovo to bolo 5-10% za hodinu. Podľa <code>htop</code>u je CPU permanentne zaťažený na 100%.</p>
+
+<figure>
+	<a href="img/kindle_htop.png"><img src="img/kindle_htop.png" alt="htop" /></a>
+	<figcaption>Obrázok <counter></counter>: htop</figcaption>
+</figure>
+
+<p>Dôvod prezradí <code>/var/log/messages</code>:</p>
+
+<pre>
+220402:122535 cvm[4569]: E AbstractSyncController:Error:: Dataset uploading fail for empty updates link DeviceSettings
+220402:122535 cvm[4569]: I WhisperSyncV2PaginateServiceImpl:Firing SyncComplete:type=dataset,namespace=Apps_Device_Settings,dataset=DeviceSettings,status=false:
+220402:122535 cvm[4569]: E WhisperSyncV2HttpClient:Error:: Exception while ensuring wifi connection - Could not connect to wireless
+220402:122535 cvm[4569]: E WhisperSyncV2PaginateServiceImpl:failure=GetConnectionFailed:reason=getting connection failed while creating a dataset:
+220402:122536 cvm[4569]: I WhisperSyncV2PaginateServiceImpl:DataSetCommit:namespace=Apps_Device_Settings,dataset=DeviceSettings:
+220402:122536 cvm[4569]: I WhisperSyncV2PaginateServiceImpl:WhisperSyncV2INFO: Module = DataSetSync :Apps:Device:SettingsDeviceSettings
+220402:122536 cvm[4569]: E WhisperSyncV2HttpClient:Error:: Exception while ensuring wifi connection - Could not connect to wireless
+220402:122536 cvm[4569]: E WhisperSyncV2PaginateServiceImpl:failure=GetConnectionFailed:reason=getting connection failed while creating a dataset:
+220402:122536 cvm[4569]: I WhisperSyncV2PaginateServiceImpl:Information::datset changes upload for DataSet - DeviceSettings
+</pre>
+
+<p>Tento výpis sa stále opakuje. Podľa googla je úlohou tejto služby synchronizácia textových kníh s audiobookmi. Nepoužívam to, takže logicky som prehrabal menu a WhisperSync som vypol. To však nemalo žiaden efekt. Amazon evidentne chce vedieť, na ktorej stránke práve som bez ohľadu na to, či mám zapnutú synchronizáciu, alebo nie. Vyhľadávanie problému ma priviedlo len k <a href="https://www.mobileread.com/forums/showthread.php?t=323247">nevyriešenému problému vo fóre</a>.</p>
+
+<figure>
+	<a href="img/whispersync.png"><img src="img/whispersync.png" alt="WhisperSync" /></a>
+	<figcaption>Obrázok <counter></counter>: WhisperSync</figcaption>
+</figure>
+
+<p>Proces <code>cvm</code> je monolit zložený z užívateľského rozhrania a služieb. Celý spustený príkaz vyzerá takto:</p>
+
+<pre>/usr/java/bin/cvm -Xmx25m -XX:MaxNewSize=3m -XX:SurvivorRatio=2 -XX:TargetSurvivorRatio=80 -Xss100k -XX:ReservedCodeCacheSize=2m -XX:CompileThreshold=8000 -XX:CodeCacheMinimumFreeSpace=100k -XX:NmethodSweepFraction=4 -XX:NmethodSweepActivity=3 -XX:NmethodSweepMaxWaitTime=5 -XX:NmethodHotnessCounterResetValue=64 -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -XX:+UseAggressiveHeapShrink -XX:MaxInlineSize=16 -XX:MaxInlineLevel=2 -XX:-InlineSynchronizedMethods -minimal -XX:ThreadPriorityPolicy=1 -Dsun.awt.exception.handler=com.amazon.agui.swing.event.EventQueueExceptionHandler -Xbootclasspath/a:/usr/java/lib/agui.jar:/usr/java/lib/localedata.jar:/usr/java/lib/charsets.jar:/opt/amazon/ebook/lib/concierge-1.0.0.jar:/opt/amazon/ebook/lib/icu4j.jar:/opt/amazon/ebook/lib/utilities.jar:/opt/amazon/ebook/lib/json_simple-1.1.jar::/opt/amazon/ebook/lib/libphonenumber-7.0.jar -Dsun.boot.library.path=/usr/java/lib -cp /opt/amazon/ebook/lib:/opt/amazon/ebook/lib/utilities.jar:/opt/amazon/ebook/lib/Reader-plugin.jar:/opt/amazon/ebook/lib/Xray.jar:/opt/amazon/ebook/lib/AudiblePlatformSdk.jar:/opt/amazon/ebook/lib/displaycontroller-assets.jar:/opt/amazon/ebook/lib/ReaderSDK-impl.jar:/opt/amazon/ebook/lib/commons-logging.jar:/opt/amazon/ebook/lib/AudibleSdk.jar:/opt/amazon/ebook/lib/ReadingTimer.jar:/opt/amazon/ebook/lib/audible_assets.jar:/opt/amazon/ebook/lib/xmlLayout.jar:/opt/amazon/ebook/lib/AutoMarkAsRead.jar:/opt/amazon/ebook/lib/ACXReaderPlugin.jar:/opt/amazon/ebook/lib/Bookwizard-assets.jar:/opt/amazon/ebook/lib/app_utilities.jar:/opt/amazon/ebook/lib/KindleReaderSDK-impl.jar:/opt/amazon/ebook/lib/AddressBookService.jar:/opt/amazon/ebook/lib/TopazReader-impl.jar:/opt/amazon/ebook/lib/KindleReaderSDK.jar:/opt/amazon/ebook/lib/sqlite.jar:/opt/amazon/ebook/lib/EInkKMS.jar:/opt/amazon/ebook/lib/fwacceptance.jar:/opt/amazon/ebook/lib/AdManager.jar:/opt/amazon/ebook/lib/javacollections.jar:/opt/amazon/ebook/lib/KindletImplementation-2.2.jar:/opt/amazon/ebook/lib/systembarresources.jar:/opt/amazon/ebook/lib/RAMP.jar:/opt/amazon/ebook/lib/junit.jar:/opt/amazon/ebook/lib/lucene-analyzers-2.4.1.jar:/opt/amazon/ebook/lib/kafui-resources.jar:/opt/amazon/ebook/lib/portability.jar:/opt/amazon/ebook/lib/MobipocketCoreReader.jar:/opt/amazon/ebook/lib/KWISClientSDK.jar:/opt/amazon/ebook/lib/DeviceControls.jar:/opt/amazon/ebook/lib/kiwi.jar:/opt/amazon/ebook/lib/AudibleReaderPlugin.jar:/opt/amazon/ebook/lib/Reader-utils.jar:/opt/amazon/ebook/lib/HTMLReader-impl.jar:/opt/amazon/ebook/lib/ReadingDataAggregatorService.jar:/opt/amazon/ebook/lib/Mobi-drawing.jar:/opt/amazon/ebook/lib/PDFReader-impl.jar:/opt/amazon/ebook/lib/mobi8.jar:/opt/amazon/ebook/lib/app_utilities-assets.jar:/opt/amazon/ebook/lib/lucene-snowball-2.4.1.jar:/opt/amazon/ebook/lib/ReaderClock.jar:/opt/amazon/ebook/lib/lucene-core-2.4.1.jar:/opt/amazon/ebook/lib/reader-commons.jar:/opt/amazon/ebook/lib/sync-file-api.jar:/opt/amazon/ebook/lib/LanguageLayer.jar:/opt/amazon/ebook/lib/ReadForFreeService.jar:/opt/amazon/ebook/lib/AdRotationManager-impl.jar:/opt/amazon/ebook/lib/translator.jar:/opt/amazon/ebook/lib/WirelessHandler.jar:/opt/amazon/ebook/lib/KindletSystemPlugins-2.2.jar:/opt/amazon/ebook/lib/VocabBuilderSDK.jar:/opt/amazon/ebook/lib/kxml2.jar:/opt/amazon/ebook/lib/ReaderSDK.jar:/opt/amazon/ebook/lib/displaycontroller.jar:/opt/amazon/ebook/lib/jdbm.jar:/opt/amazon/ebook/lib/ReaderSharingService.jar:/opt/amazon/ebook/lib/KindletBookletDRM-2.2.jar:/opt/amazon/ebook/lib/ReadingStreams.jar:/opt/amazon/ebook/lib/MeCab.jar:/opt/amazon/ebook/lib/AuthorProfiles.jar:/opt/amazon/ebook/lib/Reader-assets.jar:/opt/amazon/ebook/lib/kindlePageNumbersDeviceReader.jar:/opt/amazon/ebook/lib/core-1.7.jar:/opt/amazon/ebook/lib/grok_sdk.jar:/opt/amazon/ebook/lib/Kindlet-2.2.jar:/opt/amazon/ebook/lib/ReadForFreeService-impl.jar:/opt/amazon/ebook/lib/MerchantManager.jar:/opt/amazon/ebook/lib/systembar-search-results-resources.jar:/opt/amazon/ebook/lib/BookMentions.jar:/opt/amazon/ebook/lib/kafui.jar:/opt/amazon/ebook/lib/portability-impl.jar:/opt/amazon/ebook/lib/CustomScreensavers.jar:/opt/amazon/ebo</pre>
+
+<p>Java súbory sú podľa príkazu v <code>/opt/amazon</code>. Príkazom <code>grep -r WhisperSyncV2PaginateServiceImpl /opt/amazon/</code> som našiel výskyt v súbore <code>/opt/amazon/ebook/lib/kaf.jar</code>. Súbor som dekompiloval programom <a href="http://java-decompiler.github.io/">jd-gui</a>, aby som zistil, ako službu vyradiť.</p>
+
+<figure>
+	<a href="img/jd_gui.png"><img src="img/jd_gui.png" alt="JD-GUI" /></a>
+	<figcaption>Obrázok <counter></counter>: JD-GUI</figcaption>
+</figure>
+
+<p>Zaujímavý je kód otvorenia databázy:</p>
+
+<pre class="code-java">
+private void cQE() {
+  if (!WhisperSyncV2Store.cQG().cQN()) {
+    LOG.a(lCJ, new String[] { "Pragma integrity check failed" }, null);
+    this.kVc.recordDeviceMetric("WhisperSyncV2Service", "Sanity", "CorruptDB", 1, null, 0, 0);
+    cQD();
+    if (!WhisperSyncV2Store.cQG().dy()) {
+      LOG.sl("Failed to initialise the WhisperSync Store, aborting");
+      this.lEe = true;
+    } else {
+      this.lEe = false;
+    }
+  } else if (WhisperSyncV2Store.cQG().cQO()) {
+    LOG.sl(" DB size over the limit !!");
+    this.kVc.recordDeviceMetric("WhisperSyncV2Service", "Sanity", "DBSizeOverTheLimit", 1, null, 0, 0);
+    this.lEe = true;
+  }
+}
+</pre>
+
+<p>Najskôr sa spúšťa kontrola integrity:</p>
+
+<pre class="code-java">
+public boolean cQN() {
+  LOG.info("Performing Integrity check on the db");
+  Statement statement = this.evf.ana();
+  ResultSet resultSet = statement.executeQuery("PRAGMA integrity_check;");
+  boolean bool = false;
+  if (resultSet != null &amp;&amp; resultSet.getLength() == 1 &amp;&amp; "ok".equals(resultSet.getString(0)))
+    bool = true;
+  statement.close();
+  return bool;
+}
+</pre>
+
+<p>Aby zlyhal tento príkaz, stačí zapísať do databázy neplatné dáta, napr. <code>echo "nodb" &gt; /var/local/wsync.db</code>. Ďalší kód však pri chybnej databáze vymaže databázový súbor a vytvorí nový. Aby sa tak nestalo, musí sa nastaviť atribút súboru immutable. Celá séria príkazov vyzerá takto:</p>
+
+<pre class="code-bash">
+stop framework
+echo "nodb" &gt; /var/local/wsync.db
+chattr +i /var/local/wsync.db
+start framework
+</pre>
+
+<p>Teraz sa už kindle nepokúša kontaktovať servery amazonu. Tým by som mal aktualizáciu a registráciu za sebou. Uploadnem fonty, otvorím knihu, zatvorím knihu a pozícia nesedí. Zisťujem, že tento problém nemám len ja a vyskytuje sa aj v najnovšej verzii. Na tom istom webe čítam, že riešením je nastavenie väčšej hrúbky písma. Zväčším hrúbku z 0 na 1, vyskúšam a funguje. Celý čas som mohol svoj problém vyriešiť nastavením hrúbky.</p>
+
+<h2>Pár slov na záver</h2>
+
+<p>Amazon kindle je po hardvérovej stránke veľmi pekné zariadenie. Softvér je pomerne otvorený, ale prístup k systému je značne obmedzený. Dôvodov tzv. tivoizácie je niekoľko. V prvom rade cena kindla je dotovaná, preto amazon prirodzene chce získať peniaze cez provízie v obchode. Ďalej sú tu užívatelia, ktorí by svojim experimentovaním mohli spôsobiť hard brick a požadovali by reklamáciu. V zásade sa mi tivoizácia nepáči, ale v tomto prípade ju akceptujem.</p>
+
+<p>Z výpisu htop-u vyplýva, že kindle je prakticky normálny linuxový stroj. O zobrazovanie okien sa stará x.org server. Správca okien je <a href="https://awesomewm.org/">awesome wm</a>. Linuxové aplikácie sa dajú normálne skompilovať pre procesor <em>i.MX 6</em> pomocou SDK z webu amazonu.</p>
+
+<p>Za aplikáciu čítačky by som však ruky-nohy dolámal. Je zabugovaná (napr. fonty). Neotvára normálne epub aj keď ich podporuje. Teda vážne, kindle podporuje epub súbory, akurát že s inou hlavičkou a príponou azw3. Ich formát je totiž len prebalený epub.</p>
+
+<p>Najväčším sklamaním je pre mňa typografia. Medzery medzi písmenami sú viac-menej náhodné. Vyriešiť sa to dá použitím alternatívnej čítačky, napr. <a href="https://koreader.rocks/">KOReader</a>.</p>
+
+<figure>
+	<a href="img/kerning_kindle.png"><img src="img/kerning_kindle.png" alt="Kerning v kindle" /></a>
+	<figcaption>Obrázok <counter></counter>: Kerning v kindle</figcaption>
+</figure>
+
+<figure>
+	<a href="img/kerning_koreader.png"><img src="img/kerning_koreader.png" alt="Kerning v KOReader" /></a>
+	<figcaption>Obrázok <counter></counter>: Kerning v KOReader</figcaption>
+</figure>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
