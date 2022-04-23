@@ -81,7 +81,8 @@ $ xrandr -r 30 # obnovovacia frekvencia 30 Hz
 # echo -1 &gt;  /sys/module/drm/parameters/vblankoffdelay # zapnutie panel self refresh
 </pre>
 
-<p>Teoreticky by sa mala dať spotreba výrazne znížiť s podporou <em>S0iX</em>, ale mám taký pocit, že podpora v Linuxe ešte nie je poriadne implementovaná ani pre Intel. Spotreba SoC CPU pri nečinnosti je 1.4 W. Ťažko povedať, o koľko by sa dala znížiť pri použití <em>S0i1</em>.</p>
+<p><del>Teoreticky by sa mala dať spotreba výrazne znížiť s podporou <em>S0iX</em>, ale mám taký pocit, že podpora v Linuxe ešte nie je poriadne implementovaná ani pre Intel. Spotreba SoC CPU pri nečinnosti je 1.4 W. Ťažko povedať, o koľko by sa dala znížiť pri použití <em>S0i1</em>.</del></p>
+<p>AMD procesory nemajú podporu <em>S0i1</em>, iba <em>S0i3</em>, čo je ekvivalent hibernácie.</p>
 
 <figure>
 	<a href="img/powertop.png"><img src="img/powertop.png" alt="Powertop" /></a>
