@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Spotereba laptopu s AMD Ryzen 7 PRO 5850U</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Spotereba laptopu s AMD Ryzen 7 PRO 5850U</h1>
+
+	<p>V dnešnom článku predstavím nástroje, ktoré používam na meranie a nastavenie šetrenia energie. Zároveň porovnám spotrebu svojho notebooku pod Linuxom a Windowsom.</p>
+</header>
+
+<p>Môj testovací notebook je Thinkpad P14s gen 2 (<code>21A00003CK</code>). O samotnom hardvéri som <a href="https://linuxos.sk/blog/mirecove-dristy/detail/minirecenzia-thinkpad-p14s-gen-2-amd-pod-linu/">písal jednom zo starších blogov</a>. V tomto blogu sa pozriem bližšie na spotrebu energie.</p>
+
+<h2>Nastavenie spotreby</h2>
+
+<p>Na tomto notebooku sa dá nastaviť pomerne málo parametrov, pretože BIOS (UEFI) deklaruje, že nepodporuje PCIe ASPM. Teoreticky sa dá kernel nabootovať s parametrom <code>pcie_aspm=force</code>, ale nevidím v tom zmysel, pretože automatické nastavenie BIOSom funguje dobre.</p>
+
+<p>Zvyšné parametre nastavujem pomocou nástroja <a href="https://linrunner.de/tlp/index.html">tlp</a>. Z nastavení tlp odporúčam:</p>
+
+<pre>
+CPU_SCALING_GOVERNOR_ON_AC=schedutil
+CPU_SCALING_GOVERNOR_ON_BAT=conservative
+</pre>
+
+<p>Správa <code>schedutil</code> poskytuje veľmi rýchle zvyšovanie frekvencie pri záťaži. Naopak <code>conservative</code> zvyšuje frekvenciu postupne (presné parametre sa <a href="https://www.kernel.org/doc/html/latest/admin-guide/pm/cpufreq.html?highlight=conservative#conservative">dajú nastaviť cez sysfs</a>.</p>
+
+<pre>
+CPU_BOOST_ON_AC=1
+CPU_BOOST_ON_BAT=0
+</pre>
+
+<p>Boost na maximálnu frekvenciu (v mojom prípade 4.4 GHz) je veľmi neefektívny. Pri práci na batérii je vhodnejšie vypnúť turbo boost.</p>
+
+<pre>
+PLATFORM_PROFILE_ON_AC=performance
+PLATFORM_PROFILE_ON_BAT=low-power
+</pre>
+
+<p>Tento parameter ovplyvňuje nastavenie parametrov podľa ACPI DYTC tabuľky. Momentálne to funguje len na inteloch. Pre AMD existuje (v dobe písania) zatiaľ nezačlenený <a href="https://git.kernel.org/pub/scm/linux/kernel/git/pdx86/platform-drivers-x86.git/commit/?h=review-hans&id=e1c21608e3cfc4b44ecdf04e12986b6564667095">patch</a>. Ja mám opatchovaný kernel a môžem potvrdiť, že v takom prípade pri nastavení <code>low-power</code> sa zníži TDP na 11 W (rovnaká hodnota, akú nastavuje windows v šetriacom režime).</p>
+
+<pre>
+RADEON_DPM_PERF_LEVEL_ON_AC=auto
+RADEON_DPM_PERF_LEVEL_ON_BAT=low
+
+RADEON_DPM_STATE_ON_AC=performance
+RADEON_DPM_STATE_ON_BAT=battery
+
+RADEON_POWER_PROFILE_ON_AC=default
+RADEON_POWER_PROFILE_ON_BAT=low
+</pre>
+
+<p>GPU je veľký žrút, pri práci na batérii rozhodne odporúčam nastaviť šetrenie energie.</p>
+
+<pre>
+WIFI_PWR_ON_AC=off
+WIFI_PWR_ON_BAT=on
+
+WOL_DISABLE=Y
+</pre>
+
+<p>Šetrenie wifi a vypnutie wake on lan je tiež dobrý nápad.</p>
+
+<pre>
+USB_AUTOSUSPEND=1
+</pre>
+
+<p>Pri nečinnosti sa USB zariadenia automaticky prepnú do šetriaceho režimu.</p>
+
+<p>Režim batérie sa spúšťa príkazom <code>tlp bat</code>. Do režimu práce s adaptérom sa systém prepne príkazom <code>tlp ac</code>.</p>
+
+<h3>Display</h3>
+
+<p>Môj notebook má display so 4K rozlíšením a svietivosťou 500 cd/m². Pri maximálnej obnovovacej frekvencii je poriadne pažravý. Obnovovacia frekvencia je v rozmedzí 40-60Hz s adaptívnou synchronizáciu (ak sa nič nevykresľuje, ovládač vie podržať vykreslenie určitú dobu).</p>
+
+<p>Dôležitou vlastnosťou panelu je <em>Panel Self Refresh</em>, čo je režim, ktorý umožňuje úplne vypnúť generovanie obrazu (display si robí refresh sám). Funkcia sa dá zapnúť príkazom <code>echo čas &gt; /sys/module/drm/parameters/vblankoffdelay</code>. Čas, po ktorom sa aktivuje <em>PSR</em> je v milisekundách. Hodnota <code>0</code> vypína <em>PSR</em> úplne. Hodnota <code>-1</code> znamená, že <em>PSR</em> sa zapína okamžite po vykreslení snímku. Pri práci na batérii používam hodnotu <code>-1</code>.</p>
+
+<p>Aby <em>PSR</em> fungovalo, musí byť povolená hodnota <code>TearFree</code> v <code>xorg.conf</code>.</p>
+
+<pre>
+Section "Device"
+    Identifier "AMD"
+    Driver "amdgpu"
+    Option "DRI" "3"
+    Option "TearFree" "true"
+    Option "VariableRefresh" "true"
+EndSection
+</pre>
+
+<p>Obnovovacia frekvencia môjho panelu sa dá ešte znížiť vynútením vlastného <em>modeline</em>. Najskôr je potrebné vypočítať <em>modeline</em> príkazom <code>cvt</code>.</p>
+
+<pre>$ cvt 3840 2160 20
+# 3840x2160 19.98 Hz (CVT) hsync: 43.72 kHz; pclk: 218.25 MHz
+Modeline "3840x2160_20.00"  218.25  3840 4024 4416 4992  2160 2163 2168 2188 -hsync +vsync</pre>
+
+<p>Následne sa nový modeline musí priradiť vybranému výstupu.</p>
+
+<pre>
+xrandr --newmode "3840x2160_20.00" 218.25  3840 4024 4416 4992  2160 2163 2168 2188 -hsync +vsync
+xrandr --addmode eDP "3840x2160_20.00"
+</pre>
+
+<p>Teraz už stačí len nastaviť frekvenciu príkazom <code>xrandr -r 20</code>.</p>
+
+<h2>Meranie spotreby</h2>
+
+<p>Spotrebu zisťujem čítaním <code>/sys/class/power_supply/power_now</code>, kde je aktuálna spotreba (alebo rýchlosť nabíjania) v <em>mW</em>. Dobrým nástrojom je aj <code>powerstat</code> (volám s argumentmi <code>powerstat -d 0 -z 5 100</code>). Notorický známy <code>powertop</code> je fajn na nájdenie procesov, alebo zariadení, ktoré spotrebujú priveľa energie, sám výrazne zvyšuje spotrebu. Pod windowsom som používal <a href="https://www.nirsoft.net/utils/battery_information_view.html">BatteryInfoView</a>.</p>
+
+<figure>
+	<a href="img/powertop.png"><img src="img/powertop.png" alt="Powertop" /></a>
+	<figcaption>Obrázok <counter></counter>: Powertop</figcaption>
+</figure>
+
+<h2>Výsledky</h2>
+
+<p>Bežná spotreba počas práce pri 5% jase (upozorňujem, že mám veľmi svetlý LCD, takže v interiéri používam nízky jas aj s pripojeným adaptérom) je 3 W. Pri 51 Wh batérii to znamená 17 hodín práce na 1 nabitie.</p>
+
+<p>Na nasledujúcom grafe je zaznamenaná spotreba počas programovania. Spotrebu zaznamenáva <a href="https://github.com/mireq/awesome-wm-config/blob/cf44318bdc249f0d24a67beef2a5d803c3ea3900/rc.lua#L383">priamo grafické prostredie</a>. Graf je renderovaný nástrojom <a href="https://github.com/mireq/awesome-wm-config/blob/cf44318bdc249f0d24a67beef2a5d803c3ea3900/tools/battery_history">battery_history</a>. Horný graf zobrazuje aktuálnu spotrebu. Na strednom je zostávajúca kapacita a napätie batérie. V spodnom pásiku je aktivita všetkých 16 jadier CPU (čierna - neaktívny, oranžová - 100% záťaž).</p>
+
+<figure>
+	<a href="img/battery.png"><img src="img/battery.png" alt="Powertop" /></a>
+	<figcaption>Obrázok <counter></counter>: Spotreba pri práci</figcaption>
+</figure>
+
+<h3>Porovnanie s windowsom</h3>
+
+<p>V tejto tabuľke budem porovnávať len spotrebu bez záťaže. Predpokladám, že nikto nebude kompilovať veľký softvér na notebooku bez AC, takže notebook bude väčšinu času len čakať na stláčanie kláves.</p>
+
+<p>Každý riadok tabuľky zahŕňa aj predchádzajúce optimalizácie z vyšších riadkov.</p>
+
+<p>Všetky linuxové hodnoty sú po ustálení (niekoľko minút po zmene nastavení). Spotreba na linuxe je konštantná na 3 desatinné miesta. Ako spotrebu pod Windowsom beriem do úvahy najnižšiu nameranú hodnotu, pretože tam spotreba každú chvíľu bezdôvodne vyskakuje vyššie.</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>&nbsp;</th>
+			<th>Linux</th>
+			<th>Windows</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td><strong>Bez zabitia procesov na pozadí</strong></th>
+			<td>-</td>
+			<td>14,7 W</td>
+		</tr>
+		<tr>
+			<td><strong>Max výkon, max jas</strong></td>
+			<td>7,333 W</td>
+			<td>9,277 W</td>
+		</tr>
+		<tr>
+			<td><strong>Max výkon, min jas, vypnuté PSR</strong></td>
+			<td>3,824 W</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td><strong>Max výkon, min jas, zapnuté PSR</strong></td>
+			<td>3,209 W</td>
+			<td>3,856 W</td>
+		</tr>
+		<tr>
+			<td><strong>Znížená obnovovacia frekvencia LCD na 20 Hz</strong></td>
+			<td>3,074 W</td>
+			<td>-</td>
+		</tr>
+		<tr>
+			<td><strong>Zapnuté šetrenie energie</strong></td>
+			<td>2,575 W</td>
+			<td>2,503 W</td>
+		</tr>
+		<tr>
+			<td><strong>Vypnuté wifi</strong></td>
+			<td>2,542 W</td>
+			<td>2,492 W</td>
+		</tr>
+		<tr>
+			<td><strong>Vypnutý display</strong></td>
+			<td>1,721 W</td>
+			<td>1,941 W</td>
+		</tr>
+	</tbody>
+</table>
+
+<p>Spotreba pri vypnutom LCD je pod linuxom výrazne nižšia. Predpokladám, že to môže byť spôsobené vláknom kernelu <code>dm_vblank_control_workq</code>, ktorý sa spúšťa len pri zapnutom LCD.</p>
+
+<figure>
+	<a href="img/kernel_thread.png"><img src="img/kernel_thread.png" alt="htop" /></a>
+	<figcaption>Obrázok <counter></counter>: htop</figcaption>
+</figure>
+
+
+<p>Spotreba na linuxe bola pri použití waylandu s kompozitorom <code>sway</code> konzistentne vyššia o 0,3 W (pravdepodobne v dôsledku využívania 3D akcelerácie).</p>
+
+<p>Ďalším zaujímavým zistením je vyššia spotreba po hibernácii v oboch operačných systémoch. V nasledujúcej tabuľke sú posledné 2 riadky získané rovnakou metodikou, ale po prebratí s hibernácie.</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>&nbsp;</th>
+			<th>Linux</th>
+			<th>Windows</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td><strong>Vypnuté wifi</strong></td>
+			<td>2.921 W</td>
+			<td>2.726 W</td>
+		</tr>
+		<tr>
+			<td><strong>Vypnutý display</strong></td>
+			<td>2,103 W</td>
+			<td>-</td>
+		</tr>
+	</tbody>
+</table>
+
+<h2>Výkon</h2>
+
+<p>V tejto sekcii by som mohol skúsiť spustiť nejaké benchmarky, ale úprimne, nechce sa mi. Výkon je v Linuxe pri bežnej práci viacej než dostatočný a nevidím dôvod to nejak rozoberať. Správa frekvencie CPU <em>conservative</em> dynamicky mení frekvenciu, takže v prípade potreby vie bežať aj na maximálnej frekvencii.</p>
+
+<p>Výkon vo windowse pri maximálnom šetrení je … ja neviem ako to nazvať. Užívateľské rozhranie je rýchle, ale to bude súvisieť s tým, že nechávam display bežať na plnej frekvencii. Práca s diskom je jedna veľká katastrofa. To isté zip, ktoré som rozbaľoval na linuxe 3s bez toho, aby viditeľne zvýšilo spotrebu. Pod windowsom mi rozbalenie trvalo 20 minút pri spotrebe 10W. Predpokladám, že za tým bude nejaký lenovom predinštalovaný antimalware / antivírus.</p>
+
+<h2>Záver</h2>
+
+<p>Rozdiel v spotrebe medzi Linuxom a Windowsom je minimálna. V posledných verziách kernelu AMD urobilo poriadny kus práce (samozrejme aj v spolupráci s Valve vďaka ich <a href="https://www.steamdeck.com/cs/">SteamDecku</a>). Vyššia spotreba po prebratí z hibernácie je problém, ale vyzerá to tak, že je to chyba BIOSu / UEFI.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
