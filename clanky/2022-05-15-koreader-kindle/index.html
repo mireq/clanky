@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>KOReader na čítačke Amazon Kindle - inštalácia, skúsenosti</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>KOReader na čítačke Amazon Kindle - inštalácia, skúsenosti</h1>
+
+	<p>Dnešný článok bude o open source čítačke KOReader určenej pre rôzne zariadenia s e-inkom, o jeho inštalácii a nastavení na Amazon Kindle.</p>
+</header>
+
+<p>Vstavaná čítačka od Amazonu je pomerne spoľahlivá, ale má minimálne možnosti nastavenia, text nezobrazuje práve najlepšie a človek občas narazí na nejaký nepríjemný bug, napríklad, že si čítačka <a href="https://www.mobileread.com/forums/showthread.php?t=338131" target="_blank">nepamätá stranu pri použití vlastných fontov</a>.</p>
+
+<h2>Inštalácia KOReadera</h2>
+
+<p>Po jailbreaku a rozbehaní <a href="https://www.mobileread.com/forums/showthread.php?t=203326">KUAL</a> je inštalácia extrémne jednoduchá. Stačí <a href="https://github.com/koreader/koreader/releases/tag/v2022.03.1">stiahnuť balík pre Kindle</a> a skopírovať adresár <code>koreader</code> a obsah adresára <code>extensions</code> do čítačky. Teraz stačí už len spustiť KUAL menu a ťuknúť na KOReader.</p>
+
+<h2>Výhody vstavanej čítačky</h2>
+
+<p>Vstavaná čítačka je predinštalovaná v systéme. Používateľ dostane aký-taký základ bez nutnosti čokoľvek nastavovať, alebo riešiť. Knihy sa dajú bez problémov skopírovať cez USB mass storage (aj keď je nutná konverzia do podporovaného formátu).</p>
+
+<p>Knižnica je užívateľsky prívetivá. Knihy môžu byť organizované do zbierok, dajú sa filtrovať a vyhľadávať. Užívateľ vôbec nevidí adresárovú štruktúru. Domovská stránka zobrazuje štandardne posledné otvorené knihy.</p>
+
+<p>Zobrazenie kníh nie je úplne najlepšie. Text sa renderuje strašne. Čo môžem jemne pochváliť rýchlosť zoomu a posunu v PDF dokumentoch.</p>
+
+<h2>V čom je iný KOReader</h2>
+
+<p>Existuje mnoho dôvodov, prečo by niekto mohol chcieť používať alternatívnu čítačku. V tejto sekcii skúsim zhrnúť zmeny oproti vstavanej čítačke, výhody a nevýhody.</p>
+
+<h3>Zobrazenie knihy</h3>
+
+<p>Začnem pre mňa najdôležitejším bodom - zobrazenie knihy. Kvalita (alebo nekvalita) sadzby textu dokáže ovplyvniť rýchlosť a celkový dojem z čítania. V nasledujúcom texte porovnávam zobrazenie textu v oboch čítačkách.</p>
+
+<h4>Delenie slov</h4>
+
+<p>Teoreticky delenie slov podporujú obe čítačky. Kindle však vyžaduje vloženie znaku <a href="https://en.wikipedia.org/wiki/Soft_hyphen" target="_blank">soft hyphen</a> na každé miesto, kde sa dá slovo rozdeliť. KOReader má vstavané slovníky, takže ak má kniha správne nastavený jazyk, dokáže rozdeliť slová automaticky.</p>
+
+<p>Okrem delenia slov sa dajú v KOReaderi nastaviť aj veľkosti medzier medzi slovami a pravidlá pre minimálnu vzdialenosť slov (redukciu medzier). Vo výsledku je KOReader schopný udržať aj pri pomerne krátkych riadkoch konzistentnú veľkosť medzier. U Kindle je naopak rozdiel medzi štandardnou medzerou (riadok hypothetical questions) a najhorším riadkom (scientists …) obrovský.</p>
+
+<figure>
+	<a href="img/hyphenation.png"><img src="img/hyphenation.png" alt="Delenie slov" /></a>
+	<figcaption>Obrázok <counter></counter>: Delenie slov</figcaption>
+</figure>
+
+<p>Mimochodom soft hyphen sa dá pridať v calibre cez dialóg <em>Polish books</em> (klávesová skratka <code>p</code>) a výber <em>Add soft hyphens</em>.</p>
+
+<figure>
+	<a href="img/calibre_hyphens.png"><img src="img/calibre_hyphens.png" alt="Pridanie soft hyphens" /></a>
+	<figcaption>Obrázok <counter></counter>: Pridanie soft hyphens</figcaption>
+</figure>
+
+<h4>Kerning</h4>
+
+<p>Medzery medzi znakmi by mali mať konzistentnú veľkosť. Pri výpočte šírky medzery sa musí brať do úvahy tvar písmen. Napríklad písmena <code>AV</code> by mali byť k sebe bližšie než je ich typická šírka, pretože ich tvar do seba pekne zapadne. Fonty majú v sebe zvyčajne tabuľku obsahujúcu horizontálny posun znakov oproti štandardnému posunu pre každú dvojicu znakov, ktorá do seba nejak zapadne. Kindle v podpore kerningu absolútne zlyháva.</p>
+
+<p>Teraz sa pozrime na príklad kerningu s rovnakým písmom. Do pozornosti dávam napríklad dvojicu <code>ou</code> v slove <em>out</em>, <code>hy</code> v slove <em>physics</em>, alebo <code>nt</code> v slove <em>eventually</em>.</p>
+
+<figure>
+	<a href="img/kerning.png"><img src="img/kerning.png" alt="Kerning" /></a>
+	<figcaption>Obrázok <counter></counter>: Kerning</figcaption>
+</figure>
+
+<h4>Ligatúry</h4>
+
+<p>Niektoré skupiny znakov sa môžu zobrazovať ako jeden znak. Typický príklad je dvojica <code>fi</code>, kde sa vrchná časť znaku <code>f</code> prekrýva s bodkou nad znakom <code>i</code>. KOReader pekne podporuje ligatúry, ale Kindle zase absolútne bez podpory.</p>
+
+<figure>
+	<a href="img/ligatures.png"><img src="img/ligatures.png" alt="Ligatúry" /></a>
+	<figcaption>Obrázok <counter></counter>: Ligatúry</figcaption>
+</figure>
+
+<h4>Hinting</h4>
+
+<p>Ako na poslednú vlastnosť zobrazenia textu sa pozrieme na hinting. Ide o úpravu kontrolných bodov fontu tak, aby sa presne zarovnali do mriežky pixelov. Horizontálne a vertikálne hrany sú vďaka tomu ostrejšie. Zmenu pozície bodov riadi <a href="https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html">bytekód</a>, ktorý sa interpretuje. Niektoré fonty sú navrhnuté tak, že bez hintingu sa nezobrazujú korektne. Opäť Kindle nemá žiadnu podporu hintingu. V čítačke KOReader sa dá hinting voliteľne zapnúť.</p>
+
+<figure>
+	<a href="img/hinting.png"><img src="img/hinting.png" alt="Hinting" /></a>
+	<figcaption>Obrázok <counter></counter>: Hinting</figcaption>
+</figure>
+
+<h4>Stránkovanie</h4>
+
+<p>Obe čítačky majú iný algoritmus stránkovania. Kindle považuje za stránku určitý pevne daný počet znakov. Zmena veľkosti, alebo typu písma teda nemení počet stránok. Pri čítaní podľa nastavenej veľkosti písma sa niekedy zmení strana o 2 čísla, inokedy o 0.</p>
+
+<p>KOReader čísluje omnoho presnejšie, ale zároveň to znamená, že pri zmene písma sa musí viac-menej vyrenderovať celá kniha. Kindle preto vie meniť veľkosť písma prakticky okamžite, pretože odhad počtu stránok sa pri tejto operácii nemení.</p>
+
+<h4>Fonty</h4>
+
+<p>Ako som na začiatku spomenul, Kindle nefunguje dobre s inými fontmi než so vstavanými kvôli bugu, pri ktorom si napamätá aktuálnu pozíciu. Zo vstavaných fontov sa mi najlepšie číta <em>Bookerly</em>, ale italic variant sa číta hrozne.</p>
+
+<p>Celkovo mám pocit, že keď je italic šikmý, tak sa na e-inku nerenderuje práve najlepšie. Práve z toho dôvodu používam písmo <em>Literata</em>, ktoré má italic takmer rovný, ale z tvaru znakov sa dá ľahko odlíšiť od normálneho písma. Škoda, že vo vstavanej čítačke je prakticky nepoužiteľný kvôli bugom.</p>
+
+<h4>PDF</h4>
+
+<p>Na Kindli môžem v prípade podpory PDF pochváliť len rýchlosť zoomu. Okrem nastavenia kontrastu nemá Kindle žiadne špeciálne nastavenia pre PDF.</p>
+
+<p>KOReader síce nevie rýchly zoom, má implementovaný reflow a dokonca OCR (<a href="https://github.com/tesseract-ocr/tesseract">tesseract OCR engine</a>). Výber textu a slovníky by mali fungovať aj na naskenovaných dokumentoch.</p>
+
+<h3>Knižnica</h3>
+
+<p>Pre KOReader je knižnica len obyčajným adresárom. Na rozdiel od Kindle neindexuje na pozadí knihy a nezobrazí všetky naraz.</p>
+
+<p>Nie som náročný na funkcie knižnice, takže to, čo dokáže KOReader mi úplne postačuje. Knižnicu je možné zobrazovať ako zoznam, alebo mriežku s náhľadmi. Zoradenie je možné podľa abecedy, dátumu vytvorenia, dátumu posledného čítania, alebo podľa priebehu čítania. V zozname je možné zobraziť aj sériu kníh a poradové číslo v sérii.</p>
+
+<h3>Ovládanie a nastavenia</h3>
+
+<p>V čítačke Kindle sa dá nastaviť zobrazenie knižnice (mriežka, zoznam), veľkosť, hrúbka a typ fontu, riadkovanie, zarovnanie a čiastočne intenzita osvetlenia. To je asi všetko, čo sa dá v Kindle nastaviť. Napriek tomu občas ťuknem na nesprávnu ikonku. Ovládanie by mohlo byť vážne intuitívnejšie.</p>
+
+<figure>
+	<a href="img/kindle_settings.png"><img src="img/kindle_settings.png" alt="Nastavenia čítačky kindle" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenia čítačky kindle</figcaption>
+</figure>
+
+<p>Na prvom obrázku (vľavo hore) je menu settings. Tu nájdeme režim lietadla, okamžitú synchronizáciu (od kedy je okamžitá synchronizácia nastavením?), tlačidlo všetkých nastavení a nastavenie jasu. Na tom istom screenshote je v dolnej časti zobrazená aktuálna kapitola a pod ňou tlačidlá na rýchlu navigáciu v dokumente. Tie tlačidlá vyzerajú ako prepínač zobrazenia, ale v skutočnosti jedno zobrazí popup s prehliadačom stránky a druhé mriežku stránok (v tomto dokumente nedostupné). Z pohľadu UX sú tie 2 tlačidlá absolútna katastrofa, pretože vyzerajú ako prepínač. Ešte horšie je, že keď človek chce rýchlo listovať knihou, musí vliezť do nastavení, ktoré ani nie sú nastaveniami. Nedávno som chcel v jednej knihe nalistovať graf a nepamätal som si presne kde bol a trvalo mi 20(!) minút kým som našiel prehliadač stránok (pamätal som si, že niekde musí byť, ale nevedel som kde).</p>
+
+<p>KOReader má nastavenia rozčlenené do horného menu (vyvolané potiahnutím zhora, alebo kliknutím v hornej časti) a dolného menu (vyvolané potiahnutím zdola, alebo kliknutím). <strong>Pred použitím nastavení odporúčam prečítať si príručku.</strong></p>
+
+<p>Predpokladám, že si nikto moju radu aj tak nezobral k srdcu, takže pre istotu spomeniem s čím som mal najväčší problém. KOReader má samostatné nastavenia pre každú knihu. Pri každej knihe si môžem nastaviť vlastnú veľkosť písma, typ fontu, štýly atď. Nastavenia budú platiť len pre danú knihu. Ak v Kindle niečo nastavím, platí to všade. Ak to urobím v KOReaderi, platí to <strong>len pre danú knihu</strong>.</p>
+
+<p>Okrem nastavení knihy existujú aj defaultné nastavenia. Tie sa prekopírujú do nastavení knihy po prvom otvorení knihy. Ďalšia zmena defaultných nastavení <strong>neovplyvní už otvorenú knihu</strong>. Aby sa prejavila zmena defaultných nastavení v už otvorenej knihe, je potrebné otvoriť horné menu, kliknúť na ikonu dokumentu a vybrať položku menu <em>Reset document settings to default</em>.</p>
+
+<p>Zostáva už len otázka, ako zmeniť defaultné nastavenia. Tie sa menia <strong>dlhým podržaním prsta</strong> na voľbe, ktorú chcem nastaviť ako default.</p>
+
+<p>Toto ovládanie nie je intuitívne, pretože bez manuálu užívateľ nemá ako vedieť, že defaultné nastavenia zmení podržaním prsta. Tak isto rozdelenie medzi defaultné nastavenia a nastavenia knihy nie je intuitívne, pretože užívateľ jednoducho čaká, že sa nastavenia prejavia všade.</p>
+
+<p>Že niečo nie je intuitívne ešte neznamená, že je to zlé. Ani Blender nie je intuitívny, ale vďaka takému ovládaniu, aké má je v rukách profesionála extrémne efektívny. Ja musím KOReader preto pochváliť za tieto rozhodnutia, pretože občas narazím na knihu, kde autor nastavil malé písmo, inde naopak príliš veľké a preto sa mi hodí nastaviť veľkosť písma špecificky pre vybranú knihu. Na ovládanie som si zvykol veľmi rýchlo, takže tých 5 minút čítania užívateľskej príručky stálo za to.</p>
+
+<figure>
+	<a href="img/koreader_settings.png"><img src="img/koreader_settings.png" alt="KOReader - nastavenia" /></a>
+	<figcaption>Obrázok <counter></counter>: KOReader - nastavenia</figcaption>
+</figure>
+
+<p>Spodné menu je jednoduché, ľahko použiteľné a sprístupňuje rôzne nastavenia zobrazenia dokumentu. Podržaním prsta na názve možnosti sa vyvolá pomoc k danej položke (obrázok vľavo dole). Niektoré nastavenia majú tlačidlo troch bodiek, ktorým sa vyvolá dialóg pre zadanie presnej hodnoty (obrázok hore v strede).</p>
+
+<p>V hornom menu by som chcel upozorniť na položku <em>Taps and gestures</em>. V tejto sekcii je možné priradiť rôzne akcie gestám ako ťahanie prstom pri niektorom okraji, ťahanie dvoma prstami, kliknutie na niektorý z rohov …</p>
+
+<p>Členenie menu nie je ani zďaleka ideálne. Za bežných okolností by som určite skritizoval umiestnenie osvetlenia niekam do horného menu. Našťastie je tu možnosť nastaviť gestá. Momentálne mám nastavenú hodnotu osvetlenia, ktorú používam v noci a akciu zapnutie / vypnutie osvetlenia mám priradenú na ťuknutie vľavo dole. Okrem toho zvýšenie a zníženie jasu mám priradené na potiahnutie 2 prstami, takže nemusím vôbec chodiť do menu.</p>
+
+<p>Pri menu by som sa ešte spomenul katastrofálne zobrazenie položiek (dolný rad, stredný obrázok). Šípky vpravo pri položkách by mali byť zarovnané na pravý okraj, aby zbytočne nerušili text. Čo je horšie je šípka hore v poslednom riadku menu - to je tlačidlo späť.</p>
+
+<p>V spodnej časti je konfigurovateľný status bar. Nastaviť sa dá formát položiek, zoznam položiek, skrývanie ak sú niektoré irelevantné. Dá sa nastaviť napríklad zobrazenie stavu batérie ak je nabitie pod určitou hodnotou, alebo zobraziť ikonu ak je zapnuté osvetlenie (cez deň nemám šancu vidieť, že mám zapnuté osvetlenie, ale ikonu si bez problémov všimnem a vypnem ho keď je zbytočné).</p>
+
+<h3>Open source</h3>
+
+<p>Zdrojové kódy sú <a href="https://github.com/koreader/koreader/">dostupné na githube</a>. Renderovacie jadro je z čítačky <a href="https://sourceforge.net/projects/crengine/">Cool Reader</a>. Čítačka sa dá veľmi jednoducho skompilovať a spustiť na desktope (stačí klonovať <code>git clone --recursive https://github.com/koreader/koreader.git</code> a spustiť <code>./kodev run</code> v adresári <code>koreader</code>).</p>
+
+<p>Užívateľské rozhranie je naprogramované v jazyku <a href="https://www.lua.org/">lua</a>. Väčšina úprav (prakticky všetko, ak človek nepotrebuje upravovať renderovacie jadro) sa dá robiť bez kompilácie, stačí sa prihlásiť na čítačku cez SSH a priamo upravovať zdrojové kódy. Ak by niekto chcel vyvíjať cez SSH odporúčam:</p>
+
+<pre class="code-bash">
+# štandardná IP adresa
+ssh root@192.168.15.244
+
+# zastavenie vstavanej čítačky
+stop framework
+
+# spustenie
+cd /mnt/us/koreader
+./reader.lua
+</pre>
+
+<p>Mnoho funkcií v užívateľskom rozhraní je implementovaných ako zásuvné moduly. Ukážka zásuvného modulu, ktorý sa registruje do menu a dá sa vyvolať aj cez gestá <a href="https://github.com/koreader/koreader/blob/v2022.03.1/plugins/hello.koplugin/main.lua">je na githube</a>. Ladiť sa dajú bez problémov na desktope, ako aj na čítačke cez SSH.</p>
+
+<h2>Integrácia s Calibre</h2>
+
+<p>So vstavanou čítačkou Kindle pracuje calibre bez dodatočných nastavení. Calibre ju automaticky pri pripojení kábla primontuje (je to mass storage) a nastaví príslušný profil v calibre. Štandardne sa dokumenty nahrávajú do adresára <code>documents</code> v dosť šialenej štruktúre <code>autor/kniha.azw3</code>. Adresárová štruktúra však nie je vôbec dôležitá, pretože Kindle zobrazuje všetky knihy v jednom veľkom zozname.</p>
+
+<p>Z funkcií calibre som s Kindlom používal len jednosmerné nahrávanie kníh a konverziu do AZW3. V minulosti som sa pokúšal o synchronizáciu priebehu, ale to sa mi nepodarilo, pretože nikdy som v čítačke nemal tú správnu verziu firmvéru. Nechcelo sa mi s tým vôbec babrať, pretože po aktualizácii môže byť situácia zase iná.</p>
+
+<p>Kindle by sme teda mali, ale ako je na tom KOReader?</p>
+
+<p>Prvým problémom, na ktorý človek narazí je absencia mass storage. Nie je to len nejaká malá drobnosť, ktorá by sa dala vyriešiť, ale je to dôsledok spustenia čítačky z partície s užívateľskými dátami. Pri mass storage musí byť partícia odpojená, čo nie je možné, kým z nej beží KOReader. Nahranie kníh je možné niekoľkými spôsobmi:</p>
+
+<dl>
+	<dt>Cez mass storage po ukončení KOReadera</dt>
+	<dd>Táto možnosť by bola celkom akceptovateľná, keby vstavaná čítačka neštartovala 2-3 minúty (mimochodom KOReader sa dá spustiť aj bez ukončenia behu vstavanej čítačky, vtedy zariadeniu síce zostane menej RAM, ale človek nemusí čakať).</dd>
+	<dt>Cez wifi</dt>
+	<dd>Zapínať wifi na jailbreaknutom Kindle vážne nie je dobrý nápad. Amazon sa snaží všetkými prostriedkami bojovať proti jailbreaku a neexistuje spoľahlivý spôsob ako zablokovať aktualizácie.</dd>
+	<dt>Cez ssh</dt>
+	<dd>Osobne uprednostňujem možnosť nechať permanentne zapnutý prístup cez <code>ssh</code> a nahrávať knihy po pripojení cez <code>sshfs</code>.</dd>
+</dl>
+
+<p>Z dostupných možností som si vybral podľa mňa najmenej zlú - <code>ssh</code>.</p>
+
+<h3>Pripojenie súborového systému</h3>
+
+<p>Aby bolo možné použiť ssh, musí sa Kindle najskôr prepnúť do režimu USB sieťovky. Na to slúži <a href="https://www.mobileread.com/forums/showthread.php?t=225030">USBNetwork hack</a>.</p>
+
+<p>Balík sa najskôr musí rozbaliť, následne sa jeden z .bin súborov (podľa podľa zariadenia) umiestní do adresára mrpackages a nakoniec sa nainštaluje cez menu <a href="https://www.mobileread.com/forums/showthread.php?t=203326">KUAL</a> pomocou položky <a href="https://www.mobileread.com/forums/showthread.php?t=251143">Install MR Packages</a>.</p>
+
+<p>Po reštarte odporúčam ešte raz spustiť <em>KUAL</em> a v menu <em>USBNetwork</em> povoliť spustenie SSH po štarte.</p>
+
+<p>Teraz sa bude Kindle tváriť ako sieťová karta obsluhovaná modulom jadra <code>cdc_ether</code>. Keďže väčšina distribúcii používa takzvané "predictable names", bude názov sieťovky nejaká mňamka ako <code>enp7s0f4u2i1</code>. Aby nebolo málo zábavy, tento názov používa aj moja dokovacia stanica, takže reálne môže dostať aj nejakú inú mňamku.</p>
+
+<p>Pre krátky test môžem nastaviť IP adresu a skúsiť, či SSH funguje korektne:</p>
+
+<pre class="code-bash">ip link set enp7s0f4u2i1 up; ip addr add 192.168.15.243/24 dev enp7s0f4u2i1</pre>
+
+<p>Štandardná adresa, ktorú má kindle je <code>192.168.15.244</code>, takže prihlásiť sa môžem príkazom (heslo je prázdny reťazec):</p>
+
+<pre class="code-bash">
+$ ssh root@192.168.15.244
+
+
+Welcome to Kindle!
+
+root@192.168.15.244's password:
+#################################################
+#  N O T I C E  *  N O T I C E  *  N O T I C E  #
+#################################################
+Rootfs is mounted read-only. Invoke mntroot rw to
+switch back to a writable rootfs.
+#################################################
+[root@kindle root]#
+</pre>
+
+<p>Pripojenie by fungovalo, poďme teraz automatizovať pripojenie súborového systému. Začnem zistením informácií o sieťovom rozhraní zo subsystému <code>udev</code>:</p>
+
+<pre class="code-bash">
+udevadm info -p /sys/class/net/enp7s0f4u2i1
+
+P: /devices/pci0000:00/0000:00:08.1/0000:07:00.4/usb5/5-2/5-2:1.0/net/enp7s0f4u2i1
+L: 0
+E: DEVPATH=/devices/pci0000:00/0000:00:08.1/0000:07:00.4/usb5/5-2/5-2:1.0/net/enp7s0f4u2i1
+E: INTERFACE=enp7s0f4u2i1
+E: IFINDEX=6
+E: SUBSYSTEM=net
+E: USEC_INITIALIZED=18056489502
+E: ID_NET_NAMING_SCHEME=v249
+<strong>E: ID_NET_NAME_MAC=enxee4900000000</strong>
+E: ID_NET_NAME_PATH=enp7s0f4u2
+E: ID_VENDOR=Linux_3.0.35-lab126_with_fsl-usb2-udc
+E: ID_VENDOR_ENC=Linux\x203.0.35-lab126\x20with\x20fsl-usb2-udc
+E: ID_VENDOR_ID=0525
+E: ID_MODEL=RNDIS_Ethernet_Gadget
+E: ID_MODEL_ENC=RNDIS\x2fEthernet\x20Gadget
+E: ID_MODEL_ID=a4a2
+E: ID_REVISION=0399
+E: ID_SERIAL=Linux_3.0.35-lab126_with_fsl-usb2-udc_RNDIS_Ethernet_Gadget
+E: ID_TYPE=generic
+E: ID_BUS=usb
+E: ID_USB_INTERFACES=:0202ff:0a0000:020600:
+E: ID_USB_INTERFACE_NUM=00
+E: ID_USB_DRIVER=cdc_ether
+E: ID_USB_CLASS_FROM_DATABASE=Communications
+E: ID_VENDOR_FROM_DATABASE=Netchip Technology, Inc.
+E: ID_MODEL_FROM_DATABASE=Linux-USB Ethernet/RNDIS Gadget
+E: ID_MM_CANDIDATE=1
+E: ID_PATH=pci-0000:07:00.4-usb-0:2:1.0
+E: ID_PATH_TAG=pci-0000_07_00_4-usb-0_2_1_0
+E: ID_NET_DRIVER=cdc_ether
+E: ID_NET_LINK_FILE=/lib/systemd/network/99-default.link
+E: ID_NET_NAME=enp7s0f4u2i1
+</pre>
+
+<p>Zaujímavé položky sú napríklad <code>ID_VENDOR</code>, alebo <code>ID_NET_NAME_MAC</code>. Keďže sú názvy nespoľahlivé, začnem premenovaním zariadenia na niečo stabilné pomocou MAC adresy (dal by sa zneužiť aj výrobca). Vytvorím si, alebo pridám do súboru <code>/etc/udev/rules.d/98-network.rules</code> nasledujúci riadok:</p>
+
+<pre>
+SUBSYSTEM=="net", ACTION=="add", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="eth_kindle"
+</pre>
+
+<p>Toto pravidlo nastaví názov sieťového zariadenia na <code>eth_kindle</code>. Teraz nasleduje pomerne hnusný hack, ktorý si môžem dovoliť, pretože môj počítač používam sám.</p>
+
+<p>Pod rootom teda vytvorím adresár <code>/mnt/kindle</code> príkazom <code>mkdir -p /mnt/kindle</code> a priradím mu práva <code>chown uzivatel:skupina /mnt/kindle</code>, v mojom prípade <code>chown mirec:mirec /mnt/kindle</code>.</p>
+
+<p>Do systému nainštalujem balíky <code>sshfs</code> a <code>sshpass</code>. Ďalej nahradím pôvodný riadok v <code>/etc/udev/rules.d/98-network.rules</code> novými riadkami pre pripojenie a odpojenie (pribudol len príkaz <code>RUN</code>).</p>
+
+<pre>
+SUBSYSTEM=="net", ACTION=="add", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="eth_kindle" RUN+="/etc/udev/scripts/kindle_start"
+SUBSYSTEM=="net", ACTION=="remove", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="eth_kindle" RUN+="/etc/udev/scripts/kindle_stop"
+</pre>
+
+<p>Skript pre odpojenie <code>/etc/udev/scripts/kindle_stop</code> bude veľmi jednoduchý:</p>
+
+<pre class="code-bash">
+#!/bin/bash
+fusermount -z -u /mnt/kindle
+</pre>
+
+<p>Samozrejme skript musí mať príkaz spustiteľný (<code>chmod +x /etc/udev/scripts/kindle_stop</code>). To isté bude platiť aj pre skript <code>kindle_start</code>, ktorý vyzerá takto:</p>
+
+<pre class="code-bash">
+#!/bin/bash
+ip link set eth_kindle up
+ip addr add 192.168.15.243/24 dev eth_kindle
+su uzivatel -c "sshfs root@192.168.15.244:/mnt/us/ /mnt/kindle"
+echo "date -s \"`date +'%Y-%m-%d %H:%M:%S'`\";hwclock -w -u"|sshpass -p "" ssh -o StrictHostKeyChecking=no root@192.168.15.244
+</pre>
+
+<p>Nastavenie adresy nemusím vysvetľovať. Pripojenie sa vykonáva pod bežným užívateľom cez <code>fuse</code>. Čo tam však robí date?</p>
+
+<p>Jailbreaknutý Kindle používam permanentne v režime lietadla. V takom prípade nie je možné synchronizovať čas. Presnosť hodín reálneho času na mojej čítačke je nič moc, okolo 30s chyba mesačne. Nie je to veľa, ale je to dosť na to, aby sa mi nechcelo nastavovať čas. To však nevysvetľuje dôvod, prečo som nepoužil NTP.</p>
+
+<p>Časová zóna <code>/etc/localtime</code> je odkaz na <code>/var/local/system/tz</code>, čo je nejaký súbor generovaný Amazonom. Koreňový adresár zostáva permanentne read-only. Príkaz <code>date</code> vypíše toto:</p>
+
+<pre class="code-bash">
+# date
+Sat May 14 09:12:30 GMT+2:22100 2022
+</pre>
+
+<p>Čo je GMT+2:22100? Prečo je časový posun oproti GMT 8520 sekúnd (2 hodiny a 22 minút)? Nastavenie času cez <code>ntp</code> mi posunie hodiny o 22 minút. Mohol by som teoreticky nahradiť súbor časovej zóny, ale pri ďalšom štarte by sa to zase rozbilo.</p>
+
+<h3>Správa kníh cez Calibre</h3>
+
+<p>Na začiatok je potrebné spustiť welcome wizard. Pre Kindle sa totiž štandardne používajú formáty <code>AZW3</code> a <code>MOBI</code>. Teoreticky sa Calibre tvári, že je možné ich zmeniť v nastaveniach, ale stále existujú automatické konverzie, ktoré mení len wizard. Bez tohto kroku by síce boli knihy správne odosielané v <code>EPUB</code>-e, ale správy by sa napríklad stále ukladali do <code>MOBI</code>.</p>
+
+<figure>
+	<a href="img/calibre_welcome_1.png"><img src="img/calibre_welcome_1.png" alt="Spustenie welcome wizardu" /></a>
+	<figcaption>Obrázok <counter></counter>: Spustenie welcome wizardu</figcaption>
+</figure>
+
+<figure>
+	<a href="img/calibre_welcome_2.png"><img src="img/calibre_welcome_2.png" alt="Nastavenie zariadenia" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie zariadenia</figcaption>
+</figure>
+
+<p>Čítačka sa dá pridať cez tlačidlo pripojenia a výber adresára <code>/mnt/kindle/documents/</code>.</p>
+
+<figure>
+	<a href="img/calibre_connect.png"><img src="img/calibre_connect.png" alt="Pripojenie čítačky v calibre" /></a>
+	<figcaption>Obrázok <counter></counter>: Pripojenie čítačky v calibre</figcaption>
+</figure>
+
+<p>V nastaveniach adresára je potrebné ešte nastaviť podporované formáty, pretože pri zvolení generického zariadenia bude akceptovať aj formáty, ktoré nepodporuje. Taktiež odporúčam zmeniť šablónu (pattern, ktorý sa používa pre uladanie), pretože štandardne ukladá v adresárovej štruktúre <code>Autor / Kniha</code>, čo sa mi na čítačke nepoužíva práve najpríjemnejšie.</p>
+
+<figure>
+	<a href="img/calibre_device_menu.png"><img src="img/calibre_device_menu.png" alt="Menu adresára" /></a>
+	<figcaption>Obrázok <counter></counter>: Menu adresára</figcaption>
+</figure>
+
+<figure>
+	<a href="img/calibre_configure_device.png"><img src="img/calibre_configure_device.png" alt="Nastavenie adresára" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie adresára</figcaption>
+</figure>
+
+<h3>KOReader sync</h3>
+
+<p>Dodatočný zásuvný modul, KOReader sync slúži na načítanie niektorých atribútov z čítačky. Nastavenie nie je úplne najintuitívnejšie, preto skúsim vysvetliť ako funguje napríklad taká synchronizácia priebehu čítania.</p>
+
+<p>Najskôr je potrebné vytvoriť si stĺpec, do ktorého sa bude údaj načítavať. V tomto prípade to bude desatinné číslo formátované (python formátovanie) ako percentuálna hodnota.</p>
+
+<figure>
+	<a href="img/calibre_add_column.png"><img src="img/calibre_add_column.png" alt="Pridanie stĺpca" /></a>
+	<figcaption>Obrázok <counter></counter>: Pridanie stĺpca</figcaption>
+</figure>
+
+<p>V nastaveniach KOReader sync už stačí len spárovať import so stĺpcom a zobraziť stĺpec progress v zozname kníh. Po stlačení tlačidla synchronizácie sa načíta stav kníh zo zariadenia.</p>
+
+<figure>
+	<a href="img/koreader_sync.png"><img src="img/koreader_sync.png" alt="Pridadenie stĺpca" /></a>
+	<figcaption>Obrázok <counter></counter>: Priradenie stĺpca</figcaption>
+</figure>
+
+<h2>Spustenie bez framweorku</h2>
+
+<p>KOReader môže na zariadeniach Amazon Kindle naraziť na nedostatok operačnej pamäte. Pri náročnejších PDF súboroch zvykne štandardná čítačka padať na nedostatku pamäte. Zvyčajne na chvíľu pomôže reštart. KOReader má rovnaký problém, aj keď sám veľa operačnej pamäte nepotrebuje.</p>
+
+<figure>
+	<a href="img/memory_1.png"><img src="img/memory_1.png" alt="Pamäť" /></a>
+	<figcaption>Obrázok <counter></counter>: Pamäť</figcaption>
+</figure>
+
+<p>Pre pochopenie nasledujúcej časti bude potrebné poznať niektoré komponenty. Začnem preto rovno malým slovníkom.</p>
+
+<dl>
+	<dt>Framework</dt>
+	<dd>GUI rozhranie od amazonu (napísané v jave)</dd>
+	<dt>cvm</dt>
+	<dd>Hlavný proces GUI</dd>
+	<dt>KAF</dt>
+	<dd>Kindle amazon framework?</dd>
+	<dt><a href="https://awesomewm.org/">awesome</a></dt>
+	<dd>Desktopové prostredie, skriptovateľné v LUA</dd>
+	<dt>lipc</dt>
+	<dd>IPC protokol využívajúci D-Bus, podmnožina D-Bus, existuje <a href="https://github.com/Arkq/openlipc">open source implementácia</a></dd>
+	<dt>powerd</dt>
+	<dd>Daemon starajúci sa o napájanie</dd>
+	<dt>blanket</dt>
+	<dd>Proces starajúci sa o zobrazenie bootovacej obrazovky, screensavera, priebehu aktualizácie … Rôzne moduly sú implementované ako pluginy a existuje <a href="https://github.com/yifanlu/OpenBlanket">open source implementácia screensavera</a>.</dd>
+	<dt>upstart</dt>
+	<dd>Init systém vytvorený spoločnosťou Canonical</dd>
+	<dt><a href="https://www.libelektra.org/">LibElektra</a></dt>
+	<dd>Konfiguračné registry v stromovej štruktúre (niečo ako registry vo windowse)</dd>
+	<dt>kdb</dt>
+	<dd>Nástroj na prácu s LibElektra registrami.</dd>
+</dl>
+
+<p>Výpis <code>htop</code> vyzerá ako z viac-menej normálneho linuxového desktopu. Nájdeme tu paradoxne X.org server, čo je celkom zaujímavá voľba. Jednouchšie embedded systémy používajú väčšinou priamy prístup do framebufferu. Výkonnejšie zariadenia zase zvyknú používať kompozitor s podporou OpenGL ES. Prečo je použitý X.org?</p>
+
+<p>Jednou z možných príčin je absencia grafickej akcelerácie na použitom SoC (Freescale i.MX 6). Druhou je nenažranosť GPU. Nedávno som sa <a href="https://linuxos.sk/blog/mirecove-dristy/detail/spotereba-laptopu-s-amd-ryzen-7-pro-5850u/">hral so spotrebou môjho thinkpadu</a> a prekvapujúco najnižšiu spotrebu som dosahoval pri spustenom X.org bez aplikácií využívajúcich grafickú akceleráciu. Ak som používal napríklad akcelerovaný emulátor terminálu Alacritty namiesto rxvt-unicode, spotreba bola o nejakú tú desatinu watu vyššia. Pri zapnutom waylande to už bolo viac o 0.3 W (prostredie sway).</p>
+
+<h3>Spustenie z konzoly</h3>
+
+<p>GUI sa štartuje skriptom <code>/etc/upstart/lab126_gui</code>. Zastaviť sa dá jednoducho príkazom <code>stop lab126_gui</code>.</p>
+
+<p>Teraz stačí prejsť do adresára <code>/mnt/us/koreader</code> a spustiť lua skript <code>reader.lua</code>:</p>
+
+<pre class="code-bash">
+cd /mnt/us/koreader
+./reader.lua
+</pre>
+
+<p>Výsledok vyzerá dobre. Čítačka funguje a pamäť je poloprázdna.</p>
+
+<figure>
+	<a href="img/memory_2.png"><img src="img/memory_2.png" alt="Pamäť bez frameworku" /></a>
+	<figcaption>Obrázok <counter></counter>: Pamäť bez frameworku</figcaption>
+</figure>
+
+<h3>Spustenie z KUAL menu</h3>
+
+<p>Skript pre spustenie KOReadera implementuje ukončenie frameworku. Stačí povoliť položku v KUAL menu odstránením podmienky v <a href="https://github.com/koreader/koreader/blob/v2022.03.1/platform/kindle/extensions/koreader/menu.json#L28">extensions/koreader/menu.json</a>.</p>
+
+<p>Všetko okrem tlačidla power funguje bez problémov. V nasledujúcom texte sa budem venovať len oprave obsluhy tlačidla power.</p>
+
+<h3>Oprava power - lamer štýl</h3>
+
+<p>Tento spôsob považujem za slepú uličku, ale možno niekoho zaujme.</p>
+
+<p>Situácia je taká, že nereaguje na tlačidlo power. Na začiatok je dobré zistiť, či sa udalosť generuje cez štandardný linuxový input subsystém. Aby som si to overil, skúsim najväčšiu blbosť: <code>cat /dev/input/event0</code>. Stlačím power a vypadne na mňa binárny humus. Tlačidlo teda mám a je pripojené na <code>event0</code>.</p>
+
+<p>Do <a href="https://github.com/koreader/koreader/blob/v2022.03.1/frontend/device/kindle/device.lua#L637">kódu inicializácie zariadenia</a> pridávam:</p>
+
+<pre class="code-lua">
+self.input.open("/dev/input/event0")
+</pre>
+
+<p>Do <a href="https://github.com/koreader/koreader/blob/v2022.03.1/frontend/device/input.lua#L443"></a>handleKeyBoardEv</a> pridávam:</p>
+
+<pre class="code-lua">
+print(ev.code)
+</pre>
+
+<p>Po spustení <code>./reader.lua</code> a stlačení tlačidla vidím v konzole číslo <code>116</code>. Ďalej do <a href="https://github.com/koreader/koreader/blob/v2022.03.1/frontend/device/kindle/device.lua#L637">kódu inicializácie</a> pridávam mapovanie udalosti <code>116</code> s internou udalosťou <code>Power</code>.</p>
+
+<pre class="code-lua">
+self.input = require("device/input"):new{
+    device = self,
+    event_map = {
+        [116] = "Power",
+    },
+}
+</pre>
+
+<p>Interne sa táto udalosť <a href="https://github.com/koreader/koreader/blob/v2022.03.1/frontend/device/input.lua#L512">konvertuje na PowerPress a PowerRelease</a>.</p>
+
+<p>Zostáva už len zaregistrovať udalosti do kódu <a href="https://github.com/koreader/koreader/blob/v2022.03.1/frontend/ui/uimanager.lua#L230">isKindle</a> a filtrovať udalosti ak je spustený screensaver (keďže teraz píšeme len softvérovú podporu, zostáva dotyková vrstva stále aktívna, bez filtrovania by sa dotykom vypol screensaver):</p>
+
+<pre class="code-lua">
+self.event_handlers["PowerRelease"] = function()
+    if not self._entered_poweroff_stage then
+        UIManager:unschedule(self.poweroff_action)
+        -- resume if we were suspended
+        if Device.screen_saver_mode then
+            Device:outofScreenSaver()
+            self:_afterResume()
+        else
+            self:_beforeSuspend()
+            Device:intoScreenSaver()
+            Device:suspend()
+        end
+    end
+end
+self.event_handlers["__default__"] = function(input_event)
+    if not Device.screen_saver_mode then
+        self:sendEvent(input_event)
+    end
+end
+</pre>
+
+<p>Po štarte KOReadera nabehne po stlačení tlačidlá power screensaver. Funkcionalita je viac-menej hotová, akurát sa čítačka nehibernuje. Nie je to úplne ideálne riešenie, ale na zablokovanie displaya a občasné utretie prachu postačí ;)</p>
+
+<h3>Oprava power - normálne riešenie</h3>
+
+<p>Najskôr začnem simuláciou udalostí. Utilita <code>powerd_test</code> slúži na simuláciu power tlačidla.</p>
+
+<pre>
+powerd_test
+powerd_test: Utility to test powerd
+Options:
+  s          : Print status
+  i          : Simulate input event
+  p          : Simulate power button pressed event
+  h          : Simulate power button held event
+  l          : Simulate low batt low event
+  d <value>  : Set defer sleep property to given value
+  r          : Simulate a random series of events at random intervals.
+               Max interval is 10s by default.
+  b<optional>: Set fake battery level if a value is provided. Remember to
+               there is no space between b and value.  If no value is
+               provided, it interactively accepts values from you and sets
+               fake battery level
+  t <value>  : Max interval between events in seconds.
+               Valid only when used with -r
+  NOTE       : Only one of i,p,d, b and r can be used at one time
+</pre>
+
+<p>Príkaz <code>powerd_test -p</code> so zapnutým frameworkom uzamkne obrazovku, ale bez frameworku nerobí nič. Keďže nie sú dostupné zdrojové kódy, pozriem sa programu na zúbok pomocou dekompilátora <a href="https://github.com/NationalSecurityAgency/ghidra/releases">ghidra</a>.</p>
+
+<figure>
+	<a href="img/ghidra_powerd_test.png"><img src="img/ghidra_powerd_test.png" alt="powerd_test" /></a>
+	<figcaption>Obrázok <counter></counter>: powerd_test</figcaption>
+</figure>
+
+<p>Super nástroj je <code>Search / Strings</code>. Po vyhľadané výsledkov power mi udrelo do očí <code>dbg_power_button_pressed</code>. Po dvojkliku na referenciu som sa dostal k funkcii na screenshote.</p>
+
+<p>Utilitka podľa všetkého spúšťa príkaz <code>lipc-send-event com.lab126.powerd.debug dbg_power_button_pressed</code>. Príkaz prebehne bez chyby, takže problém bude asi niekde inde. Pokračujem dekompiláciou programu <code>powerd</code>.</p>
+
+<p>V ňom si všímam reťazce začínajúce sa na <code>dbg_</code>. Vidím tu zaujímavé reťazce <code>dbg_mag_sensor_opened</code> a <code>dbg_mag_sensor_closed</code>. Po spustení <code>lipc-send-event com.lab126.powerd.debug dbg_mag_sensor_closed</code> sa spustí screensaver a stav zariadenia sa zmení na <code>Screen Saver</code>:</p>
+
+<pre class="code-bash">
+powerd_test -s
+Powerd state: Screen Saver
+Remaining time in this state: Unknown
+defer_suspend:0
+suspend_grace:0
+prevent_screen_saver:0
+drive_mode_state:1
+PRIMARY BATTERY
+Battery Level: 100%
+Last batt event at: 100%
+Charging: Yes
+Battery logging: On
+</pre>
+
+<p>Po spustení <code>lipc-send-event com.lab126.powerd.debug dbg_mag_sensor_opened</code> je zariadenie opäť v aktívnom stave:</p>
+
+<pre class="code-bash">
+powerd_test -s
+Powerd state: Active
+Remaining time in this state: 598.386396
+…
+</pre>
+
+<p>Chyba bude niekde v spracovaní udalosti tlačidla. Podľa reťazcov nachádzam v dekompilátore nasledujúci kód:</p>
+
+<pre class="code-c">iVar2 = LipcRegisterIntProperty(DAT_0003957c,"powerButton",0,&amp;LAB_000145f0,0);</pre>
+
+<p>Existenciu property potvrdzuje aj výpis <code>lipc-probe</code>:</p>
+
+<pre class="code-bash">
+lipc-probe com.lab126.powerd
+        w       Int     touchScreenSaverTimeout
+        w       Int     deferSuspend
+        w       Int     wakeUp
+        r       Int     flRawIntensity
+        w       Int     rtcWakeup
+        r       Str     state
+        w       Int     suspendGrace
+        r       Str     battStateInfo
+        w       Int     deferRestart
+        w       Str     shutdownAlertResponse
+        r       Int     battTemperature
+        w       Int     addSuspendLevels
+        rw      Str     logLevel
+        r       Int     battLevel
+        rw      Int     preventScreenSaver
+        rw      Str     logMask
+        w       Int     sendPendingResume
+        rw      Int     flAuto
+        rw      Int     flIntensity
+        r       Int     flMaxIntensity
+        w       Str     rtcWakeup2
+        w       Int     abortSuspend
+        r       Int     flTurboBrightnessIntensity
+        w       Int     powerButton
+        w       Int     flStartup
+        r       Str     status
+        r       Int     isLowTempState
+        r       Int     isCharging
+</pre>
+
+<p>Volanie <code>lipc-set-prop com.lab126.powerd powerButton 1</code> však nerobí nič. V zásade som neprišiel na nič zaujímavé okrem toho, že kód obsahuje množstvo ladiacich výpisov. V property však vidím <code>logMask</code>. Nastavujem preto <code>lipc-set-prop com.lab126.powerd logMask "0xffff"</code> a pozerám, čo sa deje v <code>/var/log/messages</code>. Nastavenie property <code>powerButton</code> vypíše nasledujúci kód:</p>
+
+<pre>
+220514:194019 powerd[5962]: E lipc:dbuserr:name=org.freedesktop.DBus.Error.ServiceUnknown:Receive Dbus error message (DBUS_MESSAGE_TYPE_ERROR): The name com.lab126.kaf was not provided by any .service files
+220514:194019 powerd[5962]: D lipc:axstime:prop=frameworkStarted, source=com.lab126.kaf, ms=4:lipc property access time in milliseconds (PrvAccessPropertySync:access_properties.c:702)
+220514:194019 powerd[5962]: I def:pbisplash::Splash screen is on.  Ignoring power button
+</pre>
+
+<p>Výpis relevantnej časti kódu z dekompilátora vyzerá nasledovne:</p>
+
+<pre class="code-c">
+iVar2 = FUN_000167bc();
+if (iVar2 != 0) {
+  if (DAT_000395ec != (undefined **)0x0) {
+    FUN_0001f0bc(DAT_000395ec);
+    DAT_00038ac4 = 0xffffffff;
+    DAT_000395ec = (undefined **)0x0;
+    return 0;
+  }
+  pcVar4 = "active_handle_power_button";
+  pcVar3 = "PowerButtonPress";
+  goto LAB_0001ce18;
+}
+if ((DAT_00039450 &amp; 0x800000) == 0) {
+  return 0;
+}
+iVar2 = 1;
+pcVar4 = "I def:pbisplash::Splash screen is on.  Ignoring power button";
+</pre>
+
+<p>Ak je <code>iVar2</code> <code>0</code>, potom je vraj zobrazený screen saver. Zostáva preskúmať funkciu <code>FUN_000167bc</code>.</p>
+
+<figure>
+	<a href="img/ghidra_powerd.png"><img src="img/ghidra_powerd.png" alt="powerd" /></a>
+	<figcaption>Obrázok <counter></counter>: powerd</figcaption>
+</figure>
+
+<p>Kód najskôr zisťuje hodnoty registrov <code>system/daemon/powerd/KAF_NAME</code> a <code>system/daemon/powerd/KAF_FRAMEWORK_STARTED</code>. Pozrime sa na tieto hodnoty pomocou nástroja <code>kdb</code>:</p>
+
+<pre class="code-bash">
+kdb get system/daemon/powerd/KAF_NAME
+com.lab126.kaf
+kdb get system/daemon/powerd/KAF_FRAMEWORK_STARTED
+frameworkStarted
+</pre>
+
+<p>Ďalej sa volá <code>lipc</code>. Volanie je ekvivalentné príkazu:</p>
+
+<pre class="code-bash">
+lipc-get-prop com.lab126.kaf frameworkStarted
+com.lab126.kaf failed to access property frameworkStarted (0x3 lipcErrNoSuchSource)
+</pre>
+
+<p>Funkcia považuje za zobrazený splash screen ak framework nehlási vlastnosť <code>frameworkStarted</code>. Riešením je spustiť proces, ktorý sa bude odpovedať na property <code>frameworkStarted</code>. Vytvorím si jednoduchý súbor <code>test.lua</code> a spustím ho (<code>lua test.lua</code>):</p>
+
+<pre class="code-lua">
+require("liblipclua")
+
+lipc_handle, error_message, error_number = lipc.init("com.lab126.kaf")
+
+local readonly_property = lipc_handle:register_int_property("frameworkStarted", "r")
+readonly_property.value = 1
+
+while true do lipc.run_event_loop(math.huge) end
+</pre>
+
+<p>Po spustení sa však nič nezmenilo. Do pozornosti dávam vo výpise riadok <code>return 0</code>. Podľa dekompilátora funkcia vráti vždy <code>0</code> bez ohľadu na predchádzajúce volania. Dekompilácia optimalizovaného C kódu je zložitá. Výsledný kód nie je vždy korektný a obyčajne sa dá spoznať podľa nejakej blbosti, napríklad funkcie, ktorá vracia vždy konštantnú hodnotu. Toto je presne ten prípad. V disassembleri je však korektne viditeľné pokračovanie funkcie, ktoré načítava registre <code>system/daemon/powerd/BLANKET_NAME</code> a <code>system/daemon/powerd/BLANKET_LOAD</code>.</p>
+
+<pre class="code-bash">
+kdb get system/daemon/powerd/BLANKET_NAME
+com.lab126.blanket
+kdb get system/daemon/powerd/BLANKET_LOAD
+load
+lipc-get-prop com.lab126.blanket load
+langpicker blankwindow usb splash
+</pre>
+
+<p>Ďalej sa testuje, či property <code>load</code> služby <code>com.lab126.blanket</code> obsahuje text <code>splash</code>. Služba <code>blanket</code> má zaujímavé property ako <code>load</code> a <code>unload</code>, pomocou ktorých sa dajú načítať, alebo odobrať pluginy:</p>
+
+<pre class="code-bash">
+lipc-probe com.lab126.blanket
+        rw      Str     unload
+        rw      Str     logMask
+        rw      Str     load
+        w       Str     uiQuery
+        rw      Str     logLevel
+</pre>
+
+<p>Po odobratí splash (<code>lipc-set-prop com.lab126.blanket unload splash</code>) začne fungovať uspávanie tlačidlom power.</p>
+
+<p>Z tohto kódu som vytvoril <a href="https://github.com/mireq/KOReader-without-framework-support-for-Amazon-Kindle/blob/7548f4c1441bc478082b05fe64f05a48788db785/kindle_no_framework_helper.koplugin/main.lua">plugin pre KOReader</a>, ktorý stačí uploadnúť do adresára <code>koreader/plugins</code> a reštartovať KOReader.</p>
+
+<p>Teraz funguje všetko korektne vrátane obsluhy tlačidla power.</p>
+
+<h2>Bonus tip - kterm</h2>
+
+<p>Pri hraní sa s KOReaderom som napísal ešte jeden malý plugin, ktorý umožňuje naštartovať emulátor terminálu Kterm.</p>
+
+<p>Spustiť emulátor terminálu pod KOReaderom nie je tak jednoduché, ako by sa mohlo zdať, pretože KOReader nepoužíva X11, ale vykresľuje grafiku priamo na framebuffer. Po štarte terminálu sa musí zastaviť vykresľovanie, čo zase nie je až taký problém. Spracovanie udalosti zasekne GUI kým sa nedokončí spracovanie, takže stačí spustiť KOReader na popredí.</p>
+
+<p>Väčším problémom je, že KOReader blokuje vstup. Okno terminálu síce nabehne, ale nebude mať prijímať žiadne udalosti dotyku. Problém som vyriešil jednoducho odpojením vstupných vstupov pred štartom terminálu a obnovením vstupov po štarte. Kód nakoniec <a href="https://github.com/mireq/KOReader-start-kterm/blob/010ca8b94a3a59f86b2fee8d1108ab442d1bff55/kindle_start_kterm.koplugin/main.lua">nie je vôbec zložitý</a>.</p>
+
+<p>Nakoniec ešte ukážkové video:</p>
+
+<p><a href="http://www.youtube.com/watch?v=GHr8WD_MjzE" title="Kterm" rel="nofollow"><img src="https://img.youtube.com/vi/GHr8WD_MjzE/maxresdefault.jpg" alt="Kterm"></a></p>
+
+<h2>Boot priamo do KOReaderu</h2>
+
+<p>Kindle bootuje veľmi dlho. Samotný systém do X.org serveru dokáže naštartovať za 10s, ale vstavaná aplikácia čítačky štartuje 2-3 minúty. Teoreticky by bolo možné deaktivovať službu gui cez upstart a štartovať priamo KOReader, vďaka čomu by bola čítačka použiteľná za asi 15s po reštarte. Reálne sú tu rôzne kontroly, či Kindle nabootoval a v prípade 3 neúspešných pokusov sa zasekne na obrazovke oznamujúcej nutnosť opravy. Pravdu povediac neviem, či v tomto režime nabehne vôbec SSH daemon a nechcem riskovať, že si úplne zablokujem prístup.</p>
+
+<p>Takže milé deti, neskúšajte to doma (aspoň nie, ak nemáte pripravený UART a nástroje na rozobratie).</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
