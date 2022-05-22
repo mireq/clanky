@@ -11,7 +11,7 @@
 <header>
 	<h1>KOReader na čítačke Amazon Kindle - inštalácia, skúsenosti</h1>
 
-	<p>Dnešný článok bude o open source čítačke KOReader určenej pre rôzne zariadenia s e-inkom, o jeho inštalácii a nastavení na Amazon Kindle.</p>
+	<p>Dnešný článok bude venovaný open source čítačke KOReader. V článku sa venujem inštalácii, používaniu a porovnaniu so štandardnou čítačkou na Amazon Kindle Paperwhite 2 (drvivá väčšina platí aj pre ostatné čítačky od Amazonu). Ďalej sa venujem optimalizácii spotrebovanej RAM a riešeniu problémov pri spustení bez Kindle Framweorku. Článok uzatváram trochou disassembleru a malým pluginom pre lepšiu podporu Kindle.</p>
 </header>
 
 <p>Vstavaná čítačka od Amazonu je pomerne spoľahlivá, ale má minimálne možnosti nastavenia, text nezobrazuje práve najlepšie a človek občas narazí na nejaký nepríjemný bug, napríklad, že si čítačka <a href="https://www.mobileread.com/forums/showthread.php?t=338131" target="_blank">nepamätá stranu pri použití vlastných fontov</a>.</p>
@@ -233,7 +233,7 @@ E: USEC_INITIALIZED=18056489502
 E: ID_NET_NAMING_SCHEME=v249
 <strong>E: ID_NET_NAME_MAC=enxee4900000000</strong>
 E: ID_NET_NAME_PATH=enp7s0f4u2
-E: ID_VENDOR=Linux_3.0.35-lab126_with_fsl-usb2-udc
+<strong>E: ID_VENDOR=Linux_3.0.35-lab126_with_fsl-usb2-udc</strong>
 E: ID_VENDOR_ENC=Linux\x203.0.35-lab126\x20with\x20fsl-usb2-udc
 E: ID_VENDOR_ID=0525
 E: ID_MODEL=RNDIS_Ethernet_Gadget
@@ -260,7 +260,7 @@ E: ID_NET_NAME=enp7s0f4u2i1
 <p>Zaujímavé položky sú napríklad <code>ID_VENDOR</code>, alebo <code>ID_NET_NAME_MAC</code>. Keďže sú názvy nespoľahlivé, začnem premenovaním zariadenia na niečo stabilné pomocou MAC adresy (dal by sa zneužiť aj výrobca). Vytvorím si, alebo pridám do súboru <code>/etc/udev/rules.d/98-network.rules</code> nasledujúci riadok:</p>
 
 <pre>
-SUBSYSTEM=="net", ACTION=="add", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="eth_kindle"
+SUBSYSTEM=="net", ACTION=="add", ENV{ID_VENDOR}=="Linux_3.0.35-lab126_with_fsl-usb2-udc", NAME="eth_kindle"
 </pre>
 
 <p>Toto pravidlo nastaví názov sieťového zariadenia na <code>eth_kindle</code>. Teraz nasleduje pomerne hnusný hack, ktorý si môžem dovoliť, pretože môj počítač používam sám.</p>
@@ -270,8 +270,8 @@ SUBSYSTEM=="net", ACTION=="add", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="
 <p>Do systému nainštalujem balíky <code>sshfs</code> a <code>sshpass</code>. Ďalej nahradím pôvodný riadok v <code>/etc/udev/rules.d/98-network.rules</code> novými riadkami pre pripojenie a odpojenie (pribudol len príkaz <code>RUN</code>).</p>
 
 <pre>
-SUBSYSTEM=="net", ACTION=="add", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="eth_kindle" RUN+="/etc/udev/scripts/kindle_start"
-SUBSYSTEM=="net", ACTION=="remove", ENV{ID_NET_NAME_MAC}=="enxee4900000000", NAME="eth_kindle" RUN+="/etc/udev/scripts/kindle_stop"
+SUBSYSTEM=="net", ACTION=="add", ENV{ID_VENDOR}=="Linux_3.0.35-lab126_with_fsl-usb2-udc", NAME="eth_kindle" RUN+="/etc/udev/scripts/kindle_start"
+SUBSYSTEM=="net", ACTION=="remove", ENV{ID_VENDOR}=="Linux_3.0.35-lab126_with_fsl-usb2-udc", NAME="eth_kindle" RUN+="/etc/udev/scripts/kindle_stop"
 </pre>
 
 <p>Skript pre odpojenie <code>/etc/udev/scripts/kindle_stop</code> bude veľmi jednoduchý:</p>
@@ -666,23 +666,56 @@ lipc-probe com.lab126.blanket
 
 <p>Z tohto kódu som vytvoril <a href="https://github.com/mireq/KOReader-without-framework-support-for-Amazon-Kindle/blob/7548f4c1441bc478082b05fe64f05a48788db785/kindle_no_framework_helper.koplugin/main.lua">plugin pre KOReader</a>, ktorý stačí uploadnúť do adresára <code>koreader/plugins</code> a reštartovať KOReader.</p>
 
-<p>Teraz funguje všetko korektne vrátane obsluhy tlačidla power.</p>
+<p>Teraz funguje všetko korektne vrátane obsluhy tlačidla power. Spotreba čítačky je približne rovnaká, ako so spusteným frameworkom.</p>
 
-<h2>Bonus tip - kterm</h2>
+<figure>
+	<a href="img/battery_stats.png"><img src="img/battery_stats.png" alt="Štatistiky batérie" /></a>
+	<figcaption>Obrázok <counter></counter>: Štatistiky batérie</figcaption>
+</figure>
 
-<p>Pri hraní sa s KOReaderom som napísal ešte jeden malý plugin, ktorý umožňuje naštartovať emulátor terminálu Kterm.</p>
+<h2>Bonus tip - X11 aplikácie / Kterm</h2>
 
-<p>Spustiť emulátor terminálu pod KOReaderom nie je tak jednoduché, ako by sa mohlo zdať, pretože KOReader nepoužíva X11, ale vykresľuje grafiku priamo na framebuffer. Po štarte terminálu sa musí zastaviť vykresľovanie, čo zase nie je až taký problém. Spracovanie udalosti zasekne GUI kým sa nedokončí spracovanie, takže stačí spustiť KOReader na popredí.</p>
+<p>Pri hraní sa s KOReaderom som napísal ešte jeden malý plugin, ktorý umožňuje naštartovať X11 aplikácie.</p>
 
-<p>Väčším problémom je, že KOReader blokuje vstup. Okno terminálu síce nabehne, ale nebude mať prijímať žiadne udalosti dotyku. Problém som vyriešil jednoducho odpojením vstupných vstupov pred štartom terminálu a obnovením vstupov po štarte. Kód nakoniec <a href="https://github.com/mireq/KOReader-start-kterm/blob/010ca8b94a3a59f86b2fee8d1108ab442d1bff55/kindle_start_kterm.koplugin/main.lua">nie je vôbec zložitý</a>.</p>
+<p>Spustenie X11 aplikácie nie je až tak priamočiare, ako by sa mohlo zdať, pretože KOReader vykresľuje priamo na framebuffer. Po štarte aplikácie nesmie KOReader nič vykresľovať, ale to nie je až taký problém, pretože volanie <code>os.execute</code> blokuje vykonávanie až ukončenia aplikácie.</p>
+
+<p>Väčším problémom je, že KOReader blokuje vstup. Okno terminálu síce nabehne, ale nebude mať prijímať žiadne udalosti dotyku. Problém som vyriešil jednoducho odpojením vstupných vstupov pred štartom terminálu a obnovením vstupov po štarte. Kód nakoniec <a href="https://github.com/mireq/KOReader-kindle-start-x-app/blob/10f12dc602ba806482b4c4e609d1ae2077556296/kindle_start_x_app.koplugin/main.lua">nie je vôbec zložitý</a>.</p>
 
 <p>Nakoniec ešte ukážkové video:</p>
 
 <p><a href="http://www.youtube.com/watch?v=GHr8WD_MjzE" title="Kterm" rel="nofollow"><img src="https://img.youtube.com/vi/GHr8WD_MjzE/maxresdefault.jpg" alt="Kterm"></a></p>
 
+<h2>Bonus tip 2 - pripojenie ku Calibre ako "bezdrôtové zariadenie" cez USBNetwork</h2>
+
+<p>KOReader v štandardnej inštalácii obsahuje plugin pre spojenie s Calibre cez wifi. Po odstránení <a href="https://github.com/koreader/koreader/blob/v2022.03/plugins/calibre.koplugin/wireless.lua#L231">jednej podmienky</a> a nastavení pevnej IP adresy / portu je možné zapnúť pripojenie na Calibre bez zapnutej WiFi.</p>
+
+<figure>
+	<a href="img/calibre_connect_wireless.png"><img src="img/calibre_connect_wireless.png" alt="Povolenie pripojenia" /></a>
+	<figcaption>Obrázok <counter></counter>: Povolenie pripojenia</figcaption>
+</figure>
+
+<figure>
+	<a href="img/calibre_wireless_dialog.png"><img src="img/calibre_wireless_dialog.png" alt="Nastavenie pevného portu" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie pevného portu</figcaption>
+</figure>
+
+<p>Pri vypnutom KOReaderi je potrebné upraviť <code>settings.reader.lua</code> a pridať, alebo upraviť položky:</p>
+
+<pre class="code-lua">
+["calibre_wireless_url"] = {
+    ["address"] = "192.168.15.243",
+    ["port"] = 9090,
+},
+["inbox_dir"] = "/mnt/us/documents",
+</pre>
+
+<p>Aby bolo spojenie automatické, napísal som <a href="https://github.com/mireq/KOReader-usbnet-connect-to-calibre/blob/a54641361a723ef3473e13d686803b5ffe35f56e/calibre_usb_autoconnect.koplugin/main.lua">malý plugin</a>, ktorý bude po pripojení USB kábla bude každú sekundu kontrolovať danú IP adresu a port. Ak je port otvorený, pripojí sa automaticky na Calibre. V praxi to vyzerá takto:</p>
+
+<p><a href="http://www.youtube.com/watch?v=qPahONVbgzo" title="Kterm" rel="nofollow"><img src="https://img.youtube.com/vi/qPahONVbgzo/maxresdefault.jpg" alt="Kterm"></a></p>
+
 <h2>Boot priamo do KOReaderu</h2>
 
-<p>Kindle bootuje veľmi dlho. Samotný systém do X.org serveru dokáže naštartovať za 10s, ale vstavaná aplikácia čítačky štartuje 2-3 minúty. Teoreticky by bolo možné deaktivovať službu gui cez upstart a štartovať priamo KOReader, vďaka čomu by bola čítačka použiteľná za asi 15s po reštarte. Reálne sú tu rôzne kontroly, či Kindle nabootoval a v prípade 3 neúspešných pokusov sa zasekne na obrazovke oznamujúcej nutnosť opravy. Pravdu povediac neviem, či v tomto režime nabehne vôbec SSH daemon a nechcem riskovať, že si úplne zablokujem prístup.</p>
+<p>Kindle bootuje veľmi dlho. Samotný systém do X.org serveru dokáže naštartovať za 10s, ale vstavaná aplikácia čítačky štartuje 2-3 minúty. Teoreticky by bolo možné deaktivovať službu gui cez upstart a štartovať priamo KOReader, vďaka čomu by bola čítačka použiteľná za asi 15s po reštarte. Reálne sú tu rôzne kontroly, či Kindle nabootoval a v prípade 3 neúspešných pokusov sa zasekne na obrazovke oznamujúcej nutnosť opravy. Pravdu povediac neviem, či v tomto režime nabehne vôbec SSH daemon a nechcem riskovať, že si úplne zablokujem prístup. Keby napriek tomu niekto chcel experimentovať, odporúčam pozrieť <a href="https://github.com/koreader/koreader/issues/7853#issuecomment-861802055">toto vlákno</a>, kde je ukážka úpravy upstart skriptu.</p>
 
 <p>Takže milé deti, neskúšajte to doma (aspoň nie, ak nemáte pripravený UART a nástroje na rozobratie).</p>
 
