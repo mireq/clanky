@@ -479,7 +479,6 @@ end
 <p>Najskôr začnem simuláciou udalostí. Utilita <code>powerd_test</code> slúži na simuláciu power tlačidla.</p>
 
 <pre>
-powerd_test
 powerd_test: Utility to test powerd
 Options:
   s          : Print status
@@ -487,14 +486,14 @@ Options:
   p          : Simulate power button pressed event
   h          : Simulate power button held event
   l          : Simulate low batt low event
-  d <value>  : Set defer sleep property to given value
+  d &lt;value&gt;  : Set defer sleep property to given value
   r          : Simulate a random series of events at random intervals.
                Max interval is 10s by default.
-  b<optional>: Set fake battery level if a value is provided. Remember to
+  b&lt;optional&gt;: Set fake battery level if a value is provided. Remember to
                there is no space between b and value.  If no value is
                provided, it interactively accepts values from you and sets
                fake battery level
-  t <value>  : Max interval between events in seconds.
+  t &lt;value&gt;  : Max interval between events in seconds.
                Valid only when used with -r
   NOTE       : Only one of i,p,d, b and r can be used at one time
 </pre>
