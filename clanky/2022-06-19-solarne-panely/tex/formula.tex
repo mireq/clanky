@@ -1,0 +1,65 @@
+\documentclass{minimal}
+
+\usepackage{ccfonts}
+\usepackage{amsmath}
+\usepackage{breqn}
+\usepackage{mathtools}
+\usepackage{gensymb}
+
+\DeclareMathSymbol{.}{\mathord}{letters}{"3B}
+
+\begin{document}
+
+\begin{equation*}\begin{split}
+M & = (M_0 + M_1 \times (J - J_{2000})) \\
+J_{2000} &= 2451545 - 0.5
+\end{split}\end{equation*}
+
+\newpage
+
+\begin{equation*}\begin{split}
+\nu & = M + C \\
+C & \approx C_1 \sin (M) + C_2 \sin (2M) + C_3 \sin (3M) + C_4 \sin (4M) + C_5 \sin (5M) + C_6 \sin (6M)\\
+\\
+& \mathrm{Z tabuliek}\\
+C_{zem} & \approx 1.9148 \sin (M) + 0.02 \sin (2M) + 0.0003 \sin (3M)
+\end{split}\end{equation*}
+
+\newpage
+
+\begin{equation*}\begin{split}
+\lambda &= \nu + \Pi + 180\degree \\
+\lambda &= \nu + 102.9373\degree + 180\degree
+\end{split}\end{equation*}
+
+\newpage
+
+\begin{equation*}\begin{split}
+\alpha &= \arctan\left(\sin(\lambda) \cos(\epsilon), \cos(\lambda)\right)\\
+\delta &= \arcsin\left(\sin(\lambda) \sin(\epsilon)\right)
+\end{split}\end{equation*}
+
+\newpage
+
+\begin{equation*}\begin{split}
+\Theta & = \Theta_0 + \Theta_1 \times (J - J_{2000}) - lng_{w} \\
+\Theta & = 280.16 \degree + 360.9856235 \degree \times (J - J_{2000})) + 20.3 \degree \\
+H &= \Theta - \alpha \\
+h &= \arcsin(\sin(lat) \times \sin(\delta) + \cos(lat) \times \cos(\delta) \times \cos(H)) \\
+A &= \arctan(\sin(H), \cos(H) \times \sin(lat) - \tan(\delta) \times \cos(lat))
+\end{split}\end{equation*}
+
+\newpage
+
+\begin{equation*}\begin{split}
+A & = \sin(\delta_s) \sin(\delta_l) + \cos(\delta_s) \cos(\delta_l) \cos(\alpha_s - \alpha_l)
+\end{split}\end{equation*}
+
+\newpage
+
+\begin{equation*}\begin{split}
+\frac{\partial J}{\partial \delta} & = 0 \\
+J & = \int { P } dt
+\end{split}\end{equation*}
+
+\end{document}

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Slnečné kolektory na staršom rodinnom dome</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Slnečné kolektory na staršom rodinnom dome</h1>
+
+	<p>Čoraz viac ľudí si na strechu montuje solárne panely. Väčšina ľudí bude hľadať skôr ekonomické dôvody. Mojim motívom je skôr ekológia, závery sa však väčšinou prekrývajú (čím menej spotrebujem, tým menej zaplatím).</p>
+</header>
+
+<p>Dlhodobo sa snažím správať ekologicky a tým ekologicky a nemyslím tým takú hipsterskú „ekológiu“ typu hodím na strechu solárne panely, do garáže elektromobil, do každej miestnosti televízor s triedou účinnosti <em>A+++</em> (staré označenie pretože hipsterovi stačí vedieť, že je to A+++).</p>
+
+<p>Svoju spotrebu energie sa snažím minimalizovať. Veľkým žrútom energie je napríklad doprava. Ja však pracujem z domu a cestujeme minimálne. V minulosti som do práce cestoval autobusom. Momentálne ak niekam potrebujem ísť, používam na menšie vzdialenosti (do 10km) vlastné nohy. Na dlhšie vzdialenosti zase cestujem buď železnicou, električkou, trolejbusom, alebo autobusom (s prioritou v tomto poradí). Nepoužívam elektrické bicykle, či kolobežky, ktoré síce majú na najazdený kilometer veľmi nízku spotrebu, ale pri výrobe takej kolobežky sa minie fosílnych palív až až. Na druhej strane taká zdieľaná kolobežka / bicykel je rozhodne ekologickejšia než individuálna preprava autom.</p>
+
+<p>Pri stravovaní preferujem potraviny vypestované blízko domova. Píšem vypestované, pretože silne preferujem rastlinnú stravu. Inými slovami nepamätám si, v ktorom roku som naposledy jedol mäso.</p>
+
+<p>Z elektroniky mám samozrejme mobil, ktorý mi zvykne slúžiť tak 10 rokov. Potom jeden pracovný notebook a jeden starší záložný notebook s minimálnou životnosťou 10 rokov. Externý monitor mám LCD s rokom výroby 2004 a jedno novšie BenQ (pracujem na rôznych miestach, preto 2 monitory). Okrem toho tu mám chladničku s mrazničkou (modernú, pretože tú starú nikto nevedel opraviť tak, aby fungovala viac než týždeň po oprave), plynový kotol (jeden z tých efektívnejších) a <a href="https://www.alza.sk/philips-led-classic-filament-11-100w-e27-cira-4000k-d5090805.htm#recenze">pár žiaroviek Philips</a>.</p>
+
+<p>Celková spotreba elektrickej energie 1 550 kWh ročne (teda niečo okolo 4 kWh denne). Spotreba plynu je 32 317 kWh ročne. Rozdiely v spotrebe elektrickej energie v lete a v zime sú zanedbateľné, pretože sa nepoužíva na vykurovanie. Plynový kotol síce zvyšuje spotrebu v zime, na druhej strane v lete zvyšuje spotrebu chladnička + čerpadlo na polievanie, dokopy sa to zhruba vyruší a spotreba je počas roka približne konštantná. Spotreba plynu v lete je nulová (na sprchovanie si vystačím so studenou vodou) a v zime vysoká. Na udržanie teploty 16°C v staršom rodinnom dome sa minie 95,4% celkovej spotrebovanej energie (!).</p>
+
+<figure>
+	<a href="img/energy.png"><img src="img/energy.png" alt="Teplo a elektrická energia"></a>
+	<figcaption>Obrázok <counter></counter>: Teplo a elektrická energia</figcaption>
+</figure>
+
+<h2>Kdeže si, slnko?</h2>
+
+<p>Pohyb planét okolo slnka je veľmi presne definovaný pomocou Einsteinovej teórie relativity. Mám si komplikovať život kvôli teoretickému spresneniu výpočtu dráhy merkúra? Asi nie ;)</p>
+
+<p>Takže pohyb planét okolo slnka je pomerne presne definovaný Newtonovym gravitačným zákonom. Zákony sú veľmi jednoduché a pohyby sa dajú jednoducho nasimulovať takým spôsobom, že pre každý krok simulácie vypočítam aktuálne gravitačné polia, podľa nich zmením príslušné rýchlosti a zmením pozície objektov pre ďalší krok simulácie. Výpočet bude tým presnejší, čím kratšie budú kroky simulácie. Lenže chce sa mi vážne babrať s týmto? Neexistuje lepší spôsob?</p>
+
+<p>Skutočne presné dráhy sa <a href="https://sk.wikipedia.org/wiki/Probl%C3%A9m_troch_telies">dajú spočítať pre 1, 2 a niektoré extrémne špecifické pozície 3 telies</a>. Slnečná sústava sa skladá však z viacerých telies a preto nie je možné vyjadriť polohy planét jednoduchým (nerekurzívnym) vzorcom. Určitú (celkom dobrú) aproximáciu poskytujú <a href="https://sk.wikipedia.org/wiki/Keplerove_z%C3%A1kony">Keplerove zákony</a>. V nasledujúcej časti sa budem venovať výpočtu polohy slnka voči pozorovateľovi pomocou keplerových zákonov.</p>
+
+<h3>Čas</h3>
+
+<p>Astronómovia niekedy používajú také divné číslo, ktoré sa volá <code>Julian Date</code>. Je to počet dní od 1. 1. 4712 p.n.l. 12:00 UTC. V takýchto divných jednotkách má 1. 1. 1970 hodnotu 2440587,5, ale vo výpočtoch budeme používať časy od 1. 1. 2000, čo je 2451544,5. Čas budem označovať písmenom <em>J</em>.</p>
+
+<h3>Stredná anomália</h3>
+
+<p>V Keplerovych zákonoch stredná anomália predstavuje fiktívnu polohu telesa pohybujúceho sa po perfektne kruhovej dráhe vyjadrenú v stupňoch. Označovať ju budem písmenom <em>M</em>. Výpočet obsahuje dve konštanty, ktoré si môžme vyhľadať v tabuľkách. Ide o počiatočnú uhol (357.5291° v dátume 1. 1. 2000) a uhlová rýchlosť (0.98560028° za deň). Pre výpočet strednej anomálie sa používa nasledujúci vzorec:</p>
+
+<figure>
+	<img src="img/formula-1.svg" alt="M &amp; = (M_0 + M_1 \times (J - J_{2000})) \\ J_{2000} &amp;= 2451545 - 0.5">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<h3>Skutočná anomália</h3>
+
+<p>K fiktívnej polohe potrebujeme pripočítať aproximáciu odchýlky. Konštanty <em>C<sub>n</code></em> sa dajú nájsť v tabuľkách, alebo <a href="https://www.aa.quae.nl/en/reken/kepler.html">vyrátať</a>.</p>
+
+<figure>
+	<img src="img/formula-2.svg" alt="\nu &amp; = M + C \\ C &amp; \approx C_1 \sin (M) + C_2 \sin (2M) + C_3 \sin (3M) + C_4 \sin (4M) + C_5 \sin (5M) + C_6 \sin (6M)\\ \\ &amp; \mathrm{Z tabuliek}\\ C_{zem} &amp; \approx 1.9148 \sin (M) + 0.02 \sin (2M) + 0.0003 \sin (3M)">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<h3>Ekliptické súradnice</h3>
+
+<p>Súradnice zeme z pohľadu slnka sa dajú vyrátať pripočítaním uhla, v ktorom nastáva perihélium (102.9372 °) k skutočnej anomálii. Pre získanie súradníc slnka z pohľadu zeme stačí otočiť o 180 °</p>
+
+<figure>
+	<img src="img/formula-3.svg" alt="\lambda &amp;= \nu + \Pi + 180\degree \\ \lambda &amp;= \nu + 102.9373\degree + 180\degree">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<h3>Poloha na oblohe</h3>
+
+<p>Ak Ɛ je sklon zemskej osi (23.4397°), potom súradnice slnka (rektascenziu a deklináciu) v rovníkových súradniciach s jarným vzťažným bodom je možné vyrátať nasledujúcim vzorcom:</p>
+
+<figure>
+	<img src="img/formula-4.svg" alt="\alpha &amp;= \arctan\left(\sin(\lambda) \cos(\epsilon), \cos(\lambda)\right)\\\delta &amp;= \arcsin\left(\sin(\lambda) \sin(\epsilon)\right)">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<p>Na prevod z rovníkových súradníc na súradnice na oblohe potrebujem zemepisnú šírku a dĺžku. Poprad je približne na súradniciach 20,3E a 49N. Konštanty ϴ<sub>0</sub> (počiatočný uhol otočenia zeme v 1. 1. 2000) a ϴ<sub>1</sub> (rýchlosť rotácie v stupňoch za deň) sú dostupné v tabuľkách. V nasledujúcom vzorci je výpočet výšky (<em>h</em>) a uhla voči juhu (<em>A</em>).</p>
+
+<figure>
+	<img src="img/formula-5.svg" alt="\Theta &amp; = \Theta_0 + \Theta_1 \times (J - J_{2000}) - lng_{w} \\ \Theta &amp; = 280.16 \degree + 360.9856235 \degree \times (J - J_{2000})) + 20.3 \degree \\ H &amp;= \Theta - \alpha \\ h &amp;= \arcsin(\sin(lat) \times \sin(\delta) + \cos(lat) \times \cos(\delta) \times \cos(H)) \\ A &amp;= \arctan(\sin(H), \cos(H) \times \sin(lat) - \tan(\delta) \times \cos(lat))">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<h3>Ukážkový program</h3>
+
+<p>Nastal čas na trochu programovania. Nasledujúci kód bude využívať knižnicu <a href="https://www.sympy.org/en/index.html">SymPy</a>. Začnem pomocnou funkciou, ktorá vráti vzorce pre výpočet polohy slnka (kód tohto príkladu, ako aj ostatných príkladov je v súbore <a href="code/plot.py">plot.py</a>):</p>
+
+<pre class="code-python">
+import sympy
+
+LAT = 49
+LNG = 20.3
+SYMPY_RAD = sympy.pi / 180
+
+
+def get_sympy_model(substiture_coordinates=True):
+    obliquity = SYMPY_RAD * 23.4397
+
+    day_symbol = sympy.symbols('day')
+    day = day_symbol - 0.5
+
+    mean_anomally = SYMPY_RAD * (357.5291 + 0.98560028 * day)
+
+    center = SYMPY_RAD * (1.9148 * sympy.sin(mean_anomally) + 0.02 * sympy.sin(2 * mean_anomally) + 0.0003 * sympy.sin(3 * mean_anomally))
+    perihelion = SYMPY_RAD * 102.9372
+    ecliptic_longitude = mean_anomally + center + perihelion + sympy.pi
+
+    def declination(l):
+        return sympy.asin(sympy.sin(obliquity) * sympy.sin(l))
+
+    def right_ascension(l):
+        return sympy.atan2(sympy.sin(l) * sympy.cos(obliquity), sympy.cos(l))
+
+    def sidereal_time(d, lw):
+        return SYMPY_RAD * (280.16 + 360.9856235 * d) - lw
+
+    def altitude(s_time, phi, dec):
+        return sympy.asin(sympy.sin(phi) * sympy.sin(dec) + sympy.cos(phi) * sympy.cos(dec) * sympy.cos(s_time))
+
+    def azimuth(s_time, phi, dec):
+        return sympy.atan2(sympy.sin(s_time), sympy.cos(s_time) * sympy.sin(phi) - sympy.tan(dec) * sympy.cos(phi))
+
+    dec = declination(ecliptic_longitude)
+    ra = right_ascension(ecliptic_longitude)
+
+    longitude_symbol =
+
+    lw = (-SYMPY_RAD) * sympy.symbols('longitude')
+    phi = SYMPY_RAD * sympy.symbols('latitude')
+
+    # dosadenie hodnôt namiesto symbolov longitude / latidude
+    if substiture_coordinates:
+        lw = lw.subs({'longitude': LNG})
+        phi = phi.subs({'latitude': LAT})
+
+    sidereal_time_value = sidereal_time(day, lw) - ra
+    altitude_value = altitude(sidereal_time_value, phi, dec)
+    azimuth_value = azimuth(sidereal_time_value, phi, dec)
+
+    return {
+        'dec': dec,
+        'ra': ra,
+        'altitude': altitude_value,
+        'azimuth': azimuth_value,
+        'day': day_symbol,
+    }
+</pre>
+
+<p>Uhol voči rovníku je v premennej <code>dec</code>. Nasledujúci kód zobrazí zmenu výšky slnka voči rovníku počas roka:</p>
+
+<pre class="code-python">
+model = get_sympy_model()
+start_day = suncalc.to_days(datetime(2000, 1, 1))
+end_day = suncalc.to_days(datetime(2001, 1, 1))
+
+sympy.plot(
+    model['dec'] / SYMPY_RAD,
+    (model['day'], start_day, end_day),
+    axis_center=(start_day, 0.0),
+    xlabel='Deň',
+    ylabel='Uhol'
+)
+</pre>
+
+<figure>
+	<a href="img/deklinacia_voci_rovniku.png"><img src="img/deklinacia_voci_rovniku.png" alt="Deklinácia voči rovníku"></a>
+	<figcaption>Obrázok <counter></counter>: Deklinácia voči rovníku</figcaption>
+</figure>
+
+<p>Keď v predchádzajúcom kóde nahradím <code>model['dec']</code> za <code>model['altitude']</code> viem si vykresliť výšku slnka na oblohe pre moje súradnice v čase 1. 1. 2000 - 2. 1. 2000.</p>
+
+<figure>
+	<a href="img/vyska_slnka.png"><img src="img/vyska_slnka.png" alt="Výška slnka"></a>
+	<figcaption>Obrázok <counter></counter>: Výška slnka</figcaption>
+</figure>
+
+<h2>Intenzita svetla voči povrchu</h2>
+
+<p>Najčastejšie bývajú kolektory na rodinných domoch montované so statickým sklonom voči slnku. Teraz idem vypočítať intenzitu svetla, ktoré dopadá na povrch pod určitým uhlom.</p>
+
+<p>Intenzita sa vypočíta jednoducho ako kosínus medzi zdrojom svetla a kolmicou voči povrchu (takzvaným normálovým vektorom). Pre zjednodušenie budem predpokladať, že 100% dopadajúceho svetla je možné využiť, aj keď v extrémnych uhloch je využiteľného svetla o niečo menej kvôli Fresnelovmu odrazu.</p>
+
+<p>Nasledujúci vzorec udáva pomer dopadajúceho svetla voči intenzite (<em>A</em>) pre uhol kolmý na rovinu (<em>s</em>) a zdroj svetla (<em>l</em>), pričom oba majú uhol definovaný deklináciou ẟ a azimutom α.</p>
+
+<figure>
+	<img src="img/formula-6.svg" alt="A &amp; = \sin(\delta_s) \sin(\delta_l) + \cos(\delta_s) \cos(\delta_l) \cos(\alpha_s - \alpha_l)">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<p>Nasledujúci kód predstavuje výpočet intenzity osvetlenia počas 1. 3. 2000. Do pozornosti dávam volanie <code>Piecewise</code>, ktoré zaistí, aby intenzita nebola záporná a zároveň aby bola nulová aj keď je slnko pod obzorom (môže nastať prípad, keď sú kolektory otočené tak, že slnko by na ne ešte teoreticky mohlo svietiť, ale už je pod obzorom).</p>
+
+<p>Výpočet som robil pre sklony kolektorov 0° a 90°. Nulový sklon znamená, kolektor je zvisle otočený smerom na juh. Sklon 90° znamená, že kolektor je položený vodorovne.</p>
+
+<pre class="code-python">
+# výpočet intenzity pri sklone kolektorov definovanom parametrom angle
+def sympy_intensity_for_angle(angle, model):
+    to_surface_angle = sympy.acos(
+        sympy.sin(angle*SYMPY_RAD) * sympy.sin(model['altitude']) +
+        sympy.cos(angle*SYMPY_RAD) * sympy.cos(model['altitude']) * sympy.cos(0 - model['azimuth'])
+    )
+
+    intensity = sympy.cos(to_surface_angle)
+    intensity = sympy.Piecewise((0, intensity &lt; 0), (0, model['altitude'] &lt; 0), (intensity, True))
+    return intensity
+
+
+def show_sympy_one_day_intensity():
+    model = get_sympy_model()
+
+    start_day = suncalc.to_days(datetime(2000, 3, 1)) + 0.5
+    end_day = suncalc.to_days(datetime(2000, 3, 2)) + 0.5
+
+    plot = sympy.plot(
+        sympy_intensity_for_angle(90, model),
+        (model['day'], start_day, end_day),
+        axis_center=(start_day, 0.0),
+        xlabel='Deň',
+        ylabel='Intenzita',
+        adaptive=False,
+        nb_of_points=1440,
+        show=False
+    )
+    plot.append(sympy.plot(
+        sympy_intensity_for_angle(0, model),
+        (model['day'], start_day, end_day),
+        axis_center=(start_day, 0.0),
+        xlabel='Deň',
+        ylabel='Intenzita',
+        adaptive=False,
+        nb_of_points=1440,
+        show=False
+    )[0])
+    plot.show()
+</pre>
+
+<figure>
+	<a href="img/intensity_day.png"><img src="img/intensity_day.png" alt="Intenzita počas dňa"></a>
+	<figcaption>Obrázok <counter></counter>: Intenzita počas dňa</figcaption>
+</figure>
+
+<p>Pre intenzity počas roka stačí zmeniť rozsah.</p>
+
+<pre class="code-python">
+def show_sympy_year_intensity():
+    model = get_sympy_model()
+
+    start_day = suncalc.to_days(datetime(2000, 1, 1)) + 0.5
+    end_day = suncalc.to_days(datetime(2001, 1, 1)) + 0.5
+
+    plot = sympy.plot(
+        sympy_intensity_for_angle(90, model),
+        (model['day'], start_day, end_day),
+        axis_center=(start_day, 0.0),
+        xlabel='Deň',
+        ylabel='Intenzita',
+        adaptive=False,
+        nb_of_points=366 * 48,
+        show=False
+    )
+    plot.show()
+</pre>
+
+<figure>
+	<a href="img/intensity_year.png"><img src="img/intensity_year.png" alt="Intenzita počas roka"></a>
+	<figcaption>Obrázok <counter></counter>: Intenzita počas roka</figcaption>
+</figure>
+
+<p>Algoritmy použité v tomto článku sa dajú nájsť v knihe <a href="https://www.agopax.it/Libri_astronomia/pdf/Astronomical%20Algorithms.pdf">Astronomical Algorithms od Jeana Meeusa</a>. V trochu hustejšej podobe sú materiály dostupné na <a href="https://www.aa.quae.nl/en/reken/zonpositie.html">aa.quae.nl</a>.</p>
+
+<h3>Použitie numpy</h3>
+
+<p>Pre výpočet optimálneho sklonu kolektorov by som potreboval vypočítať maximálnu hodnotu súhrnu intenzity dopadajúceho svetla. Minimum a maximum sa vyskytuje v bode, kde derivácia energie (<em>J</em>) má hodnotu 0. Celková energia sa dá vyrátať ako integrál intenzity (<em>P</em>) v čase.</p>
+
+<figure>
+	<img src="img/formula-7.svg" alt="\frac{\partial J}{\partial \delta} &amp; = 0 \\ J &amp; = \int { P } dt">
+	<figcaption>Vzorec <counter name="formula"></counter></figcaption>
+</figure>
+
+<p>Hranie sa so sympy bolo pekné, ale pokus o symbolický výpočet integrálu z Keplerovych zákonov nedobehol ani po hodine. Teoreticky by som mohol skúsiť integrovať ručne (som lenivý), alebo skúsiť iný softvér (stále som lenivý), ale aj tak si nie som istý, či táto funkcia má definovaný integrál. Od teraz budem používať surovú numerickú integráciu s použitím knižnice numpy.</p>
+
+<p>Pre python existuje minimalistická knižnica <a href="https://pypi.org/project/suncalc/">suncalc</a>, ktorá implementuje výpočet polohy slnka rovnakým spôsobom, ako som ukázal na príklade so <em>sympy</em>. Pozícia slnka sa dá jednoducho vypočítať zavolaním <code>suncalc.get_position</code> s príslušný časom, zemepisnou dĺžkou a šírkou.</p>
+
+<pre class="code-python">
+from datetime import datetime
+import suncalc
+
+suncalc.get_position(datetime(2000, 1, 1, 12, 0), 20.3, 49)
+
+# {'azimuth': 0.07040316953235722, 'altitude': 0.31183328854678666}
+</pre>
+
+<p>Na tejto knižnici je pekné, že dokáže pracovať aj nad vektormi, takže v jednom volaní <code>get_position</code> nie je problém vypočítať napríklad pozíciu slnka v každej minúte, alebo každej sekunde počas celého roka. Výpočet sa vykonáva nad vektormi cez knižnicu numpy, takže je dostatočne rýchly a netreba sa báť výpočtu pre milióny časových okamihov. Nasledujúci kód vypočíta polohu slnka pre najkratší a najdlhší deň a vykreslí výšku slnka nad horizontom do grafu.</p>
+
+<pre class="code-python">
+def show_day_altitude():
+    # Výpočet pre najkratší deň
+    day_times = np.arange(datetime(2000,12,21), datetime(2000, 12, 22), timedelta(seconds=60)).astype(datetime) # pre každú minútu v najkratší deň
+    short_positions = suncalc.get_position(day_times, LNG, LAT) # výpočet polohy
+
+    # Výpočet pre najdlhší deň
+    day_times = np.arange(datetime(2000,6,21), datetime(2000, 6, 22), timedelta(seconds=60)).astype(datetime)
+    long_positions = suncalc.get_position(day_times, LNG, LAT)
+
+    # Prevod času na hodiny
+    hours = [val.total_seconds() / 3600 for val in day_times - datetime(2000,6,21)] # prevod na hodiny
+
+    # Vykreslenie
+    plt.plot(hours, to_angle(short_positions['altitude']), color='tab:blue', label="21. 12. 2000")
+    plt.plot(hours, to_angle(long_positions['altitude']), color='tab:red', label="21. 6. 2000")
+    plt.ylim((0, 90))
+    plt.xlim((1, 21))
+    plt.show()
+</pre>
+
+<figure>
+	<a href="img/short_long_day_declination.png"><img src="img/short_long_day_declination.png" alt="Výška slnka pre najkratší a najdlhší deň (UTC)"></a>
+	<figcaption>Obrázok <counter></counter>: Výška slnka pre najkratší a najdlhší deň (UTC)</figcaption>
+</figure>
+
+<h2>Nie každý deň je slnečno …</h2>
+
+<p>Doteraz som bral do úvahy len teoretickú dĺžku slnečného svitu. Reálne bude slnko svietiť o niečo menej kvôli oblačnosti. SHMU <a href="https://www.shmu.sk/sk/?page=1&id=klimat_operativneudaje4&identif=11934&rok=2022&obdobie=1991-2020">zverejňuje</a> na svojej stránke štatistiky slnečného svitu. Dáta sa dajú nájsť v zdrojových kódoch pod názvom <code>wn_avg_svit_serie</code>.</p>
+
+<p>Z dát som si extrahoval časy slnečného svitu (<a href="data/sun_avg.json">sun_avg.json</a>) a astronomickú dĺžku dňa (<a href="data/sun_max.json">sun_max.json</a>). V nasledujúcom grafe sú dáta z SHMU a vypočítaný podiel slnečného svitu voči maximálnej dĺžke.</p>
+
+<figure>
+	<a href="img/shmu_sun.png"><img src="img/shmu_sun.png" alt="Slnečný svit z SHMU"></a>
+	<figcaption>Obrázok <counter></counter>: Slnečný svit z SHMU</figcaption>
+</figure>
+
+<p>Dáta sú mierne vyhladené digitálnym filtrom <a href="https://en.wikipedia.org/wiki/Savitzky%E2%80%93Golay_filter">Savitzky–Golay</a>. Z dát vyplýva, že v zime je nie len kratšia doba slnečného svitu, ale zároveň je aj častejšie zamračené.</p>
+
+<h2>Sklon solárnych panelov</h2>
+
+<p>Optimálny sklon solárnych panelov je taký, pri ktorom je súčet efektívnych hodín slnečného svitu maximálny.</p>
+
+<p>Na začiatok zobrazím vykreslím do grafu efektívnu dĺžku slnečného svitu počas každého dňa v roku pre rôzny sklon solárnych panelov.</p>
+
+<pre class="code-python">
+def show_daily_effective_intensity():
+    # pre každú minútu roku 2021
+    samples_per_day = 60 * 24
+    day_times = np.arange(datetime(2021, 1, 1), datetime(2022, 1, 1), timedelta(seconds=86400/samples_per_day)).astype(datetime)
+    positions = suncalc.get_position(day_times, LNG, LAT)
+
+    # pre každý uhol od 0° po 90° s krokom 5°
+    angles = np.arange(0, 95, 5)
+
+    # farebná paleta
+    cmap = plt.get_cmap('gist_rainbow')
+
+    # výpočet intenzity pre každú minútu v roku pre všetky uhly
+    light_intensity = get_light_intensity(positions, to_rad(angles))
+
+    for i, angle in enumerate(angles):
+        # numerická integrácia pre každý deň
+        light_hours = [np.trapz(light_intensity[i][d*samples_per_day:(d+1)*samples_per_day], day_times[d*samples_per_day:(d+1)*samples_per_day]).total_seconds() / 3600 for d in range(365)]
+        # legenda pre každých 15°
+        label = None
+        if i % 3 == 0:
+            label = f'{angle} °'
+        # vykreslenie grafu
+        plt.plot(day_times[::samples_per_day], light_hours, label=label, color=cmap(i / len(angles)))
+
+    plt.ylim((0, 10))
+    plt.xlim((day_times[0], day_times[-1]))
+    plt.legend()
+    plt.show()
+</pre>
+
+<figure>
+	<a href="img/daily_effective_intensity.png"><img src="img/daily_effective_intensity.png" alt="Efektívna intenzita pre každý deň pri rôznych sklonoch"></a>
+	<figcaption>Obrázok <counter></counter>: Efektívna intenzita pre každý deň pri rôznych sklonoch</figcaption>
+</figure>
+
+<p>Že sa v tom nedá poriadne orientovať? To býva častým príznakom zle zvoleného typu grafu. Čo tak 2D graf, kde je na x-ovej osi dátum, y-ovej sklon a farba označuje efektívny slnečný svit?</p>
+
+<figure>
+	<a href="img/daily_effective_intensity_2d.png"><img src="img/daily_effective_intensity_2d.png" alt="Efektívna intenzita pre každý deň pri rôznych sklonoch v 2D"></a>
+	<figcaption>Obrázok <counter></counter>: Efektívna intenzita pre každý deň pri rôznych sklonoch v 2D</figcaption>
+</figure>
+
+<p>Síce to vyzerá cool, ale nájsť taký sklon na osi y, v ktorom je súčet hodnôt počas celého roku maximálny by nedokázal ani Chuck Norris. Takže ešte raz poriadne.</p>
+
+<p>Nasledujúci kód sčíta celkový efektívny slnečný svit počas celého roku pre každý uhol od 0° po 90° s krokom 0,1° a vypíše bod s maximálnou hodnotou. Výpočet robím ako teoreticky podľa astronomického svitu, tak aj podľa reálnych dát z SHMU. Ak beriem dáta z SHMU, mali by kolektory smerovať trocha vyššie kvôli menej zamračenej oblohe v lete.</p>
+
+<pre class="code-python">
+def show_optimal_angle():
+    # výpočet s presnosťou na minútu
+    ticks_per_day = 60 * 24 * 1
+    day_times = np.arange(datetime(2021,1,1), datetime(2022,1,1), timedelta(seconds=86400/ticks_per_day)).astype(datetime)
+
+    positions = suncalc.get_position(day_times, LNG, LAT)
+    angles = np.arange(0, 90.1, 0.1)
+
+    # výpočet teoretickej intenzity pre každý deň
+    light_intensity = get_light_intensity(positions, to_rad(angles))
+    light_intensity = sum(light_intensity[:,minute::ticks_per_day] for minute in range(ticks_per_day)) / ticks_per_day * 24
+
+    # výpočet reálnej intenzity podľa dát z shmu
+    real_light_intensity = light_intensity * get_shmu_sun_fraction()
+
+    # súčet intenzity pre každý deň
+    light_intensity = np.sum(light_intensity, axis=1)
+    real_light_intensity = np.sum(real_light_intensity, axis=1)
+
+    # výpočet teoretického maxima
+    max_idx = np.argmax(light_intensity)
+    max_angle = angles[max_idx]
+    max_value = light_intensity[max_idx]
+
+    # výpočet reálneho maxima
+    real_max_idx = np.argmax(real_light_intensity)
+    real_max_angle = angles[real_max_idx]
+    real_max_value = real_light_intensity[real_max_idx]
+
+    print(f"Teoreticky: uhol: {max_angle:.1f}, svetlo: {max_value:.0f}h")
+    print(f"Reálne: uhol: {real_max_angle:.1f}, svetlo: {real_max_value:.0f}h")
+</pre>
+
+<p>Teoreticky je optimálny sklon v mojom prípade 44,8°, ale keďže v zime je častejšie zamračené, bude optimum trochu vyššie, konkrétne 48,7°.</p>
+
+<figure>
+	<a href="img/optimal_angle.png"><img src="img/optimal_angle.png" alt="Optimálny sklon"></a>
+	<figcaption>Obrázok <counter></counter>: Optimálny sklon</figcaption>
+</figure>
+
+<h2>Vykurovanie</h2>
+
+<p>Na vykurovanie sa doma minie 95,4% celkovej spotreby energie. Chápem, že rôzne energetické certifikáty na elektrospotrebičoch vyzerajú cool, ale skutočný problém ak niekto nemá poriadne zateplený dom je teplo.</p>
+
+<p>V tejto časti sa pokúsim vymodelovať spotrebu energie, ktorá sa minie na vykurovanie počas celého roka.</p>
+
+<h3>Vonkajšia teplota</h3>
+
+<p>Nemám prístup k teplotám počas posledných pár rokov. Jediné rozumné dáta, ku ktorým som sa dostal boli priemerné teploty z klimatologického spravodajstva na <a href="https://www.shmu.sk/sk/?page=1&amp;id=klimat_operativneudaje1&amp;identif=11934&amp;rok=2022&amp;obdobie=1991-2020&amp;sub=1">SHMU</a>. Konkrétne využijem dlhodobé denné minimum (<a href="data/longterm_min_temp.json">longterm_min_temp.json</a>) a maximum (<a href="data/longterm_max_temp.json">longterm_max_temp.json</a>).</p>
+
+<p>Ak by slnko svietilo počas celého dňa, teplota by mala pomerne presne kopírovať sínusovú krivku. Reálne má teplota trochu zložitejší priebeh. Tesne po východe, alebo po západe bude krivka skôr bližšie k <em>T<sub>0</sub> e</em><sup>-t/K</sup>, kde <em>T<sub>0</sub></em> je teplota, t je čas a K je koeficient prestupu tepla. Cez deň bude zase bližšie k sínusu. Ja sa napriek tomu budem tváriť, že teplota má počas celého dňa sínusový priebeh.</p>
+
+<p>Nasledujúci kód vygeneruje teploty pomocou sínusoidy:</p>
+
+<pre class="code-python">
+ticks_per_day = 60 * 24 * 1 # pre každú minútu
+
+# maximálna a minimálna teplota z SHMU (obmedzená na 5 dní)
+longterm_min = get_shmu_lonterm_min()[:5]
+longterm_max = get_shmu_lonterm_max()[:5]
+
+# dni a rozšírené dni s rozlíšením na minútu
+days = np.arange(datetime(2021,1,1), datetime(2021, 1, 6), timedelta(seconds=86400))
+day_times = np.arange(datetime(2021,1,1), datetime(2021, 1, 6), timedelta(seconds=86400/ticks_per_day))
+
+# interpolácia minimálnej a maximálnej teploty na minútu
+longterm_min = np.interp(day_times.astype(np.float64), days.astype(np.float64), longterm_min)
+longterm_max = np.interp(day_times.astype(np.float64), days.astype(np.float64), longterm_max)
+
+# generovanie sínusu pre každý deň s hodnotami 0, 1 a maximom o 12:00
+sin_wave = (np.sin(day_times.astype(np.float64) / 1000000 / 86400 * math.pi * 2 - math.pi / 2) + 1) / 2
+
+# denné teploty pomocou sínusu
+day_temperature = longterm_min + (longterm_max - longterm_min) * sin_wave
+</pre>
+
+<figure>
+	<a href="img/daily_temperature.png"><img src="img/daily_temperature.png" alt="Vypočítaná denná teplota"></a>
+	<figcaption>Obrázok <counter></counter>: Vypočítaná denná teplota</figcaption>
+</figure>
+
+<h3>Model energie minutej na vykurovanie</h3>
+
+<p>V nasledujúcej časti budem počítať energiu, ktorá sa minie na vykurovanie. Modely budem extrémne zjednodušovať a namiesto skutočných jednotiek budem používať jednotky násobené rôznou bulharskou konštantou a bezrozmerné pomery. Mojim cieľom je pre každý deň v roku vyrátať približnú spotrebu energie za predpokladu ak poznám len celkovú spotrebu. Ak by som mal zaznamenanú skutočnú spotrebu pre každý deň, nemusel by som sa týmto vôbec zaoberať.</p>
+
+<p>Najskôr predstavím pár konštánt. V prvom rade je to cieľová teplota (<code>TARGET_TEMPERATURE</code>). Kúrenie mám nastavené na cca 16°C, takže to je cieľová hodnota.</p>
+
+<p>Bulharska konštanta <code>LIGHT_TEMPERATURE_INCREASE</code> je zvýšenie teploty povrchu pri priamom dopade slnečných lúčov. Hodnota je +/- odhad + meranie infra teplomerom. Nie je ktovie ako presná, ale pri tejto teplote mi vychádza vypnutie kúrenia v máji. Väčšinou je to skôr, ale nechcem kaziť povesť kolektorov, takže tu vyberám hodnotu, ktorá bude v ich prospech.</p>
+
+<p>Poslednou konštantou je <code>HEAT_TRANSFER_COEFFICIENT</code>. Je to zase empirická hodnota, ktorú som odhadol. Pri vypnutom kúrení klesá vnútorná teplota o zhruba 1/3°C každú hodinu pri rozdiele teploty 10°C. Pre rozdiel 1°C to je 1/30°C za hodinu. Ak by bol pokles lineárny (síce nie je, ale v tak krátkom úseku sa dosť dobre približuje), bola by to 1/1800 stupňa za minútu.</p>
+
+<pre class="code-python">
+TARGET_TEMPERATURE = 16.0 # cieľová teplota
+LIGHT_TEMPERATURE_INCREASE = 30.0 # zvýšenie teploty pri maximálnej intenzite kolmo na povrch
+HEAT_TRANSFER_COEFFICIENT = 1800 # 1/1800°C za jednu minútu pri rozdiele 1°C
+
+data = get_outside_temperature(days=6, start=140) # začiatok 20. máj
+day_times, days = data['day_times'], data['days']
+
+# výpočet intenzity svetla na povrch s nulovým sklonom
+positions = suncalc.get_position(day_times.astype(datetime), LNG, LAT)
+light_intensity = get_light_intensity(positions, to_rad(90))[0]
+
+# simulácia zmeny vnútornej teploty
+def simulate_indoor(accumulated, value):
+    # termostat nastavuje cieľovú teplotu
+    if accumulated &lt; TARGET_TEMPERATURE:
+        accumulated = TARGET_TEMPERATURE
+    accumulated = accumulated + (value - accumulated) / HEAT_TRANSFER_COEFFICIENT
+    return accumulated
+simulate_indoor = np.frompyfunc(simulate_indoor, 2, 1)
+
+# vonkajšia teplota spočítaná ako priemerná teplota + intenzita svetla
+# vynásobená zvýšením teploty (dáta z SHMU)
+outdoor_temperature = data['day_temperature'] + light_intensity * LIGHT_TEMPERATURE_INCREASE * data['intensity_fraction']
+# simulácia vnútornej teploty
+indoor_temperature = simulate_indoor.accumulate(outdoor_temperature)
+# ak je teplota pod cieľovou teplotou, znamená to, že bez termostatu by
+# teplota poklesla za minútu o rozdiel teploty - TARGET_TEMPERATURE
+# Energia potrebná na opätovné ohriatie je rovná rozdielu teplôt
+energy_required = (TARGET_TEMPERATURE - indoor_temperature) * HEAT_TRANSFER_COEFFICIENT
+energy_required[0] = 0 # zahadzujem prvý údaj
+energy_required[energy_required &lt; 0] = 0
+</pre>
+
+<figure>
+	<a href="img/daily_energy_heating.png"><img src="img/daily_energy_heating.png" alt="Energia potrebná na vykurovanie"></a>
+	<figcaption>Obrázok <counter></counter>: Energia potrebná na vykurovanie</figcaption>
+</figure>
+
+<p>V nasledujúcom grafe je porovnanie energie potrebnej na vykurovanie a energie získanej zo solárnych panelov v priebehu roka.</p>
+
+<figure>
+	<a href="img/year_energy_required.png"><img src="img/year_energy_required.png" alt="Potrebná a dostupná energia"></a>
+	<figcaption>Obrázok <counter></counter>: Potrebná a dostupná energia</figcaption>
+</figure>
+
+<h2>Celková energia</h2>
+
+<p>Teraz si ukážme hypotetickú situáciu, kedy brutálne predimenzujem fotovoltiku, aby som počas roka vyrobil presne toľko energie, koľko spotrebujem. Pripomeniem, že celková ročná spotreba energie je 1 550 kWh elektrickej energie a 32 317 kWh tepla. Spolu to je 33 867 kWh. Nasleduje výpočet dennej spotreby / výroby tak, aby sa spotreba a výroba rovnali. Celkový výkon kolektorov by mal byť 30 kW (33 867 kWh / 1 121 h efektívneho slnečného svitu).</p>
+
+<pre class="code-python">
+TOTAL_HEAT_ENERGY = 32317
+TOTAL_ELECTRICITY_ENERGY = 1550
+
+simulation = simulate_energy_required(data)
+energy_required = simulation['energy_required']
+energy_required = sum(energy_required[minute::ticks_per_day] for minute in range(ticks_per_day))
+energy_required = energy_required / np.sum(energy_required)
+
+sun_fraction = scipy.signal.savgol_filter(get_shmu_sun_fraction(), 8, 2)
+
+positions = suncalc.get_position(day_times.astype(datetime), LNG, LAT)
+energy_produced = get_light_intensity(positions, to_rad(OPTIMAL_ANGLE))[0]
+energy_produced = sum(energy_produced[minute::ticks_per_day] for minute in range(ticks_per_day)) * sun_fraction
+energy_produced = energy_produced / np.sum(energy_produced)
+
+energy_required = energy_required * TOTAL_HEAT_ENERGY + (TOTAL_ELECTRICITY_ENERGY / 365)
+energy_produced = energy_produced * (TOTAL_HEAT_ENERGY + TOTAL_ELECTRICITY_ENERGY)
+
+print(f"Najväčší prebytok: {np.max(energy_produced / energy_required):.2f}")
+print(f"Najväčší nedostatok: {np.max(energy_required / energy_produced):.2f}")
+</pre>
+
+<p>Najväčší prebytok energie je v lete - 33-násobne viacej vyrobenej energie než spotrebovanej energie. Naopak v zime sa vyrobí 6,62x menej energie než je vyžadované (za predpokladu, že bude slnko svietiť priemerne a nebudem mať kolektory pod snehom).</p>
+
+<figure>
+	<a href="img/daily_energy.png"><img src="img/daily_energy.png" alt="Denná spotreba a výroba"></a>
+	<figcaption>Obrázok <counter></counter>: Denná spotreba a výroba</figcaption>
+</figure>
+
+<p>Reálne nie je veľký problém vyrobiť 100% energie z obnoviteľných zdrojov. V lete. Nemecko sa pravidelne chváli obrovským podielom solárnej energie, ale len pár dní v roku. V zostávajúcej časti roka musia dodávať energiu uhoľné, alebo plynové elektrárne.</p>
+
+<h3>Čo tak uložiť energiu?</h3>
+
+<p>Vynikajúci nápad! Škoda, že to zatiaľ nikoho nenapadlo. Ale teraz vážne. V nasledujúcom grafe je nevyhnutný stav zásoby energie.</p>
+
+<figure>
+	<a href="img/stored_energy.png"><img src="img/stored_energy.png" alt="Uložená energia"></a>
+	<figcaption>Obrázok <counter></counter>: Uložená energia</figcaption>
+</figure>
+
+<p>V najvyššom bode by sme potrebovali dlhodobo skladovať 15 474 kWh energie. Aké je to množstvo?</p>
+
+<p>Typická lítiová batéria 18650 má kapacitu 10 Wh (2700 mAh pri 3,7W). Na skladovanie energie pre jednu domácnosť by bolo potrebných 1 547 400 článkov.</p>
+
+<p>Vodík skladovaný pri 25°C a tlaku 69 MPa má energetickú hustotu 1,25 kWh / liter. Celkový objem by bol 12 379 m³. Teoreticky. Vodík je najmenšia existujúca molekula a veľmi rád uniká. Pri tak vysokom tlaku <a href="https://www.seznamzpravy.cz/clanek/ekonomika-byznys-rozhovory-uhlobaron-drahe-povolenky-nikdo-nezrusi-bruselu-nesou-penize-205484">uniká do atmosféry niekoľko percent vodíka za deň</a>. Ak k tomu prirátam straty pri výrobe a premene na elektrickú energiu, je tento spôsob ukladania extrémne neefektívny.</p>
+
+<h2>Pár slov na záver</h2>
+
+<p>Fotovoltaika je rozhodne zaujímavá technológia, ktorá má svoje miesto v energetickom mixe krajiny.</p>
+
+<p>V niektorých krajinách má fotovoltaika väčší zmysel, v iných menší. Napríklad na severe austrálie dávajú perfektný zmysel. V austrálskom lete počas najväčších horúčav, kedy svieti slnko počas celého dňa bežia klimatizácie naplno a spotreba elektrickej energie je najvyššia.</p>
+
+<p>Naopak v európe potrebujeme najviac energie v zime, kedy slnko svieti najmenej a kolektory často pokrýva sneh. Fotovoltaika rozhodne patrí do energetického mixu, ale netreba to zase preháňať. Príliš veľký podiel môže práve vyústiť do stavby nových plynových / uhoľných elektrární, ktoré by dopĺňali nedostatok energie v zime.</p>
+
+<p>Ak sme pri ekológii, tak najekologickejšou energiou je tá, ktorá sa nemusí vyrobiť. Najlacnejším a najjednoduchším spôsob šetrenia energie je zníženie vnútornej teploty. Na Slovensku sa rozšíril taký zlozvyk udržiavať vnútornú teplotu vysoko nad 20°C. Reálne v pohode stačí tých 16-18°C a obliesť sa trochu teplejšie. Strata pohodlia je minimálna a úspora je celkom dobrá. Mimochodom ideálna teplota pre maximalizáciu kognitívnych schopností pre mužov <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6530830/">je hlboko pod 20°C</a>.</p>
+
+<p>Nemenej dôležitá je izolácia. Ja mám zatiaľ staré okná a žiadnu izoláciu (aj keď múry sú pomerne hrubé). Tento rok plánujem vyriešiť minimálne jeden z problémov.</p>
+
+<p>Zo spotreby elektrickej energie by som si bez ostatných opatrení až tak ťažkú hlavu nerobil. Tých necelých 5% celkovej spotreby je kvapka v mori. Napriek tomu by som mal pár rád k šetreniu elektrickou energiou.</p>
+
+<p>Namiesto výmeny spotrebičov za nové by som odporúčal radšej vypínať spotrebiče úplne (nenechávať ich v pohotovostnom režime). Dobrým pomocníkom je napríklad zásuvka s vypínačom.</p>
+
+<p>Ďalej nie je dôvod používať televízor s veľkou nenažranou obrazovkou ako zvukovú kulisu namiesto obyčajného rádia. Keď už sme pri televízoroch, dosť energie sa dá ušetriť používaním televízora s menšou uhlopriečkou.</p>
+
+<p>Montáž solárnych panelov by som odporúčal len, ak boli splnené predchádzajúce rady (hlavne zateplenie). Ostrovný systém s s vykurovaním nemá absolútne zmysel vzhľadom na šialené požiadavky pre skladovanie energie. Napojenie na sieť a využívanie „virtuálnej batérie“ je z ekonomického hľadiska OK, ale ekologickým si nie som istý. Na rôznych odľahlých miesta, kde nie je dostupná elektrická sieť môže byť ostrovný systém s batériami fajn alternatíva voči dieslovému generátoru.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
