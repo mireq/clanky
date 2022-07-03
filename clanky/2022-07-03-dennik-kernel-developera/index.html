@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Denník „kernel developera“</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Denník „kernel developera“</h1>
+
+	<p>Článok bol prvý kárt uverejnený na <a href="https://www.wisdomtech.sk/blog/dennik-kernel-developera/">wisdomtech.sk</a>.<br />Tento príbeh je o riešení jednej nepríjemnej vlastnosti trackpointu a o zdĺhavej premene jedného obyčajného web developera na kernel developera. V článku sú opísané čiastkové kroky, ale aj slepé uličky, ktorými som sa nakoniec dostal k funkčnému riešeniu.</p>
+</header>
+
+<h2>Opis problému</h2>
+
+<p>Frekvencia posielania polohy kurzoru sa výrazne znižuje, keď používam priblížim ruku k touchpadu, alebo keď používam touchpad ako opierku dlane. V nasledujúcom výpise je výstup programu <a href="https://git.sr.ht/~iank/evhz/tree">evhz</a>:</p>
+
+<pre>
+TPPS/2 Elan TrackPoint: Latest    <strong>26Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>47Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>43Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>47Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>33Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>34Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>28Hz</strong>, Average    36Hz
+TPPS/2 Elan TrackPoint: Latest    <strong>51Hz</strong>, Average    36Hz
+</pre>
+
+<p>Pri tak nízkej frekvencii kurzor pri pohybe výrazne seká. Zastavenie kurzora na presnej pozícii je výrazne ťažšie, pretože pohyb je nerovnomerný.</p>
+
+<h2>Hardvér, alebo softvér</h2>
+
+<p>Skôr než som sa pustil do práce som musel zistiť, či je problém hardvérový, alebo softvérový. Našťastie som nechal dualboot s Windowsom, takže stačilo reštartovať a vyskúšať. Vo windowse sa kurzor pohybuje plynulo bez ohľadu na to, či sa opieram dlaňou o touchpad, alebo nie.</p>
+
+<p>S týmto problémom som sa stretol aj u starších thinkpadov, menovite napríklad <code>T420</code>. Tam sa dal problém vyriešiť jednoducho vypnutím touchpadu v BIOSe. Môj nový thinkpad má síce túto možnosť v BIOSe, ale tá nefunguje. Staršie modely skutočne vypínali touchpad, ale v nových modeloch sa iba uloží príznak do NVRAM a je na operačnom systéme, aby sa s tým vysporiadal.</p>
+
+<p>Čo fyzické odpojenie touchpadu? Pri práci používam iba trackpoint, takže fyzické odpojenie touchpadu by mi nevadilo. Ani toto riešenie nie je schodné. Po odpojení flex kábla touchpadu totiž prestal fungovať aj trackpoint. Trackpoint nie je pripojený priamo na matičnú dosku, ale putuje najskôr do touchpadu, kde sa multiplexuje. Tento dizajn je nevyhnutný napríklad pre touchpady, ktoré nemajú fyzické tlačidlá (T440). Tu síce máme fyzické tlačidlá, ale zapojenie je rovnaké.</p>
+
+<figure>
+	<a href="img/touchpad_connector.jpg"><img src="img/touchpad_connector.jpg" alt="Konektor" /></a>
+	<figcaption>Obrázok <counter></counter>: Konektor touchpadu (ľavý modrý)</figcaption>
+</figure>
+
+<h2>Hľadanie príčiny</h2>
+
+<p>Najskôr je vhodné identifikovať modul jadra, ktorý by mal obsluhovať zariadenie. Väčšina zariadení sa dá identifikovať nástrojom <code>lshw</code>, kde sú prehľadne zobrazené zariadenia. Zariadenie je buď rozpoznané a <code>lshw</code> zobrazí modul jadra, ktorý ho obsluhuje, alebo nie je rozpoznané a je potrebné zistiť podporu pomocou zadania ID zariadenia do internetového vyhľadávača. Pri trackpointe viem, že niektorý modul ho obsluhuje. Takto vyzerá výpis <code>lshw</code>:</p>
+
+<pre>
+  *-input:2
+       product: TPPS/2 Elan TrackPoint
+       physical id: 4
+       logical name: input13
+       logical name: /dev/input/event12
+       capabilities: i8042
+</pre>
+
+<p>V tomto výpise síce nie je priamo zobrazený modul jadra, ale <code>i8042</code> je kontrolér <em>PS/2</em>. Letmý pohľad na zavedené moduly (<code>lsmod</code>) prezradí, že sa tam nachádza modul <code>psmouse</code>. Po odstránení modulu (<code>modprobe -r psmouse</code>) prestane trackpoint reagovať. Po opätovnom zavedení (<code>modprobe psmouse</code>) opäť funguje, čo znamená, že som našiel správny modul.</p>
+
+<p>Vo výpise <code>dmesg</code> pribudli nasledujúce riadky:</p>
+
+<pre>
+psmouse serio1: synaptics: queried max coordinates: x [..5678], y [..4694]
+psmouse serio1: synaptics: queried min coordinates: x [1266..], y [1162..]
+psmouse serio1: synaptics: <strong>Your touchpad (PNP: LEN2073 PNP0f13) says it can support a different bus. If i2c-hid and hid-rmi are not used, you might want to try setting psmouse.synaptics_intertouch to 1 and report this to linux-input@vger.kernel.org.</strong>
+psmouse serio1: synaptics: Touchpad model: 1, fw: 10.32, id: 0x1e2a1, caps: 0xf01ea3/0x940300/0x12e800/0x500000, board id: 3471, fw id: 3418235
+psmouse serio1: synaptics: serio: Synaptics pass-through port at isa0060/serio1/input0
+input: SynPS/2 Synaptics TouchPad as /devices/platform/i8042/serio1/input/input20
+psmouse serio3: trackpoint: Elan TrackPoint firmware: 0x12, buttons: 3/3
+input: TPPS/2 Elan TrackPoint as /devices/platform/i8042/serio1/serio3/input/input21
+</pre>
+
+<p>Podľa všetkého je touchpad pripojený k 2 zberniciam súčasne. Aktuálne sa používa rozhranie PS/2, cez ktoré sa prenášajú pakety maximálnou frekvenciou 80Hz, alebo 40Hz pri pri striedaní každého druhého packetu z touchpadu / trackpointu. Výpis zároveň ponúka jednoduché riešenie, ktorým by sa celý tento príbeh mohol skončiť. Ovládač kontroluje, či touchpad podporuje alternatívny protokol, ale zároveň má <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/mouse/synaptics.c#L164">whitelist podporovaných touchpadov</a>.</p>
+
+<p>Je tu veľká nádej, že problém sa podarí vyriešiť pomocou pokynov z výpisu. Podľa neho by malo stačiť skontrolovať, či náhodou nie sú zavedené moduly <code>i2c-hid</code> a <code>hid-rmi</code>. Ak áno, mali by byť odstránené (<code>modprobe -r i2c-hid hid-rmi</code>). Následne stačí zaviesť <code>psmouse</code> s parametrom <code>synaptics_intertouch=1</code>. V prípade, že to funguje, je dobré to nahlásiť na adresu linux-input@vger.kernel.org, aby sa zariadenie pridalo do whitelistu.</p>
+
+<pre>modprobe -r psmouse
+modprobe psmouse synaptics_intertouch=1</pre>
+
+<p>Na mojom notebooku to nepomohlo. Výpis <code>dmesg</code> zostal rovnaký až na tieto 2 riadky:</p>
+
+<pre>
+psmouse serio1: synaptics: Trying to set up SMBus access
+psmouse serio1: synaptics: SMbus companion is not ready yet
+</pre>
+
+<p>Hľadanie príčiny začínam príkazom <code>grep -r "SMbus companion is not ready yet" /usr/src/linux</code> v zdrojových kódoch jadra. Týmto spôsobom som našiel riadok <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/mouse/synaptics.c#L1808">riadok s vypisom</a>. Výpis sa zobrazí, ak zlyhá funkcia <code>synaptics_create_intertouch</code>:</p>
+
+<pre class="code-c">
+static int synaptics_create_intertouch(struct psmouse *psmouse,
+                                       struct synaptics_device_info *info,
+                                       bool leave_breadcrumbs)
+{
+        // ...
+        const struct i2c_board_info intertouch_board = {
+                <strong>I2C_BOARD_INFO("rmi4_smbus", 0x2c),
+                .flags = I2C_CLIENT_HOST_NOTIFY,</strong>
+        };
+
+        return psmouse_smbus_init(psmouse, &amp;intertouch_board,
+                                  &amp;pdata, sizeof(pdata), true,
+                                  leave_breadcrumbs);
+}
+</pre>
+
+<p>Funkcia <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/mouse/psmouse-smbus.c#L228">psmouse_smbus_init</a> skončí neúspechom, pretože <code>i2c_for_each_dev(smbdev, psmouse_smbus_create_companion)</code> nenájde žiadne zariadenie. Úlohou tejto funkcie je nájsť zariadenie s adresou <code>0x2c</code> (toto je adresa touchpadu značky synaptics) vyhovujúce funkcii <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/mouse/psmouse-smbus.c#L188">psmouse_smbus_create_companion</a>.</code>
+</p>
+
+<figure>
+<a href="img/debugging.jpg"><img src="img/debugging.jpg" alt="Debugger" /></a>
+</figure>
+
+<p>Aby som zistil, čo sa deje vo funkcii <code>psmouse_smbus_create_companion</code> použijem jeden z najprimitívnejších spôsobov ladenia - vloženie výpisov do konzoly. V C sa na výpis používa funkcia <code>printf</code>. V kerneli sa používa veľmi podobná funkcia <code>printk</code>. Drobný rozdiel je hlavne v určení úrovne závažnosti výpisu (<code>KERN_INFO</code>, <code>KERN_WARNING</code>…). V nasledujúcom kóde je upravená funkcia <code>psmouse_smbus_create_companion</code> s pridanými výpismi.</p>
+
+<pre class="code-c">
+static int psmouse_smbus_create_companion(struct device *dev, void *data)
+{
+        struct psmouse_smbus_dev *smbdev = data;
+        unsigned short addr_list[] = { smbdev-&gt;board.addr, I2C_CLIENT_END };
+        struct i2c_adapter *adapter;
+        struct i2c_client *client;
+
+        adapter = i2c_verify_adapter(dev);
+        if (!adapter) {
+                printk(KERN_INFO "%s Adapter error\n", dev_name(dev));
+                return 0;
+        }
+
+        if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_HOST_NOTIFY)) {
+                printk(KERN_INFO "%s No host notify\n", dev_name(dev));
+                return 0;
+        }
+
+        client = i2c_new_scanned_device(adapter, &amp;smbdev-&gt;board,
+                                        addr_list, NULL);
+        if (IS_ERR(client)) {
+                printk(KERN_INFO "%s New device error\n", dev_name(dev));
+                return 0;
+        }
+
+        /* We have our(?) device, stop iterating i2c bus. */
+        smbdev-&gt;client = client;
+        return 1;
+}
+</pre>
+
+<p>Po zavedení modulu sa vo výstupe <code>dmesg</code> objavilo:</p>
+
+<pre>
+i2c-0 No host notify
+i2c-1 No host notify
+i2c-2 No host notify
+i2c-3 No host notify
+i2c-4 No host notify
+i2c-5 No host notify
+i2c-6 No host notify
+i2c-7 No host notify
+i2c-8 No host notify
+i2c-9 No host notify
+i2c-10 No host notify
+i2c-11 No host notify
+</pre>
+
+<p>Žiaden I2C / SMBus adaptér v mojom systéme nemá podporu <code>I2C_FUNC_SMBUS_HOST_NOTIFY</code>. To je dôvod, prečo sa neinicializuje touchpad cez I2C / SMBus.</p>
+
+<h2>I2C / SMBus</h2>
+
+<p>Pred ďalším pokračovaním je vhodné vysvetliť si pojmy I2C, SMBus, aký vzťah je medzi nimi a prečo sa často zamieňajú.</p>
+
+<p>Zbernica I2C slúži na prenos dát s pomocou 2 vodičov. Každá správa začína najskôr 7-bitovou adresou nasledovanou príznakom čítania / zápisu. Pre pokračovanie komunikácie je oslovené zariadenie povinné odpovedať príznakom <em>ACK</em>. Nasleduje ľubovoľne dlhá sekvencia čítaní a zápisov 8-bitových slov.</p>
+
+<p>Rovnako funguje aj SMBus, len s jedným rozdielom - namiesto ľubovoľnej štruktúry správy má SMBus povolené len niektoré typy a dĺžky. SMBus je teda podmnožinou I2C a podporuje len nasledujúce správy:</p>
+
+<ul>
+	<li>Quick command</li>
+	<li>Send/receive byte</li>
+	<li>Send/receive word</li>
+	<li>Send/receive block</li>
+</ul>
+
+<p>Príkaz <code>quick</code> je správa nulovej dĺžky. Na zbernicu sa pošle len adresa, R/W príznak a prečíta sa príznak <em>ACK</em>. To je presne tá istá sekvencia, ktorou začína každá komunikácia na I2C zbernici. Vďaka tomu sa dá pomocou <code>quick</code> príkazu zistiť, či je zariadenie pripojené na zbernicu. Postupným odosielaním <code>quick</code> príkazu na adresy 0-127 sa dá skenovať zoznam zariadení pripojených na zbernici.</p>
+
+<p>Zostáva ešte zistiť, čo je <code>SMBUS_HOST_NOTIFY</code>.</p>
+
+
+<h3>Host notify prerušenia</h3>
+
+<p>Dovolím si spraviť malú odbočku k prerušeniam. Udalosti od externého zariadenia sa dajú spracovať dvoma spôsobmi - periodickým dotazovaním a prerušením.</p>
+
+<p>Pri periodickom dotazovaní sa operačný systém pravidelne pýta zariadenia, či nastala nejaká udalosť. Tento spôsob má vyššiu latenciu, pretože zariadenie musí čakať na na moment, keď sa ho operačný systém spýta na stav. Zároveň je časté prebúdzanie CPU zo šetriaceho režimu energeticky náročné a nevhodné pre notebooky.</p>
+
+<p>Riešením je prerušenie. Pri udalosti zariadenie požiada procesor o obsluhu len keď nastala udalosť (pohyb myši, stlačenie klávesy …). Udalosť sa spracuje bez čakania na nasledujúci interval. Procesor môže byť počas celej doby medzi udalosťami v šetriacom režime.</p>
+
+<p>Protokol SMBus host notify je špeciálny formát správy, ktorú posiela zariadenie žiadajúce o obsluhu prerušenia. Je opísaný v <a href="http://smbus.org/specs/SMBus_3_1_20180319.pdf">špecifikácii SMBus</a> v kapitole 6.5.9 (strana 44). Správa začína adresou <em>SMBus Host</em>, čo je špeciálna adresa definovaná v tabuľke 17 appendixu C (strana 79). Po host adrese nasleduje adresa zariadenia žiadajúceho o prerušenie a voliteľne 2 byty s dátami. Ak chce synaptics touchpad (s adresou <code>0x2c</code>) požiadať o obsluhu prerušenia, pošle najskôr host adresu (<code>0x08</code>) a potom vlastnú adresu (<code>0x2c</code>).</p>
+
+<h2>ACPI</h2>
+
+<p>Na notebooku mám niekoľko I2C / SMBus zberníc. Potreboval som presne zistiť, ku ktorej je pripojený trackpoint. Podľa výpisu z <code>dmesg</code>u sa trackpoint identifikuje ako <em>Elan TrackPoint</em>.</p>
+
+<p>Informácie o hardvéri sa na <em>x86</em> dajú zvyčajne získať z ACPI. Štandard ACPI nie je len jednoduchá tabuľka obsahujúca zoznam hardvéru. Je to veľmi komplexný štandard. Zoznam zariadení nemusí byť statický, ale môže obsahovať aj spustiteľný kód - <em>ACPI Machine Language - AML</em>.</p>
+
+<p>ACPI tabuľky sú dostupné v adresári <code>/sys/firmware/acpi/tables/</code>. Nasledujúce príkazy skopírujú ACPI tabuľky do pracovného adresára a dekompiluje ich do <code>.dsl</code> zdrojového kódu:</p>
+
+<pre class="code-bash">
+cp -R /sys/firmware/acpi/tables/* .
+for file in *; do iasl -d $file; done
+</pre>
+
+<p>Celý obsah ACPI tabuliek a dekompilované zdrojové kódy sú priložené k blogu v súbore <a href="files/p14s_gen2_amd_acpi_tables.tar.xz">p14s_gen2_amd_acpi_tables.tar.xz</a>.</p>
+
+<p>Hlavná tabuľka je <code>DSDT.dsl</code>. Zaujímavo vyzerá zbernica <code>_SB.I2CB</code>. Nachádza sa tam niekoľko zariadení s názvom začínajúcim sa na <code>ELAN</code>. V <em>AML</em> kóde je definovaná metóda <code>_INI</code>, ktorá na základe príznakov z BIOS-u vyberie konkrétny model <em>ELAN*</em> zariadenia. Je tu definovaná aj metóda <code>_STA</code>, ktorej úlohou je vrátiť stav zariadenia. Pre funkčné zariadenie by mala vrátiť minimálne bitovú masku <code>0xB</code> (väčšinou to bude <code>0xF</code>). Význam jednotlivých bitov je nasledovný:</p>
+
+<ul>
+	<li><code>Bit 0</code> - zariadenie je nainštalované</li>
+	<li><code>Bit 1</code> - zariadenie je zapnuté (odpovedá na I/O volania)</li>
+	<li><code>Bit 2</code> - zariadenie sa má zobrazovať v užívateľskom rozhraní</li>
+	<li><code>Bit 3</code> - zariadenie pracuje správne</li>
+	<li><code>Bit 4</code> - batéria je nainštalovaná</li>
+</ul>
+
+<pre>
+Scope (_SB.I2CB)
+{
+    Device (TPNL)
+    {
+        Name (_HID, "XXXX0000")  // _HID: Hardware ID
+        Name (_CID, "PNP0C50" /* HID Protocol Device (I2C bus) */)  // _CID: Compatible ID
+        Name (_S0W, 0x03)  // _S0W: S0 Device Wake State
+        Name (HID2, 0x00)
+        Name (POIO, 0x00)
+        Name (SBFB, ResourceTemplate ()
+        {
+            I2cSerialBusV2 (0x0000, ControllerInitiated, 0x00061A80,
+                AddressingMode7Bit, "\\_SB.I2CB",
+                0x00, ResourceConsumer, _Y0C, Exclusive,
+                )
+        })
+        Name (SBFG, ResourceTemplate ()
+        {
+            GpioInt (Level, ActiveLow, ExclusiveAndWake, PullNone, 0x0000,
+                "\\_SB.GPIO", 0x00, ResourceConsumer, ,
+                )
+                {   // Pin list
+                    0x0005
+                }
+        })
+        CreateWordField (SBFB, \_SB.I2CB.TPNL._Y0C._ADR, BADR)  // _ADR: Address
+        CreateDWordField (SBFB, \_SB.I2CB.TPNL._Y0C._SPE, SPED)  // _SPE: Speed
+        Name (ITML, Package (0x0A)
+        {
+            Package (0x07)
+            {
+                0x04F3,
+                0x2A3B,
+                0x10,
+                0x01,
+                0x01,
+                "ELAN901C",
+                0x01
+            },
+            // ...
+        })
+
+        // ...
+
+        Method (_STA, 0, NotSerialized)  // _STA: Status
+        {
+            If (((PNVD == 0x00) || (PNPD == 0x00)))
+            {
+                Return (0x00)
+            }
+
+            If ((TPOS &gt;= 0x60))
+            {
+                Return (0x0F)
+            }
+            Else
+            {
+                Return (Zero)
+            }
+        }
+    }
+}
+</pre>
+
+<p>Je dobré skontrolovať si, ACPI vráti, že zariadenie je pripojené. Ak má kernel skompilovanú podporu <code>ACPI_DEBUGGER</code> a <code>ACPI_DEBUGGER_USER</code> je možné použiť utilitku <code>acpidbg</code>. Kiež by som o nej vedel dávnejšie … V každom prípade <code>acpidbg</code> som našiel neskôr, než som sa celý deň trápil s modulom <code>acpi_call</code>. Utilitka <code>acpidbg</code> je celkom príjemné command line rozhranie k ACPI. Pomoc sa dá vypísať príkazom help. Ja potrebujem spustiť metódu <code>_STA</code>. Príkazom <code>find</code> nájdem všetky objekty s touto metódou:</p>
+
+<pre>
+- find _STA
+…
+     \_SB.I2CA._STA Method       0000000069360f17 001 Args 0 Len 0012 Aml 0000000038f2dff5
+\_SB.I2CA.NFC1._STA Method       00000000faf2813c 001 Args 0 Len 0023 Aml 000000009fb7f0d9
+     \_SB.I2CB._STA Method       00000000d6066f3a 001 Args 0 Len 001D Aml 00000000f303d8db
+\_SB.I2CB.TPNL._STA Method       000000004272e64a 001 Args 0 Len 0025 Aml 00000000fa4f29fe
+…
+</pre>
+
+<p>Metóda sa spúšťa príkazom <code>execute</code>:</p>
+
+<pre>
+Evaluating \_SB.I2CB.TPNL._STA
+Evaluation of \_SB.I2CB.TPNL._STA returned object 000000007b765997, external buffer length 18
+ [Integer] = 0000000000000000
+</pre>
+
+<p>Takže zariadenie podľa metódy <code>_STA</code> vôbec nie je v systéme nainštalované. Buď je to chyba v ACPI, alebo je potrebné niečo urobiť pre zapnutie zariadenia (napríklad aktivovať GPIO), alebo pozerám na zlú zbernicu. Pre istotu som si pozrel, čo by mohlo byť zariadenie <code>ELAN901C</code>. Google hovorí, že je to kontrolér dotykovej vrstvy. Z tohto zistenia predpokladám, že k portu <code>I2CB</code> býva na niektorých notebookoch pripojený kontrolér dotykovej vrstvy. Ja dotykovú vrstvu nemám, preto je logické že výsledkom volania <code>_STA</code> je <code>0x0</code>.</p>
+
+<p>Prehľadanie ACPI tabuliek ma k nájdeniu zbernice touchpadu nepriviedlo. Môžem skúsiť opačný postup - vyhľadám SMBus a zistím, čo je k nemu pripojené. V ACPI preto vyhľadávam text <code>'SMB'</code> a nachádzam nasledujúci záznam:</p>
+
+<pre>
+Scope (_SB.PCI0)
+{
+    Device (SMB1)
+    {
+        Name (_HID, "SMB0001")  // _HID: Hardware ID
+        Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
+        {
+            IO (Decode16,
+                0x0B20,             // Range Minimum
+                0x0B20,             // Range Maximum
+                0x20,               // Alignment
+                0x20,               // Length
+                )
+            IRQ (Level, ActiveLow, Shared, )
+                {7}
+        })
+        Method (_STA, 0, NotSerialized)  // _STA: Status
+        {
+            Return (0x0F)
+        }
+    }
+}
+</pre>
+
+<p>Pripojené zariadenie tu nevidím, ale sekcia obsahuje iné zaujímavé informácie. V prvom rade je to Hardware ID <code>SMB0001</code>. K tomu sa o chvíľu dostaneme. Ďalej tu máme adresu zariadenia <code>0x0B20</code> a informáciu, že zariadenie používa prerušenie <code>7</code>.</p>
+
+<h2>PIIX4</h2>
+
+<p>Podľa <code>lshw</code> je v systéme jediné SMBus zariadenie obsluhované ovládačom <code>piix4_smbus</code>:</p>
+
+<pre>
+*-serial
+     description: SMBus
+     product: FCH SMBus Controller
+     vendor: Advanced Micro Devices, Inc. [AMD]
+     physical id: 14
+     bus info: pci@0000:00:14.0
+     version: 51
+     width: 32 bits
+     clock: 66MHz
+     configuration: driver=piix4_smbus latency=0
+</pre>
+
+<p>Zoznam I2C / SMBus portov sa dá zobraziť príkazom <code>i2cdetect -l</code>:</p>
+
+<pre>
+i2cdetect -l|sort
+i2c-0   i2c             Synopsys DesignWare I2C adapter         I2C adapter
+i2c-1   i2c             Synopsys DesignWare I2C adapter         I2C adapter
+i2c-2   i2c             AMDGPU DM i2c hw bus 0                  I2C adapter
+i2c-3   i2c             AMDGPU DM i2c hw bus 1                  I2C adapter
+i2c-4   i2c             AMDGPU DM i2c hw bus 2                  I2C adapter
+i2c-5   i2c             AMDGPU DM i2c hw bus 3                  I2C adapter
+i2c-6   i2c             AMDGPU DM aux hw bus 0                  I2C adapter
+i2c-7   i2c             AMDGPU DM aux hw bus 2                  I2C adapter
+i2c-8   i2c             AMDGPU DM aux hw bus 3                  I2C adapter
+<strong>i2c-9   smbus           SMBus PIIX4 adapter port 0 at ff00      SMBus adapter
+i2c-10  smbus           SMBus PIIX4 adapter port 2 at ff00      SMBus adapter
+i2c-11  smbus           SMBus PIIX4 adapter port 1 at ff20      SMBus adapter</strong>
+</pre>
+
+<p>Zbernice I2C obsluhované ovládačom <code>amdgpu</code> môžem pokojne ignorovať, slúžia totiž na komunikáciu s monitorom cez rozhranie <em>DDC/CI</em> (ovládanie jasu, kontrastu, prepínanie výstupov …). Taktiež ignorujem zvyšné I2C adaptéry, pretože nepodporujú prerušenia. Zostávajú SMBus adaptéry 9-11. Zoznam pripojených zariadení sa dá získať pomocou <code>i2cdetect</code>, ktorý pošle <code>quick</code> príkaz na všetky relevantné adresy:</p>
+
+<pre>
+i2cdetect -y -q 9
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: -- -- -- -- -- -- -- --
+</pre>
+
+<p>To isté platí aj pre porty 10 a 11. Výpis <code>dmesg</code> potom obsahuje mnoho takýchto riadkov:</p>
+
+<pre>
+i2c i2c-9: Failed! (ff)
+i2c i2c-9: Failed! (ff)
+…
+</pre>
+
+<p>Chyba sa dá nájsť pomerne ľahko. V zozname adaptérov je zobrazená základná I/O adresa adaptéra:</p>
+
+<pre>
+i2c-9   smbus           SMBus PIIX4 adapter port 0 at <strong>ff00</strong>      SMBus adapter
+i2c-10  smbus           SMBus PIIX4 adapter port 2 at <strong>ff00</strong>      SMBus adapter
+i2c-11  smbus           SMBus PIIX4 adapter port 1 at <strong>ff20</strong>      SMBus adapter
+</pre>
+
+<p>Podľa ACPI je základná adresa <code>0x0b20</code>, modul však používa chybnú adresu <code>0xff00/ff20</code>. Napraviť by sa to malo dať zavedením modulu s voliteľným parametrom <code>force_addr</code>:</p>
+
+<pre>
+modinfo i2c-piix4|grep addr
+parm:           force_addr:Forcibly enable the PIIX4 at the given address. EXTREMELY DANGEROUS! (int)
+</pre>
+
+<p>Odstránim modul z jadra a načítam ho znovu so správnou adresou.</p>
+
+<pre>
+modprobe -r i2c-piix4
+modprobe i2c-piix4 force_add=0x0b20
+</pre>
+
+<p>Výpis <code>dmesg</code>u vyzerá takto:</p>
+
+<pre>
+piix4_smbus 0000:00:14.0: SMBus does not support forcing address!
+piix4_smbus: probe of 0000:00:14.0 failed with error -22
+</pre>
+
+<p>Síce parameter je uvedený vo výpise <code>modinfo</code>, ale nedá sa použiť. Pred hľadaním príčiny si dovolím malú odbočku k PCI.</p>
+
+<h3>PCI</h3>
+
+<p>Podľa zdrojového kódu <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/i2c/busses/i2c-piix4.c">i2c-piix4.c</a> je SMBus zbernica pripoojená na PCI. Sken PCI to potvrdí:</p>
+
+<pre>lspci -nn|grep SMBus
+00:14.0 SMBus [0c05]: Advanced Micro Devices, Inc. [AMD] FCH SMBus Controller [<strong>1022:790b</strong>] (rev <strong>51</strong>)
+
+lspci -vvv -b -x -xxx -xxxx -nn -s 00:14.0
+00:14.0 SMBus [0c05]: Advanced Micro Devices, Inc. [AMD] FCH SMBus Controller [1022:790b] (rev 51)
+	Subsystem: Lenovo FCH SMBus Controller [17aa:5094]
+	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap- 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium &gt;TAbort- &lt;TAbort- &lt;MAbort- &gt;SERR- &lt;PERR- INTx-
+	IOMMU group: 9
+	Kernel modules: i2c_piix4, sp5100_tco
+00: 22 10 0b 79 00 04 20 02 51 00 05 0c 00 00 80 00
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 aa 17 94 50
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+f0: a7 df 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+</pre>
+
+<p>Číslo <code>1022:790b</code> označuje ID výrobcu a ID zariadenia. Konkrétne <code>1022</code> je <a href="https://github.com/torvalds/linux/blob/v5.16/include/linux/pci_ids.h#L522">AMD</a> a <code>790b</code> označuje <a href="https://github.com/torvalds/linux/blob/v5.16/include/linux/pci_ids.h#L607">SMBus na chipsete AMD kerncz</a>.</p>
+
+<p><a href="https://github.com/torvalds/linux/blob/v5.16/drivers/i2c/busses/i2c-piix4.c#L943">Pri tomto PCI ID</a> sa volá funkcia <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/i2c/busses/i2c-piix4.c#L266">piix4_setup_sb800</a>. Hneď na začiatku súboru je kontrola parametra <code>force_addr</code>. Pri AMD sa modul spolieha výlučne na automatickú detekciu adresy a nie je možné ju vynútiť parametrom.</p>
+
+<h3>SB800</h3>
+
+<p>Odbočím trochu k <code>SB800</code>. Podľa všetkého je SB800 south bridge chipset od AMD. Dokumentácia k nemu <a href="https://www.amd.com/en/support/tech-docs?keyword=sb8xx">sa dá nájsť</a> na stránke AMD. Zvýšenú pozornosť si zaslúži dokument <a href="https://www.amd.com/system/files/TechDocs/45482.pdf">AMD SB8xx Register Reference Guide</a>.</p>
+
+<p>Kód detekcie adresy v <code>i2c-piix4.c</code> vyzerá takto:</p>
+
+<pre class="code-c">
+#define SB800_PIIX4_SMB_IDX <strong>0xcd6</strong>
+
+// …
+
+outb_p(smb_en, SB800_PIIX4_SMB_IDX);
+smba_en_lo = inb_p(SB800_PIIX4_SMB_IDX + 1);
+outb_p(smb_en + 1, SB800_PIIX4_SMB_IDX);
+smba_en_hi = inb_p(SB800_PIIX4_SMB_IDX + 1);
+</pre>
+
+<p>Našťastie je tu magická konštanta <code>cd6</code>, ktorá zjednoduší vyhľadávanie v <a href="https://www.amd.com/system/files/TechDocs/45482.pdf">referenčnej príručke AMD SB8xx</a>. Podľa sekcie <em>Power Management (PM) Registers</em> (strana 146) je <code>0xcd6</code> PM index register a <code>0xcd7</code> data register. Po zápise čísla PM registra na IO adresu <code>0xcd6</code> je možné čítaním z adresy <code>0xcd7</code> zistiť hodnotu PM registra.</p>
+
+<p>Štruktúra PM registrov je na strane 147. PM register <code>Smbus0En</code> je zdokumentovaný na strane 151. Tu sa nachádza adresa SMBusu a stav zariadenia (zapnuté / vypnuté). Kód vyzerá teda správne, najskôr zapíše do PM index registra <code>0xcd6</code> číslo PM registra <code>0x2c</code>, prečíta spodné bity adresy, potom zapíše <code>0x2c+1</code> do <code>0xcd6</code> a z <code>0xcd7</code> prečíta horné bity.</p>
+
+<p>Všetko vyzerá byť správne, ale detekcia adresy evidentne zlyháva. Skúšam teda zapísať do <code>en_hi</code> pevnú adresu <code>0xb</code> (spodná adresa aspoň pri AUX porte vyzerá správna).</p>
+
+<pre class="code-c">
+outb_p(smb_en, SB800_PIIX4_SMB_IDX);
+smba_en_lo = inb_p(SB800_PIIX4_SMB_IDX + 1);
+outb_p(smb_en + 1, SB800_PIIX4_SMB_IDX);
+smba_en_hi = inb_p(SB800_PIIX4_SMB_IDX + 1);
+
+smba_en_hi = 0xb;
+</pre>
+
+<p>Výpis z <code>dmesg</code>u vyzerá správne:</p>
+
+<pre>
+piix4_smbus 0000:00:14.0: SMBus Host Controller at 0xb00, revision 0
+piix4_smbus 0000:00:14.0: Using register 0x02 for SMBus port selection
+piix4_smbus 0000:00:14.0: Auxiliary SMBus Host Controller at 0xb20
+</pre>
+
+<p>Teraz môžme spustiť detekciu zariadení. Ak je všetko správne, potom na AUX (<code>0xb20</code>) by malo byť zariadenie <code>0x2c</code> (čo je adresa pridelená touchpadu synaptics). V mojom systéme je to port 11, ale pre istotu uvádzam aj výpis z 9 a 10 na adrese <code>0xb00</code>.</p>
+
+<pre>
+i2cdetect -q -y 9
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- 36 37 -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: 50 -- -- -- -- -- -- -- 58 -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: -- -- -- -- -- -- -- --
+
+i2cdetect -q -y 10
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- 36 37 -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: 50 -- -- -- -- -- -- -- 58 -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: -- -- -- -- -- -- -- --
+
+i2cdetect -q -y 11
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- 1c -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- 2c 2d 2e 2f
+30: 30 31 32 33 34 35 36 37 38 39 3a 3b 3c 3d 3e 3f
+40: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f
+50: 50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f
+60: 60 61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f
+70: 70 71 72 73 74 75 76 77
+</pre>
+
+<p>Prvé 2 výpisy sú identické. To nie je až také prekvapenie, pretože výber portu funguje cez PM register, ktorý som práve obišiel. Na prvých výpisoch aj tak nič zaujímavé nie je, ale posledný výpis má zariadenie <code>0x2c</code> a práve quick write na túto adresu dostal zbernicu do nekonzistentného stavu, po ktorom odpovedá na všetky adresy. Druhý sken je už absolútne nepoužiteľný:</p>
+
+<pre>
+i2cdetect -q -y 11
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         08 09 0a 0b 0c 0d 0e 0f
+10: 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
+20: 20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f
+30: 30 31 32 33 34 35 36 37 38 39 3a 3b 3c 3d 3e 3f
+40: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f
+50: 50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f
+60: 60 61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f
+70: 70 71 72 73 74 75 76 77
+</pre>
+
+<p>Podľa prvého výpisu hádam, že som našiel správnu zbernicu, na ktorej je touchpad. Do funkcie <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/i2c/busses/i2c-piix4.c#L765">piix4_func</a> pridávam flag <code>I2C_FUNC_SMBUS_HOST_NOTIFY</code>. Tým deklarujem podporu <em>host notify</em> protokolu, aj keď v ovládači zatiaľ nie je implementovaná.</p>
+
+<p>Po načítaní modulu <code>i2c-piix4</code> zároveň s modulom <code>psmouse</code> vyzerá výpis <code>dmesg</code>u nasledovne:</p>
+
+<pre>
+psmouse serio1: synaptics: queried max coordinates: x [..5678], y [..4694]
+psmouse serio1: synaptics: queried min coordinates: x [1266..], y [1162..]
+psmouse serio1: synaptics: Trying to set up SMBus access
+rmi4_smbus 11-002c: registering SMbus-connected sensor
+rmi4_physical rmi4-00: rmi_driver_probe: Starting probe.
+rmi4_physical rmi4-00: rmi_probe_interrupts: Counting IRQs.
+rmi4_physical rmi4-00: rmi_init_functions: Creating functions.
+rmi4_physical rmi4-00: Initializing F34.
+rmi4_physical rmi4-00: Registered F34.
+rmi4_physical rmi4-00: Initializing F01.
+rmi4_f01 rmi4-00.fn01: found RMI device, manufacturer: Synaptics, product: TM3471-030, fw id: 3418235
+rmi4_physical rmi4-00: Registered F01.
+rmi4_physical rmi4-00: Initializing F12.
+rmi4_f12 rmi4-00.fn12: rmi_f12_probe
+rmi4_physical rmi4-00: rmi_read_register_desc: reg: 0 reg size: 1 subpackets: 1
+…
+rmi4_f12 rmi4-00.fn12: rmi_f12_probe: data packet size: 79
+rmi4_f12 rmi4-00.fn12: rmi_f12_read_sensor_tuning: max_x: 1162 max_y: 778
+rmi4_f12 rmi4-00.fn12: rmi_f12_read_sensor_tuning: Inactive Border xlo:0 xhi:0 ylo:0 yhi:0
+rmi4_f12 rmi4-00.fn12: rmi_f12_read_sensor_tuning: x_mm: 96 y_mm: 64
+rmi4_physical rmi4-00: Registered F12.
+rmi4_physical rmi4-00: Initializing F54.
+rmi4_physical rmi4-00: Registered F54.
+rmi4_physical rmi4-00: Initializing F3A.
+rmi4_physical rmi4-00: Registered F3A.
+rmi4_physical rmi4-00: Initializing F03.
+rmi4_physical rmi4-00: Registered F03.
+rmi4_physical rmi4-00: Initializing F55.
+rmi4_physical rmi4-00: Registered F55.
+input: Synaptics TM3471-030 as /devices/rmi4-00/input/input56
+serio: RMI4 PS/2 pass-through port at rmi4-00.fn03
+rmi4_smbus 11-002c: rmi_register_transport_device: Registered 11-002c as rmi4-00.
+rmi4_f03 rmi4-00.fn03: rmi_f03_pt_open: Consumed 00 00 00 00 00 00 00 00 00 00 00 00 00 00 (14) from PS2 guest
+rmi4_f03 rmi4-00.fn03: rmi_f03_pt_write: Wrote f2 to PS/2 passthrough address
+</pre>
+
+<p>To je úspešne inicializovaný touchpad! Síce nereaguje na udalosti, pretože nie je implementovaný <em>host notify</em> protokol, ale aj to je úspech. Od teraz viem, ku ktorej zbernici je touchpad pripojený, aj to, že komunikácia s nim vyzerá byť v poriadku.</p>
+
+<h3>I/O adresa</h3>
+
+<p>Ešte sa trochu vrátim k adrese. Samozrejme takáto záplata nemôže putovať do kernelu. Najskôr je potrebné zistiť, prečo čítanie z PM registra vracia nesprávnu hodnotu. Dokumentácia k 10-ročnému chipsetu, ktorý v mojom notebooku ani nie je asi nebude tým najlepším miestom pre zistenie príčiny.</p>
+
+<p>Súčasné procesory sú navrhnuté skôr ako SoC (system on chip). Rôzne zbernice sa stali priamo súčasťou CPU, takže na stránkach AMD <a href="https://www.amd.com/en/support/tech-docs?keyword=bkdg">hľadám priamo bios kernel developer guide k CPU</a>. Najnovší dokument v čase písania je k family 15h, modelom 70h-7fh. Ja mám síce family 19h, ale uspokojím sa aj s <a href="https://www.amd.com/system/files/TechDocs/55072_AMD_Family_15h_Models_70h-7Fh_BKDG.pdf">týmto</a>. V nasledujúcom texte budem tento dokument volať jednoducho <strong>BKDG</strong>.</p>
+
+<p>Podľa novej dokumentácie sa adresa SMBus zbernice zisťuje … úplne rovnako. Predpokladám, že zmena nastala niekde v novších procesoroch a predpokladám, že adresa bude uložená v niektorom inom z 256 možných registrov. Nie je to tak veľké číslo, aby som si nemohol prečítať každý register a vyhľadať s v nich adresu. Pridávam do <code>piix4_setup_sb800</code> nasledujúci kód:</p>
+
+<pre class="code-c">
+for (reg = 0; reg < 256; ++reg) {
+        outb_p(reg, SB800_PIIX4_SMB_IDX);
+        reg_val = inb_p(SB800_PIIX4_SMB_IDX + 1);
+        printk(KERN_INFO "register=%02x value=%02x\n", reg, reg_val);
+}
+</pre>
+
+<p>Všetky čítania registra však vracajú hodnotu <code>0xff</code>.</p>
+
+<pre>
+register=00 value=ff
+register=01 value=ff
+register=02 value=ff
+register=03 value=ff
+register=04 value=ff
+…
+</pre>
+
+<p>Podľa BKDG (strana 984) sú PM registre dostupné cez nepriamy IO prístup na adresách <code>0xcd6/7</code>, alebo cez MMIO na od adresy <code>FED8_0000h+300h</code>.</p>
+
+<p>Nakoniec som našiel v kernel mailing liste <a href="https://lore.kernel.org/all/20210715221828.244536-1-Terry.Bowman@amd.com/">patch s podporou prístupu k PM registrom cez MMIO</a>. Novšie procesory majú totiž štandardne vypnutý prístup cez nepriame I/O adresovanie. Ak je prístup cez I/O vypnutý, vrátia všetky pokusy o čítanie hodnotu <code>0xff</code>, čo presne zodpovedá výpisu. Po aplikácii patchu už prepínanie medzi portmi funguje a <code>i2cdetect 9/10</code> má rozdielny výstup.</p>
+
+<h3>Naivná implementácia prerušení</h3>
+
+<p>Touchpad je obsluhovaný ovládačom pre protokol <code>RMI4</code>. Z ACPI už viem, že SMBus používa prerušenie 7. Nemám síce ešte naprogramovaný <em>host notify</em> protokol, ale budem trochu optimistický a hovorím si, že keď v <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/rmi4/rmi_driver.c#L227">ovládači RMI4</a> použijem priamo prerušenie 7, bude to fungovať. Namiesto <code>pdata-&gt;irq</code> som zapísal konštantu 7, znovu načítal <code>psmouse</code> a trakpoint funguje! Funguje bez sekania!</p>
+
+<p>No dobre, trochu preháňam s tým „funguje“. Niekedy po načítaní ovládača funguje, niekedy funguje pár sekúnd, niekedy vôbec. Uspávanie notebooku prestalo fungovať. Ovládač permanentne spotrebuje 10% času CPU. Podľa súboru <code>/proc/interrupts</code> sa vykonáva prerušenie 2 000x za sekundu. Nie úplne dobrý výsledok, ale som na správnej ceste.</p>
+
+<p>Dostať sa do tohto bodu ma stálo niekoľko víkendov. Veľa času som strávil hrabaním sa v dokumentácií, učením sa C a písaním otrasného kódu, aby som zistil, či som vôbec na správnej ceste. Nebolo to zložité, ale potreboval som preskúmať veľa slepých uličiek. Zatiaľ som prakticky nepotreboval žiadne špeciálne vedomosti. Všetko, čo som potreboval som si naštudoval priebežne. Teraz, keď už mám skoro funkčnú podporu touchpadu cez SMBus zostáva hádam len implementovať <em>host notify</em> prtokol.</p>
+
+<h2>Host notify</h2>
+
+<p>Doteraz to bolo len také hranie sa s vypisovaním premenných. Teraz nastupuje skutočná práca pre skutočných hrdinov. Žiaden <a href="https://www.csfd.sk/film/542-armageddon/recenzie/">Bruce Willis na asteroide</a>, ani <a href="https://news.sky.com/story/bruce-willis-gets-own-category-at-razzie-awards-after-eight-bad-films-in-2021-12535914">ďalšia mňamka</a>. Teraz idem reálne implementovať novú funkcionalitu do jadra.</p>
+
+<p>Na začiatok je dobrý nápad pozrieť si, ako túto funkciu implementujú iné ovládače. Príkaz <code>grep -r I2C_FUNC_SMBUS_HOST_NOTIFY .</code> nad kódom kernelu nájde 3 relevantné výsledky. Ak vyradíme rôzne mikrokontroléry a zameriame sa na x86, zostane jediný výsledok - <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/i2c/busses/i2c-i801.c">i2c-i801.c</a>. Celá  obsluha je extrémne jednoduchá, stačí prečítanie jedného registra, zavolanie <code>i2c_handle_smbus_host_notify</code>, vyčistenie stavového registra a vrátenie stavu <code>IRQ_HANDLED</code>.</p>
+
+<pre class="code-c">
+static irqreturn_t i801_host_notify_isr(struct i801_priv *priv)
+{
+        unsigned short addr;
+
+        addr = inb_p(SMBNTFDADD(priv)) &gt;&gt; 1;
+        2c_handle_smbus_host_notify(&amp;priv-&gt;adapter, addr);
+
+        /* clear Host Notify bit and return */
+        outb_p(SMBSLVSTS_HST_NTFY_STS, SMBSLVSTS(priv));
+        return IRQ_HANDLED;
+}
+</pre>
+
+<p>Zostáva už len registrovať prerušenie, nájsť relevantné registre v BGKD a napísať obsluhu prerušenia.</p>
+
+<p>Začíname prerušením. Do <code>piix4_probe</code> pridávam nasledujúci kód:</p>
+
+<pre class="code-c">
+static irqreturn_t piix4_isr(int irq, void *dev_id)
+{
+        printk(KERN_INFO "isr\n");
+        return IRQ_HANDLED;
+}
+
+// … piix4_probe
+        retval = devm_request_irq(&amp;dev-&gt;dev, dev-&gt;irq, piix4_isr, IRQF_SHARED, "piix4_smbus", piix4_aux_adapter);
+        if (!retval) {
+                printk(KERN_INFO "smbus Using irq %d\n", dev-&gt;irq);
+        }
+        else {
+                printk(KERN_INFO "smbus No irq %d\n", dev-&gt;irq);
+        }
+</pre>
+
+<p>Po zavedení modulu sa v <code>dmesg</code>u objaví: <code>No irq -1</code>. Pole <code>irq</code> štruktúry <code>pci_dev</code> je nastavené podľa PCI konfiguračného priestoru. Hodnota <em>interrupt line</em> býva štandardne v konfiguračnom priestore na adrese <code>0x3c</code>. Pripomeniem výpis <code>lspci</code>:</p>
+
+<pre>
+00: 22 10 0b 79 00 04 20 02 51 00 05 0c 00 00 80 00
+10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 aa 17 94 50
+30: 00 00 00 00 00 00 00 00 00 00 00 00 <strong>00</strong> 00 00 00
+</pre>
+
+<p>Podľa BKDG, strana 866, register D14F0x3C Interrupt Line bity 7:0 je hodnota tohto registra vždy 0:</p>
+
+<blockquote>InterruptLine: Interrupt Line. Value: 0. 0=This module does not generate interrupts.</blockquote>
+
+<p>Konfigurácia prerušenia by sa mala dať načítať z <code>acpi_device</code> volaním <code>ACPI_COMPANION</code>, ale to nefunguje. K riešeniu sa vrátim neskôr. Zatiaľ si vystačím s pevne nastaveným číslom prerušenia. Asi najčistejšie riešenie je pridať nasledujúci kód do súboru <code>drivers/pci/quirks.c</code>:</p>
+
+<pre class="code-c">
+static void quirk_piix4_amd(struct pci_dev *dev) {
+        printk(KERN_INFO "piix4 fixing interrupt line");
+        pci_write_config_byte(dev, PCI_INTERRUPT_LINE, 7);
+        dev-&gt;irq = 7;
+}
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_KERNCZ_SMBUS, quirk_piix4_amd);
+</pre>
+
+<p>Prerušenie sa teraz už registruje bez problémov. Vyzerá to tak, že sa spúšťa pri každom prenose dát (možno aj pri <em>host notify</em>, ale tým som si nebol istý). Je čas preskúmať poriadne registre v BKDG. Dokumentácia sa začína popisom PCI konfiguračného priestoru na strane 863 a pokračuje ASF (Alert Standard Format) nasledované SMBusom. Trochu sa zastavím u ASF. Podľa dokumentácie by na <code>0x0b20</code> malo byť zariadenie ASF:</p>
+
+<blockquote>
+SmbusAsfIoBase. Read-write. Reset: 0Bh. Specifiies SMBus and ASF IO base address.
+<ul>
+<li>SMBus IO base = {Smbus0AsfIoBase[7:0], 0x00}.</li>
+<li>ASF IO base = {Smbus0AsfIoBase[7:0], 0x20}.</li>
+</ul>
+By default SMBus IO base is <strong>B00h</strong> and ASF IO base is <strong>B20h</strong>.
+</blockquote>
+
+<p>V kerneli sa nenachádza žiadna podpora ASF. Podľa <a href="https://www.dmtf.org/standards/asf">štandardu</a> ide o rozhranie pre vzdialenú správu počítača.</p>
+
+<blockquote>The term "system manageability" represents a wide range of technologies that enable remote system access and control in both OS-present and OS-absent environments.</blockquote>
+
+<p>Je dosť nepravdepodobné, že by bol touchpad pripojený na rozhranie pre vzdialenú správu počítača. Budem predpokladať, že mám starú, alebo chybnú dokumentáciu a na novších procesoroch je na adrese <code>0x0b20</code> tiež SMBus.</p>
+
+<p>Pripravil som si funkciu ktorá vypíše všetky hodnoty registrov okrem <code>0x02</code> a <code>0x07</code>, aby som sa dozvedel, ktoré stavové registre sa nastavia po prerušení. Spomenuté registre vynechávam, pretože pri ich čítaní prestane fungovať komunikácia s touchpadom. Pri registri <code>0x07</code> je to logické, pretože je to <code>SMBusBlockData</code> - špeciálny register so vstavaným pointerom, ktorý sa inkrementuje každým čítaním a zápisom. V dokumentácii nie je napísané, prečo má side efekt aj čítanie registra <code>SMBusControl</code>, ale empiricky som zistil, že čítaním sa resetuje interný pointer <code>SMBusBlockData</code> registra. Kód výpisu vyzerá nasledovne:</p>
+
+<pre class="code-c">
+static void piix4_dump_registers(struct i2c_adapter *piix4_adapter, char *label)
+{
+        struct i2c_piix4_adapdata *adapdata = i2c_get_adapdata(piix4_adapter);
+        unsigned short piix4_smba = adapdata-&gt;smba;
+        int i;
+        u8 d[0x17];
+
+        for (i = 0; i < 0x17; ++i) {
+                if (i == 2 || i == 7) {
+                        d[i] = 0;
+                }
+                else {
+                        d[i] = inb_p(i + piix4_smba);
+                }
+        }
+
+        printk(KERN_INFO "%02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x    %02x%02x %02x%02x %02x%02x %02x%02x\n", label, d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15], d[16], d[17], d[18], d[19], d[20], d[21], d[22], d[23]);
+}
+</pre>
+
+<p>Samotný výpis vyzerá takto:</p>
+
+<pre>
+┌------------------------------------------------------------ SMBusStatus
+| ┌---------------------------------------------------------- SMBusSlaveStatus
+| |  ┌------------------------------------------------------- SMBusControl
+| |  | ┌----------------------------------------------------- SMBusHostCmd
+| |  | |  ┌-------------------------------------------------- SMBusAddress
+| |  | |  | ┌------------------------------------------------ SMBusData0
+| |  | |  | |  ┌--------------------------------------------- SMBusData1
+| |  | |  | |  | ┌------------------------------------------- SMBusBlockData
+| |  | |  | |  | |  ┌---------------------------------------- SMBusSlaveControl
+| |  | |  | |  | |  | ┌-------------------------------------- SMBusShadowCmd
+| |  | |  | |  | |  | |  ┌----------------------------------- SMBusSlaveEvent
+| |  | |  | |  | |  | |  |    ┌------------------------------ SlaveData
+| |  | |  | |  | |  | |  |    |    ┌------------------------- SMBusTiming
+| |  | |  | |  | |  | |  |    |    |       ┌----------------- I2CbusConfig
+| |  | |  | |  | |  | |  |    |    |       | ┌--------------- I2CCommand
+| |  | |  | |  | |  | |  |    |    |       | |  ┌------------ I2CShadow1
+| |  | |  | |  | |  | |  |    |    |       | |  | ┌---------- I2Cshadow2
+| |  | |  | |  | |  | |  |    |    |       | |  | |  ┌------- SMBusAutoPoll
+| |  | |  | |  | |  | |  |    |    |       | |  | |  | ┌----- SMBusCounter
+| |  | |  | |  | |  | |  |    |    |       | |  | |  | |  ┌-- SMBusStop
+| |  | |  | |  | |  | |  |    |    |       | |  | |  | |  | ┌ SMBusHostCmd2
+0000 0006 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0087 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0007 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0080 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0000 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0081 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0082 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0002 5902 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0083 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0003 590e 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0084 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0004 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 008d 0002 0400
+</pre>
+
+<p>Posledným príkazom sa skončila inicializácia. Z dokumentáciu touchpadu (synaptics) som zistil, že vždy po inicializáciii pošle notifikáciu, takže posledný riadok by sa mal v niečom líšiť od predchádzajúcich. V skutočnosti sa aj líši v registri <code>I2CShaow2</code>. Vo výpise je okrem toho niekoľko anomálii, ktorým som nerozumel.</p>
+
+<p>V prvom rade som čakal, že <code>SMBusStatus</code> bude mať nastavený bit <code>SMBusInterrupt</code> indikujúci ukončenie operácie (prípadne aj iné bity podľa toho, či došlo napríklad ku kolízii). Status je však vždy nulový.</p>
+
+<p>Ďalšou anomáliou je <code>SMBusSlaveEvent</code>. Pri inicializácii som explicitne do oboch častí registra zapísal <code>0xff</code>, aby som prijímal všetky udalosti. Napriek tomu je horná polovica registra prázdna.</p>
+
+<pre class="code-c">
+outb_p(0xff, (0x0a + piix4_smba));
+outb_p(0xff, (0x0b + piix4_smba));
+</pre>
+
+<p>Potom tu máme <code>SMBusStop</code>, ktorý obsahuje neprípustnú hodnotu, <code>SMBusCounter</code>, ktorý z nejakého záhadného dôvodu obsahuje <code>0x02</code> a prečo sa mení iba <code>I2CShadow2</code>?</p>
+
+<p>Nezrovnalosti zatiaľ ignorujem a skúšam zapnúť prerušenie pri príchode host notify správy. Podľa dokumentácie by sa to mohlo dosiahnuť zápisom buď adresy <code>0x2c</code>, <code>0x08</code>, alebo ich ekvivalentov s bitovým posunom o 1 doľava do registra <code>I2CCommand</code>. Zároveň by mal mať bit <code>I2CbusInterrupt</code> registra <code>I2CbusConfig</code> hodnotu 1. Pokúsil som sa nastaviť všetky udalosti v registri <code>SMBusSlaveEvent</code> na 1 a taktiež <code>SlaveEnable</code> a <code>SMBusAlertEnable</code> bity <code>SMBusSlaveControl</code> registra. Skúšal som všetky možné kombinácie vyše týždňa, absolútne bez úspechu. Prerušenia boli generované len pre prenosy dát, ale nie pre notifikácie od zariadenia.</p>
+
+<p>Keď už som nevedel, ako ďalej, skúsil som sa pozrieť na <code>GPIO</code>. Podľa <a href="https://kupdf.net/download/rmi4-intrfacing-guidepdf_5965a6b4dc0d605362a88e76_pdf">RMI4 Intrfacing Guide</a> vie touchpad generovať buď <em>host notify</em> správy, alebo vie žiadať o prerušenie na nejakom výstupnom pine. Čo ak prerušenie 7 slúži len na indikáciu ukončenia prenosu a touchpad je pripojený na pin GPIO čipu?</p>
+
+<p>Podľa <code>/sys/kernel/debug/pinctrl/AMDI0030:00/pins</code> má môj notebook 183 pinov. Podobá sa to trochu hľadaniu ihly v kope sena. Našťastie v tom istom adresári existuje súbor <code>pingroups</code> s nasledujúcim obsahom:</p>
+
+<pre>
+registered pin groups:
+…
+group: i2c3
+pin 19 (GPIO_19)
+pin 20 (GPIO_20)
+
+group: uart0
+…
+</pre>
+
+<p>Zaujímavý je záznam <code>i2c3</code>. Nie, že by ostatné I2C porty neboli zaujímavé, ale keď som dal monitorovať práve tento príkazom <code>gpiomon --num-events=5000  gpiochip0 19 20</code> zaznamenal som aktivitu na zbernici hneď po načítaní <code>psmouse</code> a potom nastalo ticho. Keď som sa dotkol touchpadu, okamžite sa obnovila aktivita na zbernici a prestala až 5 minút po poslednom dotyku. Pravdepodobne po tejto zbernici komunikuje touchpad a je celkom slušná šanca, že objavím interrupt pin. Bez popisu GPIO pinov to však nepôjde a AMD zatiaľ nevydalo dokumentáciu k môjmu CPU.</p>
+
+<p>Zoznam GPIO som našiel v <a href="https://github.com/coreboot/coreboot/blob/4.15/src/soc/amd/cezanne/include/soc/gpio.h">zdrojovom kóde corebootu</a>. Ešte zaujímavejší je súbor <a href="https://github.com/coreboot/coreboot/blob/4.15/src/soc/amd/cezanne/gpio.c">gpio.c</a>, v ktorom sa dajú nájsť piny priradené k udalostiam. Nebudem dlho napínať a poviem, že ani jeden nevyzeral ako prerušenie touchpadu. Pri pokuse o prečítanie väčšiny GPIO došlo k zhodeniu systému. Zase slepá ulička, ale dozvedel som sa aspoň, že na I2C3 je aktivita zodpovedajúca dotyku. Rýchlosť čítania GPIO je síce nedostatočná na to, aby som dokázal dekódovať, čo sa tam posiela, ale aj tak skvelá indícia.</p>
+
+<p>Pokračujem ďalej v študovaní <a href="https://www.intel.com/Assets/PDF/specupdate/297738.pdf">dokumentácie k chipsetu PIIX4</a>. Podľa AMD sa pri použití <code>SlaveEnable</code> sa musí adresa, na ktorej počúva zapísať do <em>slave control registra</em>.</p>
+
+<blockquote>SlaveEnable. Read-write. Reset: 0. Enable the generation of an interrupt or resume event upon an external SMBus master generating a transaction with an address that matches the host controller slave port of 10h, a command field that matches the SMBus slave control register, and a match of corresponding enabled events.</blockquote>
+
+<p>Dokumentácia AMD nikde inde nespomína <em>slave control register</em>. Práve tu prichádza na scénu dokumentácia k PIIX4, ktorá definuje control register ako <code>0xD4</code> register PCI konfiguračného priestoru. Síce fajn, ale zápis na mojom zariadení nefunguje. Po zvážení odhadujem, že tadiaľ cesta tiež nevedie. AMD si zrejme nejak implementovalo <em>host notify</em>, ale dokumentáciu skopírovalo od Intelu. Preto sa v nej spomínajú neexistujúce registre.</p>
+
+<p>Vraciam sa späť k SMBus registrom. Do očí mi tentoraz udreli 2 veci. Zápis do <code>I2CCommand</code> nemení hodnotu registra (ako keby bol read only, aj keď podľa dokumentácie je read/write). Ďalej je tu záhadná hodnota <code>a8 aa</code> registra <code>SMBusTiming</code>. Ak by to bolo ASF, potom by adresa <code>SMBusTiming</code> registra zodpovedala registrom <code>RemoteCtrlAdr</code> a <code>SensorAdr</code>. Prvá má štandardne hodnotu <code>0x54</code> posunutú o 1 bit doľava, čo zodpovedá <code>0xa8</code>. Druhá <code>0x55</code>, čo zodpovedá <code>0xaa</code>. Zároveň register <code>I2CCommand</code> zodpovedá <code>DataReadPointer</code> v ASF a ten je read only. Začínam mať tušenie, že sa k ASF snažím pristupovať, ako keby to bol SMBus.</p>
+
+<p>S týmto podozrením som sa rozhodol pozrieť na ovládač pre windows. Medzi súbormi vidím <code>Smb_driver_AMDASF.sys</code> a <code>Smb_driver_Intel.sys</code>. Ono to je vážne na AMD pripojené k ASF!</p>
+
+<h2>ASF</h2>
+
+<p>Pustil som sa hneď do štúdia ASF čítaním <a href="https://www.dmtf.org/sites/default/files/standards/documents/DSP0136.pdf">špecifikácie</a>. Skúšal som podľa špecifikácie implementovať <em>Get Event Data</em>, ale absolútne bez úspechu. Skúšal som zapnúť kontrolné súčty packetov (pretože tie sú pre ASF povinné) a nič. Skúšal som napísať vlastnú implementáciu kontrolných súčtov, bez úspechu. Zariadenie uvedené v <code>SensorAdr</code> vôbec neodpovedalo. Hrabal som sa podrobnejšie aj v špecifikácii SMBusu, aby som cez ARP zistil pripojené zariadenie, ale vyzerá to tak, že AMD neimplementuje ani ARP. Zase raz víkend, pri ktorom som sa nikam nepomohol.</p>
+
+<p>Neskôr som len tak náhodou zapísal adresu <code>0x08</code> do <code>ListenAdr</code> registra. Zrazu sa začali spontánne generovať prerušenia. Nie síce úplne pravidelne a nebol som si istý, či reagujú na dotyk touchpadu (<a href="https://youtu.be/9pjxyiWA1a8">video</a>), ale rozhodne zaujímavé zistenie. Ostatné adresy nefungovali, ale <code>0x08</code> áno. Vlastne je to úplne logické, pretože na túto adresu má zariadenie posielať požiadavku na obsluhu prerušenia. Teraz už len zistiť, či prerušenie bolo generované prenosom, alebo slave zariadením, prečítať adresu slave a zavolať <code>i2c_handle_smbus_host_notify</code>. Malou komplikáciou je, že adresu <code>0x2c</code> nevidím v žiadnom registri a nevidím žiadny zásadný rozdiel medzi prerušením z prenosu a prerušením od slave.</p>
+
+<p>Ešte raz zopakujem výpis registrov, ale tentoraz so správnymi názvami:</p>
+
+<pre>
+┌------------------------------------------------------------ HostStatus
+|    ┌------------------------------------------------------- HostControl
+|    | ┌----------------------------------------------------- HostCommand
+|    | |  ┌-------------------------------------------------- SlaveAddress
+|    | |  | ┌------------------------------------------------ Data0
+|    | |  | |  ┌--------------------------------------------- Data1
+|    | |  | |  | ┌------------------------------------------- DataIndex
+|    | |  | |  | |  ┌---------------------------------------- PEC
+|    | |  | |  | |  | ┌-------------------------------------- ListenAdr
+|    | |  | |  | |  | |  ┌----------------------------------- ASFStatus
+|    | |  | |  | |  | |  | ┌--------------------------------- StatusMask0
+|    | |  | |  | |  | |  | |  ┌------------------------------ StatusMask1
+|    | |  | |  | |  | |  | |  | ┌---------------------------- SlaveStatus
+|    | |  | |  | |  | |  | |  | |  ┌------------------------- RemoteCtrlAdr
+|    | |  | |  | |  | |  | |  | |  | ┌----------------------- SensorAdr
+|    | |  | |  | |  | |  | |  | |  | |     ┌----------------- DataReadPointer
+|    | |  | |  | |  | |  | |  | |  | |     | ┌--------------- DataWritePointer
+|    | |  | |  | |  | |  | |  | |  | |     | |  ┌------------ SetDataReadPointer
+|    | |  | |  | |  | |  | |  | |  | |     | |  | ┌---------- DataBankSel
+|    | |  | |  | |  | |  | |  | |  | |     | |  | |  ┌------- Semaphore
+|    | |  | |  | |  | |  | |  | |  | |     | |  | |  | ┌----- SlaveEn
+|    | |  | |  | |  | |  | |  | |  | |     | |  | |  | |  ┌-- DelayMasterTimer
+0000 0006 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0087 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0007 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0080 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0000 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0081 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0082 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0002 5902 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0083 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0003 590e 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0084 5804 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0004 5801 0000 0f59 00ff ff00 a8aa    0000 0081 0002 0400
+0000 0001 5802 0000 0f59 00ff ff00 a8aa    0000 008d 0002 0400
+</pre>
+
+<p>Na konci inicializačnej sekvencie register sa mení register <code>DataBankSel</code>. Pribudli príznaky <code>DatabankXFull</code>.</p>
+
+<p>Keďže som sa nevedel ďalej moc pohnúť, skúsil som dekompilovať <a href="files/smb_old_driver.c">starý SMBus ovládač</a> a tiež <a href="files/smb_new_driver.c">nový (trochu zložitejší) ovládač</a> (ako dekompilátor používam <a href="https://github.com/rizinorg/rz-ghidra">ghidra</a>).</p>
+
+<p>V zdrojových kódoch som explicitne hľadal IO volania <code>in</code> a <code>out</code>. Nasledujúci kód som identifikoval ako obsluhu <em>host notify</em> prerušenia. V komentári je tabuľka, ktorú som si pripravil pre hodnoty registra <code>DataBankSel &amp; 0x0c</code>. Prvý stĺpec je hodnota registra, nasledujú 2 stĺpce reprezentujúce čítanie (prvá číslica určuje banku z ktorej sa číta a druhá číslica banku, do ktorej sa načítaná hodnota zapíše). Posledným stĺpcom je výstupná hodnota.</p>
+
+<pre class="code-c">
+/*
+
+0 00x0       ret0
+1 00x1       ret0
+4 01x0    00 ret0
+5 01x1       ret0
+8 10x0       ret0
+9 10x1    10 ret1
+c 11x0 10 01 ret1
+d 11x1 00 11 ret1
+
+*/
+
+ulonglong FUN_1400044c4(longlong param_1)
+
+{
+  byte bVar1;
+  ulonglong uVar2;
+  ulonglong uVar3;
+  longlong lVar4;
+  longlong lVar6;
+
+  bVar1 = in((short)*(undefined4 *)(param_1 + 0x14) + 0x13);
+  bVar1 = bVar1 &amp; 0xd;
+  uVar2 = 0;
+  if (bVar1 &lt; 2) {
+LAB_1400045d8:
+    return uVar2 &amp; 0xffffffffffffff00;
+  }
+  if (bVar1 == 4) {
+    *(undefined8 *)(param_1 + 0xb0) = 0;
+    lVar6 = 0;
+  }
+  else {
+    if (bVar1 == 9) {
+      *(undefined8 *)(param_1 + 0xb0) = 0;
+      lVar6 = 0;
+      lVar4 = 1;
+      goto LAB_14000458b;
+    }
+    if (bVar1 != 0xc) {
+      if (bVar1 != 0xd) {
+        out((ulonglong)*(uint *)(param_1 + 0x14) + 0x13,bVar1 &amp; 0xc);
+        return 0;
+      }
+      *(undefined8 *)(param_1 + 0xb0) = 0;
+      read_notify_address(param_1,0,0);
+      lVar6 = 1;
+      lVar4 = 1;
+      goto LAB_14000458b;
+    }
+    *(undefined8 *)(param_1 + 0xb0) = 0;
+    read_notify_address(param_1,1,0);
+    lVar6 = 1;
+  }
+  lVar4 = 0;
+LAB_14000458b:
+  uVar2 = read_notify_address(param_1,lVar4,lVar6);
+  uVar2 = uVar2 &amp; 0xffffffffffffff00;
+  out((short)*(undefined4 *)(param_1 + 0x14) + 0x13,bVar1 &amp; 0xc);
+  return uVar2 &amp; 0xffffffffffffff00 | 1;
+}
+
+void read_notify_address(longlong param_1,longlong param_2,longlong param_3)
+{
+  byte bVar1;
+  undefined uVar2;
+  undefined uVar3;
+
+  *(int *)(param_1 + 0xa0) = *(int *)(param_1 + 0xa0) + 1;
+  out((short)*(undefined4 *)(param_1 + 0x14) + 0x13,(&amp;DAT_1400051d0)[param_2]);
+  in((short)*(undefined4 *)(param_1 + 0x14) + 2);
+  in((short)*(undefined4 *)(param_1 + 0x14) + 7);
+  bVar1 = in((short)*(undefined4 *)(param_1 + 0x14) + 7);
+  uVar2 = in((short)*(undefined4 *)(param_1 + 0x14) + 7);
+  uVar3 = in((short)*(undefined4 *)(param_1 + 0x14) + 7);
+  *(byte *)(param_1 + 0xc0 + param_3 * 4) = bVar1 &gt;&gt; 1;
+  *(ushort *)(param_1 + 0xc2 + param_3 * 4) = CONCAT11(uVar3,uVar2);
+  *(longlong *)(param_1 + 0xb8) = param_3;
+  return;
+}
+</pre>
+
+<p>Stále mi unikal bit <code>SetReadHostDataBank</code> registra <code>DataBankSel</code>. Ak je tento bit 1, potom čítanie z <code>DataIndex</code> postupne prečíta dáta z posledného blokového prenosu, lenže ak je 0 prečíta adresu, ktoré žiadalo o prerušenie. Presne toto som potreboval.</p>
+
+<p>Register <code>DataBankSel</code> má trochu zložitejšiu štruktúru. V dobe písania jej celkom nerozumiem, ale mám akú-takú implementáciu, ktorú považujem za dostatočne spoľahlivú. Teraz skúsim opísať, čo o tomto registri viem.</p>
+
+<p>Zariadenie má 2 data banky. Prepínať sa dajú zápisom 0/1 do <code>SetReadRevDataBank</code>. Dáta na SMBuse môžu mať rôznu dĺžku a neexistuje sekvencia, ktorá by jednoznačne oddeľovala správy. Preto odhadujem, že bity <code>Databank0Full</code> a <code>Databank1Full</code> znamenajú, že do banky bola zapísaná práve 1 správa. Význam <code>DataBank[1]</code> nepoznám. Predpokladám, že bit <code>DataBank[0]</code> (0=Data Bank 0 is the latest touched data bank) by mal slúžiť len pre jednoznačné určenie, do ktorej banky prišla správa skôr. Windowsový ovládač tam robí ešte nejakú mágiu okolo tohto registra. Moja implementácia vyzerá byť logicky správna, ale s niektorými kombináciami bitov mi neprečíta celú adresu, alebo prečíta adresy v opačnom poradí, ale stáva sa to tak zriedkavo, že zatiaľ to ignorujem. Moja implementácia vyzerá takto:</p>
+
+<pre class="code-c">
+static u8 read_asf_data_bank(struct i2c_adapter *piix4_adapter, u8 bank_number)
+{
+        struct i2c_piix4_adapdata *adapdata = i2c_get_adapdata(piix4_adapter);
+        unsigned short piix4_smba = adapdata-&gt;smba;
+        u8 host_addr, addr, bank_sel;
+
+        outb_p(bank_number &lt;&lt; ASF_SET_READ_DATA_BANK_OFFSET, ASF_DATA_BANK_SEL);
+        bank_sel = inb_p(ASF_DATA_BANK_SEL);
+        inb_p(SMBHSTCNT); // reset DataIndex
+        host_addr = inb_p(SMBBLKDAT);
+        addr = inb_p(SMBBLKDAT);
+
+        //dev_dbg(&amp;piix4_adapter-&gt;dev, "BankSel=%02x Data=%02x %02x\n", bank_sel, host_addr, addr);
+
+        if (host_addr != 0x10) {
+                return 0;
+        }
+
+        return addr;
+}
+
+
+static irqreturn_t piix4_isr(int irq, void *dev_id)
+{
+        struct i2c_adapter *piix4_adapter = (struct i2c_adapter *)dev_id;
+        struct i2c_piix4_adapdata *adapdata = i2c_get_adapdata(piix4_adapter);
+        unsigned short piix4_smba = adapdata-&gt;smba;
+
+        u8 bank_sel;
+        u8 asf_status;
+        u8 address[2] = {0x00, 0x00};
+        u8 *current_address;
+
+        current_address = &amp;address[0];
+
+        bank_sel = inb_p(ASF_DATA_BANK_SEL); // DataBankSel
+
+        if ((bank_sel &amp; ASF_DATA_BANK_LAST_TOUCH) == 0) { // Last touched bank is 0
+                if (bank_sel &amp; ASF_DATA_BANK_1_FULL) {
+                        *current_address = read_asf_data_bank(piix4_adapter, 1);
+                        current_address++;
+                }
+                if (bank_sel &amp; ASF_DATA_BANK_0_FULL) {
+                        *current_address = read_asf_data_bank(piix4_adapter, 0);
+                }
+        }
+        else { // Last touched bank is 1
+                if (bank_sel &amp; ASF_DATA_BANK_0_FULL) {
+                        *current_address = read_asf_data_bank(piix4_adapter, 0);
+                        current_address++;
+                }
+                if (bank_sel &amp; ASF_DATA_BANK_1_FULL) {
+                        *current_address = read_asf_data_bank(piix4_adapter, 1);
+                }
+        }
+
+        outb_p(bank_sel &amp; (ASF_DATA_BANK_0_FULL | ASF_DATA_BANK_1_FULL), ASF_DATA_BANK_SEL); // Clear DataBankxFull
+
+        // Trigger notifications
+        if (address[0] != 0x00) {
+                i2c_handle_smbus_host_notify(piix4_aux_adapter, address[0] &gt;&gt; 1);
+        }
+        if (address[1] != 0x00) {
+                i2c_handle_smbus_host_notify(piix4_aux_adapter, address[1] &gt;&gt; 1);
+        }
+
+        // Clean ASFStatus SlaveIntr
+        asf_status = inb_p(ASF_STATUS);
+        if (asf_status &amp; ASF_SLAVE_INTR) {
+                outb_p(ASF_SLAVE_INTR, (ASF_STATUS)); // ASFStatus SlaveIntr? (in doc 0x20)
+        }
+
+        return IRQ_HANDLED;
+}
+</pre>
+
+
+<p>Takto to viac-menej funguje, ale hrozne seká. Vlastne ani to nie je prekvapenie keď vidím, ako katastrofálne je to implementované v linuxe. Namiesto jednoduchého čakania na prerušenie je tu aktívne čakanie v slučke, kým nebude nastavený príznak dokončenia operácie. Ukážka linuxového kódu:</p>
+
+
+<pre class="code-c">
+while ((++timeout < MAX_TIMEOUT) &&
+       ((temp = inb_p(SMBHSTSTS)) & 0x01))
+        usleep_range(250, 500);
+</pre>
+
+<p>Rozhodol som sa aktívne čakanie nahradiť prerušením. Podľa <a href="https://docs.kernel.org/scheduler/completion.html">kernel dokumentácie</a> som alokoval a inicializoval <code>completion</code> objekt a čakal na dokončenie operácie s limitom čakania 100ms.</p>
+
+<pre class="code-c">
+timeout = wait_for_completion_timeout(adapdata-&amp;gt;completion, msecs_to_jiffies(100));
+if (timeout == 0) {
+        dev_err(&amp;piix4_adapter-&amp;gt;dev, "SMBus Timeout!\n");
+        result = -ETIMEDOUT;
+}
+</pre>
+
+<p>V obsluhe prerušenia stačí zavolať <code>complete</code>:</p>
+
+<pre class="code-c">
+host_status = inb_p(SMBHSTSTS);
+
+// Clear HostStatus Intr and complete waiting
+if (host_status &amp; ASF_HOST_INTR) {
+        outb_p(ASF_HOST_INTR, SMBHSTSTS);
+
+        if (adapdata-&gt;completion) {
+                complete(adapdata-&gt;completion); // Notify caller
+        }
+}
+</pre>
+
+<p>Teraz som skúsil poslať jeden <code>quick command</code> a nič. Žiadne prerušenie. Znovu som poslal príkaz a tentoraz som dostal prerušenie. Znovu a ďalšie prerušenie. Zaujímavý fakt, že prvé volanie nikdy nevyvolá prerušenie. Zároveň v prerušení mám stále prázdny <code>HostStatus</code>.</p>
+
+<p>Ďalej som sa pozrel na časovanie. Prerušenie sa mi spúšťa 7μs po spustení prenosu. No počkať. Podľa PM registra (práve som ho kontroloval) je frekvencia zbernice nastavená na 100kHz. Teraz počítajme. Príkaz <code>quick command</code> sa skladá zo štart bitu, 7-bitovej adresy, write bitu a potvrdenia. Spolu 10 bitov. Pri frekvencii 100kHz jeden tak trvá 10μs. Prenos 10 bitov nemôže byť kratší než 100μs. Niečo tu vážne nesedí …</p>
+
+<p>Tak si dajme dokopy fakty. Prerušenie sa spustí po druhom prenose. Prerušenie sa spustí skôr než sa môže odoslať čo i len jeden bit. Prerušenie sa nespustí keď zbernicu inicializujem a resetujem. Prerušenie sa spustí ak urobím 1 prenos a potom resetujem zbernicu. Teraz si dovolím vysloviť kacírsku myšlienku, že prerušenie sa spúšťa v nesprávnom momente. Pripomeňme si nastavenie prerušení z ACPI:</p>
+
+<pre>
+IRQ (Level, ActiveLow, Shared, )
+    {7}
+</pre>
+
+<p>Prerušenie je citlivé na úroveň a aktívna hodnota je logická 0. Dovolím si jednu malú odbočku k prerušeniam.</p>
+
+<h3>Typy prerušení</h3>
+
+<p>Existujú 2 typy prerušení - citlivé na hranu a na úroveň. K obom existujú 2 polarity:</p>
+
+<table>
+	<tr>
+		<td></td>
+		<th colspan="2">Typ</th>
+	</tr>
+	<tr>
+		<th rowspan="2">Polarita</th>
+		<td>Nábežná hrana</td>
+		<td>Aktívna 1</td>
+	</tr>
+	<tr>
+		<td>Dobežná hrana</td>
+		<td>Aktívna 0</td>
+	</tr>
+</table>
+
+<p>Prerušenia citlivé na hranu sa spúšťajú iba pri prechode. Obyčajne sa používajú pri jednoduchých zariadeniach, ktoré majú jediný zdroj prerušenia. Nábežnú hranu používa napríklad ISA zbernica. Naopak PCI zbernica používa aktívnu 0. Dôvodom citlivosti na úroveň je to, že PCI má zvyčajne viacej zdrojov prerušenia, ale iba jednú interrupt line. Ukážme si modelovú situáciu zariadenia, ktoré má 2 samostatné porty a jednú interrupt line, ktorá indikuje, že niečo sa stalo.</p>
+
+<p>Port 1 - prerušenie<br />
+Port 2 - prerušenie<br />
+Spúšťa sa obsluha prerušenia<br />
+Obsluha portu 1<br />
+Port 1 obslúžený<br />
+Obsluha portu 2<br />
+Port 1 - prerušenie<br />
+Port 2 obslúžený</p>
+
+<p>Ak by bolo prerušenie citlivé na hranu, prechod do aktívneho stavu by nastal hneď pri prvom riadku. Obsluha prerušenia postupne kontroluje všetky potenciálne príčiny prerušenia (napr. port 1, 2 atď), obslúži ich a vynuluje príznak prerušenia pre jednotlivé porty. Ak by na porte 1 počas obsluhy portu 2 došlo znovu k prerušeniu, nikdy by nenastal prechod do neaktívneho stavu. Zariadenie by zostalo v aktívnom stave aj po obsluhe prerušenia, ale keďže nedošlo k prechodu, ďalšia obsluha by sa už nikdy nespustila.</p>
+
+<p>Pri citlivosti na úroveň sa toto nestane. Ak by sa znovu prerušil port 1 počas obsluhy portu 2, zostal by stále aktívny stav. Po dokončení obsluhy prerušenia by sa znovu spustila obsluha a tá by sa spúšťala až dovtedy, kým by neboli vyčistené / obslúžené všetky zdroje prerušenia.</p>
+
+<h2>Prerušenia</h2>
+
+<p>Podľa príznakov budem hádať, že mám nesprávnu polaritu aj typ prerušenia. Pozrime sa na modelovú situáciu, kde body r-1 a r-2 sú body, kde vyčistím <code>HostStatus</code>. Body s-1 a s-2 sú reálne začiatky prenosu na zbernici. Body e-1 a e-2 sú konce prenosu na zbernici. Takto zrejme vyzerá priebeh signálu.</p>
+
+<figure>
+	<a href="img/interrupt_line.png"><img src="img/interrupt_line.png" alt="Priebeh signálu" /></a>
+	<figcaption>Obrázok <counter></counter>: Priebeh signálu</figcaption>
+</figure>
+
+<p>Ak by to bolo takto, presne by to vysvetľovalo, prečo prvý prenos nespustí prerušenie, prečo je obsluha spustená v tak krátkom čase, prečo sa spustí pri resete zariadenia ak predtým bol inicializovaný prenos. Takto vyzerá môj <code>/proc/interrupts</code>:</p>
+
+<pre>
+IR-IO-APIC    2-edge     timer
+IR-IO-APIC    1-edge     i8042
+<strong>IR-IO-APIC    7-edge     piix4_smbus</strong>
+IR-IO-APIC    8-edge     rtc0
+IR-IO-APIC    9-fasteoi  acpi, pinctrl_amd
+IR-IO-APIC   10-edge     AMDI0010:00
+IR-IO-APIC   11-edge     AMDI0010:01
+</pre>
+
+<p>Prerušenie je citlivé na hranu, presne ako som očakával. Na nastavenie typu prerušenia sa <a href="https://www.kernel.org/doc/html/latest/core-api/genericirq.html?highlight=irq_set_irq_type#c.irq_set_irq_type">podľa dokumentácie</a> používa funkcia <code>irq_set_irq_type</code>. Pred, alebo po registráciu prerušenia (<code>devm_request_irq</code>) preto vkladám nasledujúci kód:</p>
+
+<pre class="code-c">irq_set_irq_type(dev-&gt;irq, IRQ_TYPE_LEVEL_LOW);</pre>
+
+<p>Takto vyzerá teraz výpis <code>/proc/interrupts</code>.</p>
+
+<pre>
+IR-IO-APIC    7-edge     piix4_smbus
+</pre>
+
+<p>Prerušenie je stále citlivé na hranu, namiesto úrovne. Podľa <a href="https://github.com/torvalds/linux/blob/v5.16/kernel/irq/manage.c#L944">kódu typu prerušenia</a> je za nastavenie zodpovedná inštancia <code>irq_chip</code>u. Štruktúra <a href="https://github.com/torvalds/linux/blob/v5.16/arch/x86/kernel/apic/io_apic.c#L1993">IR-IO-APIC</a> nemá nastavenú operáciu <code>irq_set_type</code>, takže nie je možné počas behu zmeniť typ prerušenia.</p>
+
+<p>Podľa všetkého to vyzerá tak, že chyba je niekde v <code>io-apic</code>. Zaujímavé je, že prerušenie 9 využíva tiež <code>io-apic</code>, ale má správny typ. V <a href="https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html">zozname parametrov kernelu</a> sa nachádza <code>apic=debug</code>. Po nabootovaní kernelu s týmto parametrom je v <code>dmesg</code>u tento zaujímavý výpis:</p>
+
+<pre>
+ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+Int: type 0, pol 0, trig 0, bus 00, IRQ 00, APIC ID 20, APIC INT 02
+ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 low level)
+Int: type 0, pol 3, trig 3, bus 00, IRQ 09, APIC ID 20, APIC INT 09
+</pre>
+
+<p>Vyhľadávanie reťazca <code>INT_SRC_OVR</code> grepom nájde funkciu <code>acpi_table_print_madt_entry</code>. Tabuľka <code>MADT</code> (<em>Multiple APIC Description Table</em>) je súčasťou ACPI. Nasledujúci výpis je časť dekompilovanej APIC ACPI tabuľky:</p>
+
+<pre>
+[0C4h 0196   1]                Subtable Type : 02 [Interrupt Source Override]
+[0C5h 0197   1]                       Length : 0A
+[0C6h 0198   1]                          Bus : 00
+[0C7h 0199   1]                       Source : 00
+[0C8h 0200   4]                    Interrupt : 00000002
+[0CCh 0204   2]        Flags (decoded below) : 0000
+                                    Polarity : 0
+                                Trigger Mode : 0
+
+[0CEh 0206   1]                Subtable Type : 02 [Interrupt Source Override]
+[0CFh 0207   1]                       Length : 0A
+[0D0h 0208   1]                          Bus : 00
+[0D1h 0209   1]                       Source : 09
+[0D2h 0210   4]                    Interrupt : 00000009
+[0D6h 0214   2]        Flags (decoded below) : 000F
+                                    Polarity : 3
+                                Trigger Mode : 3
+</pre>
+
+<p>Presne podľa predchádzajúceho výpisu je v tejto tabuľke nastavenie prerušenia 2 a 9. Prerušenie číslo 7 chýba. Podľa <a href="https://github.com/torvalds/linux/blob/v5.16/arch/x86/kernel/acpi/boot.c#L621">kódu inicializácie</a> APIC sa polarita a typ prerušenia zisťujú vo funkcii <a href="https://github.com/torvalds/linux/blob/v5.16/arch/x86/kernel/apic/io_apic.c#L828">acpi_get_override_irq</a>. Pri bližšom pohľade táto funkcia len skenuje APIC tabuľku ACPI, v ktorej chýba prerušenie IRQ. Podľa <a href="https://uefi.org/sites/default/files/resources/ACPI_6_3_final_Jan30.pdf">ACPI špecifikácie</a>, sekcia 5.2.12.5 Interrupt Source Override Structure má byť prvých 16 prerušení citlivých na nábežnú hranu ak to nie je definované inak v APIC/MADT tabuľke. Ak to správne chápem, tento záznam je povinný bez ohľadu na to, či je prerušenie definované v niektorej z iných ACPI tabuliek. Windows buď skenuje aj <code>_CRS</code> resource záznamy, alebo dovoľuje zmeniť typ prerušenia počas behu, čo asi nieje v súlade so špecifikáciou.</p>
+
+<p>Z toho dôvodu som kontaktoval Lenovo a nahlásil chýbajúci záznam pre prerušenie 7. Zároveň som do <a href="https://github.com/torvalds/linux/blob/v5.16/arch/x86/kernel/apic/io_apic.c#L202">mp_save_irq</a> pridal takúto príšernosť, aby som nebol blokovaný, kým Lenovo vydá aktualizáciu BIOSu.</p>
+
+<pre class="code-c">
+if (mp_irq_entries == 7) {
+        m-&gt;irqflag = MP_IRQPOL_ACTIVE_LOW | MP_IRQTRIG_LEVEL;
+}
+</pre>
+
+<p>Po tejto zmene už prerušenia fungujú v správny moment. Obsluha prerušenia teraz musí korektne vyčistiť bit <code>Intr</code> registra <code>HostStatus</code> a <code>SlaveIntr</code> registra <code>ASFStatus</code>, inak sa bude obsluha spúšťať donekonečna.</p>
+
+<p>Pred ďalším pokračovaním trochu zhrniem fakty. Ovládač i2c-piix4 má implementovaný protokol <em>host notify</em>. Prerušenia či už pri transakciách, alebo aj pri prerušeniach od zariadenia fungujú bez problémov. Touchpad / trackpoint by mal fungovať …</p>
+
+<figure>
+	<a href="img/100_requests.jpg"><img src="img/100_requests.jpg" alt="Stav" /></a>
+</figure>
+
+<h2>Synaptics</h2>
+
+<p>Ak je touchpad synaptics pripojený k I2C, alebo SPI rozhraniu, používa na komunikáciu protokol <a href="https://kupdf.net/download/rmi4-intrfacing-guidepdf_5965a6b4dc0d605362a88e76_pdf">RMI4</a>. Pred ďalším pokračovaním vysvetlím základy RMI4 protokolu.</p>
+
+<p>Pri komunikácii cez I2C/SMBus sa vysiela najskôr adresa touchpadu (<code>0x2c</code>) nasledovaná príznakom read / write a 16-bitovou adresou registra RMI4. Registre sa delia na 4 typy - data (na čítanie / zápis dát), control (ovládanie zariadenia a čítanie výsledku), command (ovládanie zariadenia) a query (získanie informácie). Ďalej sú registre členené podľa funkcie, napr <code>F12</code> je touchpad, <code>F03</code> je trackpoint (alebo presnejšie povedané PS/2 pass-though, <code>F34</code> je aktualizácia firmvéru atď. Špeciálnu úlohu má <code>F01</code> - povolenie iných funkcií, nastavenie režimu šetrenia energie, povolenie prerušení, čítanie stavu prerušenia …</p>
+
+<p>Adresy registrov nie sú statické. Statickú adresu má len PDT (<em>page description table</em>) tabuľka. Prečítaním PDT tabuľky je možné zistiť, aké funkcie má touchpad implementované, aké sú základné adresy registrov a ktoré prerušenia sú priradené jednotlivým funkciám.</p>
+
+<figure>
+	<a href="img/pdt.png"><img src="img/pdt.png" alt="Page description talbe" /></a>
+	<figcaption>Obrázok <counter></counter>: Page description table</figcaption>
+</figure>
+
+<p>Pri inicializácii touchpadu cez RMI4 protokol sa najskôr musí prečítať PDT tabuľka. Následne sa podľa nej registrujú podporované funkcie a povolia sa ich prerušenia. Po dokončení inicializácie zašle touchpad 1 <em>host notify</em> požiadavku.</p>
+
+<p>Zatiaľ to vyzerá v poriadku. Touchpad normálne reaguje na pohyb a reporting rate je zhruba 80 Hz, čo zodpovedá maximálnej podporovanej rýchlosti synapticsu. Trackpoint hlási rate stabilných 100 Hz. Tu je <a href="https://www.youtube.com/watch?v=L4oKt500kNo">video</a>. Sú tu však 2 problémy. Prvým je strata približne 10% packetov v dôsledku kolízií. Druhým problémom je, že obsluha prerušenia sa volá približne 1000x za sekundu, čo výrazne zvyšuje spotrebu notebooku (v mojom prípade z 3W na 4W).</p>
+
+<p>Prerušenia sa nezačnú generovať hneď po inicializácii, ale až po prvom dotyku. Generovanie sa zastaví asi 5 minút po poslednom dotyku.</p>
+
+<p>Podobne by sa správalo prerušenie, ak by som v obsluhe nevyčistil všetky príznaky prerušenia. Ak by to tak aj bolo, nikdy by sa generovanie nezastavilo, ale tu sa zastaví asi po 5 minútach po poslednom dotyku.</p>
+
+<p>Môj druhý typ je, že touchpad má vlastný príznak prerušenia, ktorý sa v jeho obsluhe nevyčistí a preto sa stále vysiela <em>host notify</em> signál, kým sa zariadenie neprepne do šetriaceho režimu. Ako teória dobré. Čo hovorí dokumentácia?</p>
+
+<blockquote>The attention signal is de-asserted by reading all of the Interrupt Status registers in a device. This means that a host driver should process the interrupt handlers for all interrupt sources that are reporting ‘1’ when the Interrupt Status is read.</blockquote>
+
+<p>Dokumentácia hovorí jasne, že stačí prečítať všetky interrupt status registre. Žiadna dodatočná akcia nie je potrebná. Čítanie všetkých interrupt status registrov sa deje vo funkcii <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/rmi4/rmi_driver.c#L139">rmi_process_interrupt_requests</a>. Funkcia sa skutočne spúšťa pri každej prijatej notifikácii. Pridávam preto výpis interrupt status registra.</p>
+
+<pre class="code-c">
+printk(KERN_INFO "IRQ 0x%lx\n", data-&gt;irq_status[0]);
+</pre>
+
+<p>Výpis podľa činnosti vyzerá nasledovne:</p>
+
+<pre>
+IRQ 0x0 // Žiaden dotyk
+IRQ 0x80 // pohyb trackpointom
+IRQ 0x18 // pohyb touchpadom
+</pre>
+
+<p>Podľa dokumentácie by sa vôbec nemal generovať <em>host notify</em> signál ak je interrupt status nulový. U mňa sa však generuje aj keď čítam <code>0x00</code>. Pre istotu kontrolujem, ku ktorej funkcii patrí prerušenie. Najskôr však potrebujem výpis funkcií a príslušných prerušení. Do funkcie <code>rmi_init_functions</code> pridávam tento riadok <code>rmi_scan_pdt(rmi_dev, &amp;irq_count, rmi_debug_function)</code>, ktorý spustí <code>rmi_debug_function</code> pre každý záznam PDT tabuľky. Funkcia pre výpis vyzerá takto:</p>
+
+<pre class="code-c">
+static int rmi_debug_function(struct rmi_device *rmi_dev,
+                               void *ctx, const struct pdt_entry *pdt)
+{
+        int *current_irq_count = ctx;
+        printk(KERN_INFO "PDT %02x: start=%04x cmd=%02x ctrl=%02x data=%02x, IRQ=%d+%d\n", pdt-&gt;function_number, pdt-&gt;page_start, pdt-&gt;command_base_addr, pdt-&gt;control_base_addr, pdt-&gt;data_base_addr, *current_irq_count, pdt-&gt;interrupt_source_count);
+        *current_irq_count += pdt-&gt;interrupt_source_count;
+        return 0;
+}
+</pre>
+
+<p>Výpis vyzerá takto:</p>
+
+<pre>
+PDT 34: start=0000 cmd=00 ctrl=13 data=00, IRQ=0+1
+PDT 01: start=0000 cmd=28 ctrl=14 data=06, IRQ=1+2
+PDT 12: start=0000 cmd=00 ctrl=1d data=0c, IRQ=3+2
+PDT 54: start=0100 cmd=3d ctrl=0f data=00, IRQ=5+1
+PDT 3a: start=0200 cmd=00 ctrl=11 data=00, IRQ=6+1
+PDT 03: start=0200 cmd=00 ctrl=00 data=01, IRQ=7+1
+PDT 55: start=0300 cmd=03 ctrl=00 data=00, IRQ=8+1
+</pre>
+
+<p>Podľa výpisu bitová maska <code>0x18</code> zodpovedá touchpadu a <code>0x80</code> trackpointu. Teraz pár pokusov s <code>rmi_enable_irq</code>. Ak nikdy nepovolím prerušenia, prerušenia nie sú generované. Ak povolím prerušenia iba pre touchpad, prerušenia sú generované po prvom dotyku s hodnotou interrupt status registra <code>0x18</code> kým mám prst na touchpade, potom <code>0x00</code> až kým po pár minútach neprestanú. Trackpoint neovplyvňuje interrupt status register. Ak povolím len trackpoint, potom pri pohybe má interrupt status hodnotu <code>0x80</code>, ale zároveň pri dotyku touchpadu sa nastavuje <code>0x18</code>. Podľa príznakov tipujem, že je chyba niekde vo firmvéri, ale dokázať to neviem. Pre nepriestrelný dôkaz by som potreboval presne vidieť, ako vyzerajú odosielané bity na zbernici.</p>
+
+<h2>Logický analyzátor</h2>
+
+<p>Počas predchádzajúcich pokusov som zistil, že po aktivácií touchpadu / trackpointu sa začnú posielať dáta na GPIO pinoch 19 a 20. Podľa <a href="https://github.com/coreboot/coreboot/blob/4.15/src/soc/amd/cezanne/include/soc/gpio.h#L152">zdrojových kódov corebootu</a> tieto piny patria I2C rozhraniu. Je celkom slušná šanca, že práve aktivita na týchto pinoch mi definitívne zodpovie otázku, či touchpad posila dáta sám, alebo je vyvolané nevhodnou komunikáciou zo strany SMBus ovládača.</p>
+
+<p>Na sledovanie aktivity na zbernici sa používajú špeciálne zariadenia - logické analyzátory. Väčšinou ide o zariadenie s mnohými vstupmi, veľmi rýchlou pamäťou a FPGA, alebo ASIC obvodom na spracovanie signálov. Notebook som už síce mal otvorený, ale aj tak sa vyhýbam invazívnym metódam odpočúvania zbernice. Namiesto toho sa spolieham na to, že dokážem dostatočne rýchlo čítať hodnoty GPIO pinov priamo z linuxu.</p>
+
+<h3>Libgpiod</h3>
+
+<p>Môj prvý pokus bol s knižnicou <a href="https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/tree/README">libgpiod</a>. Hosting na kernel.org naznačuje, že by mohlo ísť o pomerne kvalitnú knižnicu. Podľa zdrojových kódov (pretože dokumentácia je rovnako ako v prípade kernelu veľmi strohá) podporuje operácie nad viacerými vstupmi / výstupmi súčasne, čo sa bude hodiť.</p>
+
+<p><a href="files/dump_gpio_gpiod.c">Kompletný zdrojový kód</a> sa dá skompilovať príkazom <code>gcc -O3 -lgpiod dump_gpio_gpiod.c -o dump_gpio_gpiod</code>. V nasledujúcom výpise je komentovaná časť kódu, ktorý pristupuje k GPIO:</p>
+
+<pre class="code-c">
+struct gpiod_chip *chip;
+struct gpiod_line_bulk lines;
+
+unsigned int offsets[2] = {19, 20}; // Piny 19/20
+unsigned int values[2]; // Buffer pre načítané hodnoty
+int ret;
+
+chip = gpiod_chip_open("/dev/gpiochip0");
+if (!chip) {
+        printf("GPIO not opened\n");
+        return -1;
+}
+
+ret = gpiod_chip_get_lines(chip, &amp;offsets[0], 2, &amp;lines);
+if (ret &lt; 0) {
+        printf("Lines not opened\n");
+        return -1;
+}
+
+gpiod_line_request_input(lines.lines[0], NAME);
+gpiod_line_request_input(lines.lines[1], NAME);
+// Nastavenie open drain vstupu
+gpiod_line_set_flags(lines.lines[0], GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW | GPIOD_LINE_REQUEST_FLAG_OPEN_DRAIN);
+gpiod_line_set_flags(lines.lines[1], GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW | GPIOD_LINE_REQUEST_FLAG_OPEN_DRAIN);
+
+while (true) {
+        // súčasné načítanie vstupov
+        gpiod_line_get_value_bulk(&amp;lines, values);
+        // uloženie poľa values
+}
+</pre>
+
+<p>Teraz trocha výpočtov. Frekvencia SMBus zbernice je 100kHz. Na každý bit sú potrebne 2 prechody hodín (prechod z 1 do 0 a naspäť z 0 do 1). Čítať hodnotu je potrebné s minimálnou frekvenciou 200kHz, čo znamená, že na jedno čítanie máme maximálne 5µs. Maximálna frekvencia plánovača jadra je 1kHz, čo je absolútne nedostatočné. Pri tak vysokej citlivosti na časovanie je potrebné zabezpečiť, aby proces nebol prerušený plánovačom.</p>
+
+<p>Kernel by mal mať vyhradené 1 jadro CPU na 1 neprerušiteľnú úlohu. Presne pre tento účel existuje parameter jadra <a href="https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=isolcpus#cpu-lists">isolcpus</a>. Po naštartovaní s parametrom <code>isolcpus=1</code> nebude kernel vôbec používať, ani plánovať úlohy pre jadro 1. Úloha sa dá spustiť na tomto jadre len pri explicitnom určení afinity. Program spúšťam cez utilitu <code>schedtool</code> nasledujúcim príkazom:</p>
+
+<pre>schedtool -a 0x01 -F -p 99 -n -20 -e ./dump_gpio_gpiod</pre>
+
+<p>Parameter <code>-a</code> určuje zoznam CPU, na ktorých môže byť proces spustený. Zoznam je implementovaný ako bitová maska, takže <code>0x01</code> znamená prvý CPU, <code>0x03</code> prvý a druhý atď. Pre fifo plánovač je určený parameter <code>-F</code>. Parameter <code>-p</code> je priorita fifo plánovača v rozsahu 1-99 (najvyššia je 99) a <code>-n</code> je hodnota nice.</p>
+
+<p>Na papieri to funguje, v realite samozrejme, že nie. V zásade čítanie hodnoty GPIO trvá okolo 2µs +/- 20µs. Latencia musí byť však pod 5µs za každých okolností. Okrem toho, čítanie viacerých pinov na mojom stroji vôbec nefungovalo. Prvý áno, druhý vráti vždy 0. Ak ich čítam sekvenčne, tak áno, prečítajú sa oba s časom 2µs +/- 20µs, čo je nepoužiteľné.</p>
+
+<h3>Ioctl</h3>
+
+<p>V <a href="files/dump_gpio.c">druhom pokuse</a> som vynechal akékoľvek knižnice a hrabol som rovno svojimi <code>ioctl</code> volaniami po <code>/dev/gpiochip0</code>. V nasledujúcom výpise sú zaujímavé časti kódu:</p>
+
+<pre class="code-c">
+int fd, ret;
+struct gpiohandle_request rq;
+struct gpiohandle_data data;
+
+fd = open(DEV_NAME, O_RDONLY);
+if (fd &lt; 0) {;
+        printf("Device not opened\n");
+        return -1;
+}
+
+rq.lineoffsets[0] = 19;
+rq.lineoffsets[1] = 20;
+rq.flags = GPIOHANDLE_REQUEST_INPUT;
+rq.lines = 2;
+ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &amp;rq);
+close(fd);
+if (ret == -1) {
+        printf("Cant get handle\n");
+        return -1;
+}
+
+while(true) {
+        ioctl(rq.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &amp;data);
+        // práca s data.values[0,1]
+}
+</pre>
+
+<p>Tento kód síce načíta oba piny, ale réžia prepínania kontextu kernelu je stále príliš veľká. Výsledok je zatiaľ nepoužiteľný. Aby som sa vyhol réžii pri prepínaní kontextu, <a href="files/i2c-piix4-logic-analyzer.c">presunul som kód do kernelu</a>.</p>
+
+<h3>Kernel</h3>
+
+<p>Ku GPIO sa dá pristupovať len cez <code>MMIO</code>. Adresa registra je v BKDG príručke, časť 3.26.11.1 GPIO Registers. Nasledujúci kód mapuje MMIO do adresného priestoru kernelu na adresu <code>gpi_addr</code>. Od tohto momentu sa dá pristupovať k I/O zariadeniu pomocou priameho čítania, alebo zápisu do regiónu pamäte <code>gpio_addr</code>.</p>
+
+<pre class="code-c">
+#define GPIO_ADDR   0xFED81500
+#define GPIO_SIZE   0x00000400
+
+struct resource *gpio_res;
+void __iomem *gpio_addr;
+
+gpio_res = request_mem_region(GPIO_ADDR, GPIO_SIZE, "amd-pinctrl");
+if (!gpio_res) {
+        printk(KERN_INFO "GPIO resource not acquired\n");
+}
+else {
+        gpio_addr = ioremap(GPIO_ADDR, GPIO_SIZE);
+        if (!gpio_addr) {
+                printk(KERN_INFO "Failed to map GPIO\n");
+        }
+}
+</pre>
+
+<p>Kernel potrebuje sprístupniť zaznamenané dáta. Na tento účel sa dá veľmi jednoducho zneužiť <code>debugfs</code>.</p>
+
+<pre class="code-c">
+#define GPIO_RECORDING_SIZE (1024 * 1024 * 8)
+
+u8 gpio_recording[GPIO_RECORDING_SIZE];
+struct dentry *gpio_dfs;
+struct debugfs_blob_wrapper gpio_blob;
+
+gpio_blob.data = &amp;gpio_recording[0];
+gpio_blob.size = GPIO_RECORDING_SIZE;
+gpio_dfs = debugfs_create_blob("piix4_bus_dump", 0644, NULL, &amp;gpio_blob);
+</pre>
+
+<p>Tento krátky kód sprístupní zaznamenané dáta ako súbor <code>/sys/kernel/debug/piix4_bus_dump</code>. Jeho obsah sa dá štandardnými nástrojmi skopírovať na disk. Hodnoty pinov sa budú zaznamenávať v samostatnom vlákne spustenom na izolovanom CPU jadre. Podľa tabuľky 278 v BKDG má každý pin šírku 32 registrov (4 byty). Relevantné I2C piny začínajú na adrese <code>0x4c</code> (19 * 4). Z každej sady registrov je zaujímavý len register 16 (<code>PinSts</code>). Keďže sú piny hneď vedľa seba, dajú sa prečítať jedinou inštrukciou <code>reqdq</code> pre načítanie 64-bitovej hodnoty. Po troche mágie s bitmi sa zapíše do bufferu 1 byte s hodnotou hodinového signálu na najnižšej pozícii a hodnotou dátového signálu na druhej najnižšej pozícii.</p>
+
+<pre>
+static int gpio_thread_func(void *data) {
+        u64 gpio_val;
+        size_t pos;
+        for (pos = 0; pos &lt; GPIO_RECORDING_SIZE; pos++) {
+                if (kthread_should_stop()) {
+                        break;
+                }
+                gpio_val = readq(gpio_addr + 19*4);
+                // bit 16 z prvého registra + bit 16 z druhého registra (16+32) posunuý o 1 pozíciu doľava
+                gpio_recording[pos] = ((gpio_val &amp; BIT(16)) &gt;&gt; 16) | ((gpio_val &amp; BIT(48)) &gt;&gt; 47);
+        }
+        return 0;
+}
+
+gpio_thread = kthread_create(gpio_thread_func, NULL, "piix4_bus_dump-work");
+kthread_bind(gpio_thread, 0);
+</pre>
+
+<p>V kóde transakcie stačí už len pri skenovaní naštartovať vlákno, ktoré bude zaznamenávať aktivitu:</p>
+
+<pre>
+if (size == I2C_SMBUS_QUICK) {
+        wake_up_process(gpio_thread);
+}
+</pre>
+
+<p>Teraz krátka kontrola. Funguje to? No povedzme, že lepšie než predchádzajúci kód, ale horšie než som čakal. Jedna iterácia trvá približne 1µs +/- 15µs. Pripomínam, že doba musí byť pod 5. Na druhej strane, čas vyskakuje približne pri každých 100 bitoch. Nie je to dosť dobré, aby som kompletne dekódoval, čo sa deje na zbernici, ale je to dosť dobré, aby som si urobil predstavu, čo sa tam deje.</p>
+
+<h3>Čo keď o nestačí</h3>
+
+<p>Ak by to nestačilo, pokračoval by som použitím <em>DMA</em> (direct memory access). Princíp činnosti DMA je pomerne jednoduchý. Operačný systém nakonfiguruje, čo má DMA kontrolér urobiť, spustí prenos a voliteľne počká na prerušenie, ktoré oznámi ukončenie prenosu. DMA prenosy majú obyčajne vysokú prioritu a je tu veľká šanca, že by toto riešenie fungovalo stabilne bez straty jediného bitu. Pre inicializáciu DMA prenosu je potrebné:</p>
+
+<ul>
+	<li>Určiť zdrojovú adresu (<code>gpio_addr + 19*4</code>)</li>
+	<li>Určiť cieľovú adresu (<code>gpio_recording</code>)</li>
+	<li>Určiť typ prenosu (device to memory - číta sa vždy tá istá zdrojová adresa, ale cieľová adresa sa pri každom zápise posunie)</li>
+	<li>Určiť udalosť, pri ktorej nastane  prenos (časovač s vysokým rozlíšením)</li>
+</ul>
+
+<p>Ako zdroj prerušenia by bol použitý <a href="https://wiki.osdev.org/Timer_Interrupt_Sources">niektorý z časovačov</a>. Do tohto riešenia som nešiel, pretože mi stačí základný prehľad o dianí na zbernici.</p>
+
+<h3>Analýza</h3>
+
+<p>Výsledný <a href="files/i2c_scl_sda.xz">súbor</a> sa dá načítať napríklad pomocou <code>pulseview</code>. Po importe raw binárneho súboru a pridaní I2C dekódera je pekne viditeľná komunikácia.</p>
+
+<figure>
+	<a href="img/i2c_1.png"><img src="img/i2c_1.png" alt="I2C" /></a>
+	<figcaption>Obrázok <counter></counter>: Aktivita zdiaľky</figcaption>
+</figure>
+
+<p>Po miernom priblížení je viditeľné pravidelné opakovanie.</p>
+
+<figure>
+	<a href="img/i2c_2.png"><img src="img/i2c_2.png" alt="I2C" /></a>
+	<figcaption>Obrázok <counter></counter>: Mierne priblíženie</figcaption>
+</figure>
+
+<p>Pri priblížení na 1 blok je viditeľný najskôr zápis <code>0x2c &lt;&lt; 1</code> (<code>0x58</code>) na adresu <code>0x08</code>. Týmto spôsobom požaduje zariadenie <code>0x2c</code> host <code>0x08</code> o obsluhu prerušenia. Na základe tejto požiadavky host osloví zariadenie <code>0x2c</code> a vyžiada si hodnotu interrupt status registra <code>0x00</code>. Touchpad odpovie svojou vlastnou adresou <code>0x2c</code>, dĺžkou bloku dát <code>0x02</code> a hodnotou interrupt status registra <code>0x00,0x00</code>. Toto je konečný dôkaz, že touchpad posiela notifikácie, aj keď na to nemá dôvod.</p>
+
+<figure>
+	<a href="img/i2c_3.png"><img src="img/i2c_3.png" alt="I3C" /></a>
+	<figcaption>Obrázok <counter></counter>: Priblíženie na 1 blok</figcaption>
+</figure>
+
+<p>Okrem opísaných blokov sa niekedy objavujú aj krátke jednobytové zápisy. Tie sú však len dôsledkom faktu, že pred transakciou vypínam host funkciu, takže zápis na adresu <code>0x08</code> nie je úspešný. Ak nevypnem host funkciu, host bude na adresu <code>0x08</code> odpovedať vždy. Mierne sa vtedy zvýši frekvencia kolízií.</p>
+
+<h3>Vyhodnotenie</h3>
+
+<p>Pomocou záznamu aktivity na zbernici som zistil, že touchpad sám odosiela požiadavky na prerušenie. V ovládači SMBusu nie je žiadna zásadná chyba, ktorá by prekážala v používaní touchpadu. Ovládač touchpadu sa správa korektne podľa starej dokumentácie, ktorú som našiel na webe. K novšej dokumentácii nemám prístup.</p>
+
+<p>Ako by som mohol pokračovať? Napríklad <a href="https://randomascii.wordpress.com/2017/09/05/hey-synaptics-can-you-please-stop-polling/">vyhľadaním problémov synapticsu</a>. Vyzerá to tak, že problém sa prejavuje niekedy aj vo windows. Jeden komentár z <a href="https://forums.lenovo.com/t5/Other-Linux-Discussions/T14-AMD-touchpad-InterTouch-RMI4-mode-support/m-p/5051935?page=4">lenovo fóra</a> hovorí za všetko:</p>
+
+<blockquote>I'll forward those on to Synaptics as well in case it's useful - though it sounds like it matches what they're looking at but there are some interesting pieces in there with the interrupts being so bad. Synaptics have asked me not to discuss their investigation details publicly and I'm respecting that.<br /><br />
+I will note that my understanding is that this issue is impacting Windows too.<br /><br />
+I don't have an ETA on the solution yet I'm afraid, but it is being actively worked on and I've been checking in on it.</blockquote>
+
+<p>Teraz by som mohol pokračovať skúmaním windows ovládača. Ak zaznamenám veľa prerušení aj vo windowse, je to jednoznačne vadný firmvér. Ak nie, pravdepodobne windows ovládač nejakým spôsobom explicitne vyčistí interrupt status register.</p>
+
+<p>Vo windowse podľa všetkého funguje ovládač správne. V tomto momente by som sa mohol ďalej babrať s debuggerom a disassemblerom, ale úprimne, nechce sa mi. Niekto s dokumentáciou by to možno zvládol za 5 minút, mne sa nechce riešiť toto celý deň, takže som len poslal e-mail zamestnancovi synapticsu, ktorý pracuje na linuxuovom ovládači.</p>
+
+<h2>Detekcia hardvéru</h2>
+
+<p>Ovládač touchpadu zatiaľ nechám tak a vraciam sa k SMBusu. Ten je síce po mojich úpravách funkčný, ale nechal som tam napríklad napevno číslo prerušenia 7. Informácia o čísle prerušenia však musí byť odniekiaľ načítaná, pretože nie na každom počítači bude SMBusu priradené to isté prerušenie.</p>
+
+<h3>Rozdiel medzi pci_driver a platform_driver</h3>
+
+<p>V aktuálnej master verzii kernelu je 410 výskytov <code>module_pci_driver</code> a 2846 výskytov <code>module_platform_driver</code>. Čo je <code>pci_driver</code> je celkom jasné z názvu.. Čo je však <code>platform_driver</code>, prečo je ich omnoho viac než PCI ovládačov a prečo sa vlastne pri PCI zariadení zaoberám nejakým <code>platform_driver</code>om?</p>
+
+<p>Dovolím si malú citáciu z <a href="https://www.kernel.org/doc/Documentation/driver-model/platform.txt">dokumentácie kernelu</a>.</p>
+
+<blockquote>This pseudo-bus is used to connect devices on busses with minimal infrastructure, like those used to integrate peripherals on many system-on-chip processors, or some "legacy" PC interconnects; as opposed to large formally specified ones like PCI or USB.</blockquote>
+
+<blockquote>Platform devices are devices that typically appear as autonomous entities in the system. This includes legacy port-based devices and host bridges to peripheral buses, and most controllers integrated into system-on-chip platforms.</blockquote>
+
+<p>Z uvedenej časti dokumentácie vyplýva, že <code>platform_driver</code> mám zahodiť za hlavu a plne sa sústrediť na <code>pci_driver</code>.</p>
+
+<h3>Registrácia PCI ovládača</h3>
+
+<p>Operačný systém dokáže získať zoznam zariadení pripojených na zbernici. Každé PCI zariadenie má 256 konfiguračných registrov.</p>
+
+<figure>
+	<a href="img/pci_config_space.png"><img src="img/pci_config_space.png" alt="Štruktúra registrov PCI konfiguračného priestoru" /></a>
+	<figcaption>Obrázok <counter></counter>: Štruktúra registrov PCI konfiguračného priestoru</figcaption>
+</figure>
+
+<p>Pripomeniem ešte výpis z <code>lspci</code> s parametrom <code>-xxx</code> pre výpis 256 registrov PCI konfiguračného priestoru:</p>
+
+<pre>
+lspci -vvv -b -x -xxx -xxxx -nn -s 00:14.0
+00: <strong>22 10 0b 79</strong> 00 04 20 02 51 00 05 0c 00 00 80 00
+10: <strong>00 00</strong> 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 aa 17 94 50
+30: 00 00 00 00 00 00 00 00 00 00 00 00 <strong>00</strong> 00 00 00
+…
+</pre>
+
+<p>Najdôležitejšími registrami sú dvojica <em>Vendor ID</em> a <em>Device ID</em>. Tieto 2 hodnoty tvoria tzv. <em>PCI ID</em>. Ide o jednoznačný identifikátor zariadenia, podľa ktorého sa načítava príslušný ovládač. Linuxové ovládače PCI zariadení majú v sebe metadáta so zoznamom podporovaných <em>PCI ID</em>. Napríklad ovládač <code>i2c-piix4</code> podporuje <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/i2c/busses/i2c-piix4.c#L782">tieto PCI ID</a>.</p>
+
+<p>V PCI konfiguračnom priestore sa zvyčajne nachádza aj základná adresa zariadenia (tá, ktorá sa horko-ťažko dolovala z PM registra) a tiež interrupt line. Kernel na základe PCI zariadenia automaticky nastaví pole <code>irq</code> štruktúry <code>pci_dev</code>. Správne by mal nasledujúci kód vypísať číslo 7.</p>
+
+<pre class="code-p">
+printk(KERN_INFO "pci_dev irq %d\n", dev-&gt;irq);
+
+// alebo
+
+pci_read_config_byte(dev, 0x3c, &amp;irq_num);
+printk(KERN_INFO "pci_dev irq %d\n", irq_num);
+</pre>
+
+<p>Vo výpise sa však objaví <code>0</code>. Dôvod prezradí BKDG dokument, časť 3.26.6 SMBus Host Controller. Podľa neho register <code>0x3c</code> vracia vždy 0. To isté vráti aj základná adresa <code>0x10</code>. Celý konfiguračný priestore je viac-menej nepoužiteľný okrem PCI ID a čísla revízie.</p>
+
+<h3>Ovládače platform_driver</h3>
+
+<p>Pre správne fungovanie musí operačný systém vedieť, ktoré zariadenia má pripojené, cez aké adresy s nimi môže komunikovať a aké prerušenia môže očakávať.</p>
+
+<p>V prípade ARM dosiek sa to rieši väčšinou cez <a href="https://www.kernel.org/doc/html/latest/devicetree/usage-model.html">devicetree</a>. Zoznam zariadení sa zapíše do súboru, ten sa integruje do kernelu (buď staticky, alebo cez <code>initrd</code>) a na základe neho OS inicializuje ovládače. Dôsledkom tohto prístupu je, že kernel z jednej ARM dosky (napr. raspberry pi) nie je možné preniesť na inú dosku.</p>
+
+<p>Ovládače <code>platform_driver</code> sú práve ovládače inicializované pomocou tabuľky zariadení. Aby som to zhrnul <code>pci_driver</code> využíva výsledok skenovania PCI zbernice a <code>platform_driver</code> využíva konfiguráciu z tabuľky, na základe ktorej inicializuje ovládače.</p>
+
+<p>Konfigurácia v tabuľke … čo mi to len pripomína? ACPI tabuľky! ACPI poskytuje na x86 platforme presne to, čo devicetree na rôznych ARM doskách a iných embedded zariadeniach. Linux dokáže automaticky vytvoriť <code>platform_device</code> štruktúry z ACPI záznamov. Ovládače platform_driver</code> nie sú vôbec zastaralé a vôbec neplatí, že by mala byť preferovaná konfigurácia cez PCI konfiguračný priestor. Naopak konfigurácia kernelu je v tomto bode zastaralá.</p>
+
+<p>Pomôcť by mohlo, keby sa ovládač neviazal len na PCI ID, ale aj na _HID záznam ACPI tabuľky. Ovládač však môže byť len jeden, teda <code>pci_driver</code>, alebo <code>platform_driver</code>. Ktorý by mal byť teda použitý? Pre osvieženie pamäte pripomeniem časť DSDT tabuľky z ACPI:</p>
+
+<pre>
+Name (_HID, "SMB0001")  // _HID: Hardware ID
+Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
+{
+    IO (Decode16,
+        0x0B20,             // Range Minimum
+        0x0B20,             // Range Maximum
+        0x20,               // Alignment
+        0x20,               // Length
+        )
+    IRQ (Level, ActiveLow, Shared, )
+        {7}
+})
+</pre>
+
+<p>Je tu aj základná adresa, aj číslo prerušenia. Problémom je _HID <code>SMB0001</code>, ktorý označuje virtuálne SMBus zariadenie. Pre prístup k týmto dátam musí byť ovládač implementovaný ako <code>platform_driver</code>, čo nie je možné, pretože v ACPI je definovaný len ako virtuálne zariadenie, takže by obsluhoval aj nekompatibilné SMBus zariadenia.</p>
+
+<p>Zmeniť ovládač na <code>platform_driver</code> síce nemôžem, ale môžem skúsiť získať prístup k ACPI z <code>pci_device</code>. To som samozrejme aj skúsil, ale moja naivná predstava, že by nasledujúci kód mohol fungovať skončila <code>NULL</code> derefrenciou.</p>
+
+<pre class="code-c">
+struct platform_device *pdev = NULL;
+struct resource *res;
+
+pdev = to_platform_device(&amp;dev-&gt;dev);
+if (pdev) {
+        res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+        if (res) {
+                printk(KERN_INFO "IRQ: %llu\n", res-&gt;start);
+        }
+}
+</pre>
+
+<pre>
+BUG: kernel NULL pointer dereference, address: 0000000000000018
+#PF: supervisor read access in kernel mode
+#PF: error_code(0x0000) - not-present page
+</pre>
+
+<p>Kernel by mal automaticky konvertovať ACPI záznamy na <code>platform_device</code>. Aby som videl čo sa deje, rozhodol som sa ísť o úroveň nižšie a použiť ACPI rozhranie priamo.</p>
+
+<p>Pre získanie ACPI záznamu má kernel makro <code>ACPI_COMPANION</code>. Prístup k IRQ z <code>acpi_device</code> nie je úplne priamočiary, ale našiel som v kerneli funkciu <code>acpi_dev_gpio_irq_get</code>, ktorú používajú niektoré ovládače. Nasledujúci kód by teoreticky mohol fungovať:</p>
+
+<pre class="code-c">
+int irq;
+struct acpi_device *adev;
+
+adev = ACPI_COMPANION(&amp;dev-&gt;dev);
+irq = acpi_dev_gpio_irq_get(adev, 0);
+printk(KERN_INFO "irq %d\n", irq);
+
+// výstup irq -2
+</pre>
+
+<p>Ani tento kód nefunguje. Začínam mať pocit, že <code>ACPI_COMPANION</code> vracia nesprávne zariadenie. Pridám výpis pár metadát:</p>
+
+<pre class="code-c">
+char *hid = NULL;
+
+acpi_device = ACPI_COMPANION(&amp;dev-&gt;dev);
+hid = acpi_device_hid(acpi_device);
+if (hid) {
+        printk(KERN_INFO "hid '%s'\n", hid);
+}
+printk(KERN_INFO "pnp bus_id '%s'\n", acpi_device-&gt;pnp.bus_id);
+printk(KERN_INFO "pnp device_name '%s'\n", acpi_device-&gt;pnp.device_name);
+printk(KERN_INFO "pnp unique_id '%s'\n", acpi_device-&gt;pnp.unique_id);
+</pre>
+
+<pre>
+hid 'device'
+pnp bus_id 'SMB'
+pnp device_name ''
+pnp unique_id '(null)'
+</pre>
+
+<p>Podľa výstupu vráti <code>ACPI_COMPANION</code> len dummy záznam. Záznam v ACPI tabuľke totiž nie je priradený k PCI zariadeniu. Viem, že v ACPI má záznam _HID hodnotu <code>SMB0001</code>a môžem explicitne vyžiadať záznam podľa jeho názvu a následne zase skúsiť získať IRQ resource z <code>platform_device</code> priradeného k ACPI záznamu. Vraciam sa k použitiu <code>platform_device</code> získaného zo správneho ACPI záznamu pomocou <a href="https://github.com/torvalds/linux/blob/master/drivers/acpi/acpi_platform.c#L32">acpi_platform_device_find_by_companion</a>.</p>
+
+<pre class="code-c">
+struct acpi_device *adev;
+struct resource *res;
+struct device *dev;
+
+adev = acpi_dev_get_first_match_dev("SMB0001", NULL, -1);
+if (adev) {
+        dev = bus_find_device_by_acpi_dev(&amp;platform_bus_type, adev);
+        if (dev) {
+                pdev = to_platform_device(dev);
+                if (pdev) {
+                        res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+                        if (res) {
+                                printk(KERN_INFO "IRQ %llu\n", res-&gt;start);
+                        }
+                }
+        }
+}
+</pre>
+
+<p>Tento kód je konečne správny. Lenže nefunguje. Vlastne funguje ak sa zahodí <a href="https://github.com/torvalds/linux/commit/2bbb5fa37475d7aa5fa62f34db1623f3da2dfdfa">tento commit</a>. Jeho úlohou je zabrániť vytvoreniu inštancie <code>platform_device</code> z ACPI zariadenia, ktoré má _HID <code>SMB0001</code>. Odstránenie tohto kódu by mohlo mať za následok problémy na inom hardvéri, takže idem na priamy prístup k ACPI bez inštancie <code>platform_device</code>.</p>
+
+<pre class="code-c">
+struct acpi_device *adev;
+acpi_status status;
+int irq;
+
+static acpi_status acpi_device_find_irq(struct acpi_resource *res, void *data)
+{
+        int *irq = data;
+
+        switch (res-&gt;type) {
+        case ACPI_RESOURCE_TYPE_IRQ:
+                *irq = res-&gt;data.irq.interrupts[0];
+                return AE_OK;
+        case ACPI_RESOURCE_TYPE_END_TAG:
+                if (*irq)
+                        return AE_OK;
+                else
+                        return AE_NOT_FOUND;
+        default:
+                return AE_OK;
+        }
+}
+
+acpi_device = acpi_dev_get_first_match_dev("SMB0001", NULL, -1);
+status = acpi_walk_resources(acpi_device-&gt;handle, METHOD_NAME__CRS, acpi_device_find_irq, &amp;irq);
+if (ACPI_FAILURE(status)) {
+        printk(KERN_WARNING "IRQ not found\n");
+        return;
+}
+
+printk(KERN_INFO "IRQ %d\n", irq);
+</pre>
+
+<p>Tento kód konečne nájde číslo prerušenia bez rozbitia podpory linuxu na iných systémoch. Teraz už zostáva len začleniť kód do kernelu.</p>
+
+<p>Moje úpravy sú väčšine než samotný ovládač <code>i2c-piix4</code>. Ďalej budem pokračovať pokusom o začlenenie do jadra, ale pravdepodobne ako samostatný ovládač. Aktuálne sa používa pomalý IO prístup, ale ak by som išiel cestou samostatného ovládača, nahradil by som kompletne všetky IO volania rýchlejším MMIO prístupom.</p>
+
+<h2>Pokus z opačnej strany</h2>
+
+<p>Pôvodne som chcel len opraviť sekanie trackpointu. Nakoniec som doplnil <code>i2c-piix4</code> o nevyhnutný kód, ale riešenie pôvodného problému som vzdal. Problém sa objavuje len keď sa priblížim k touchpadu. Preto som na začiatku skúšal fyzicky odpojiť touchpad. Vôbec by mi nevadilo, ak by bol kompletne vypnutý.</p>
+
+<p>Medzitým som si len tak pre zaujímavosť prechádzal rozšírenia PS/2 protokolu, ktoré má implementované synaptics. Do oka mi padol režim <a href="https://github.com/torvalds/linux/blob/v5.16/drivers/input/mouse/synaptics.h#L24">SLEEP_MODE</a>. Keďže od začiatku mám problém iba keď je touchpad aktívny, tento režim vyzeral pomerne nádejne.</p>
+
+<p>Po nastavení <code>SLEEP_MODE</code> sa síce nič nestalo, ale všimol som si medzi nastavením režimov chýbajúce bity 4 a 5. Nastavenie bitu 4 neznamenalo žiadnu zmenu, ale po nastavení bitu 5 prestal touchpad / trackpoint úplne fungovať. Skúsil som teda znovu načítať modul psmouse (<code>modprobe -r psmouse; modprobe psmouse</code>) a touchpad vôbec nebol rozpoznaný. Zostal len trackpoint. Skúšam teda utilitku <code>evhz</code> a vidím stabilných 100Hz namiesto pôvodných ani nie 40.</p>
+
+<pre>
+TPPS/2 Elan TrackPoint: Latest   114Hz, Average    99Hz
+TPPS/2 Elan TrackPoint: Latest    99Hz, Average    99Hz
+TPPS/2 Elan TrackPoint: Latest    99Hz, Average    99Hz
+TPPS/2 Elan TrackPoint: Latest    99Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest   108Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest    99Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest   100Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest   100Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest   101Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest   100Hz, Average   100Hz
+TPPS/2 Elan TrackPoint: Latest    99Hz, Average   100Hz
+</pre>
+
+<p>Frekvencia sa drží stabilne bez ohľadu na to, či sa touchpadu dotýkam, alebo nie. Odpojenie touchpadu je čiastočne perzistentné. Teda čiastočne znamená, že nebude rozpoznaný ani po reštarte. Touchpad nenájde ani diagnostický nástroj pre testovanie hardvéru v UEFI. V grafickej nadstavbe UEFI tak isto nefunguje. Znovu sa zapne až po úplnom vypnutí notebooku.</p>
+
+<p>Takže svoje riešenie by som mal, teraz zostáva zistiť prečo to funguje. Môj pôvodný odhad bol, že som touchpad dostal do nejakého režimu pre upload firmvéru. Začal som hľadať na internete dokumentáciu, až som sa dopátral k starému <a href="http://blog.amigas.ru/wp-content/uploads/2014/03/touchpad_RevB.pdf">manuálu k PS/2 protokolu pre synaptics</a>.</p>
+
+<p>Bit 5 je zdokumentovaný na strane 39 ako Transparent Mode. Podľa dokumentácie je to režim, v ktorom sú PS/2 packety z druhého zariadenia (v tomto prípade trackpointu) posielané priamo operačnému systému. Bežne sa tieto packety zabalia do väčších packetov, aby sa dali mixovať signály z oboch zariadení. Zariadenie sa dá vrátiť do pôvodného režimu odoslaním príkazov <code>0xe7</code>, <code>0xe6</code> v presne tomto poradí.</p>
+
+<p>Teraz fungoval trackpoint presne tak, ako som chcel, ale bolo tu ešte pár malých problémov, ktoré bolo potrebné vyriešiť. V prvom rade po prvom načítaní modulu <code>psmouse</code> bolo potrebné odstrániť modul a znovu ho načítať, pretože pred prepnutím akceptoval len zabalené PS2 packety.</p>
+
+<p>Svoj kernel patch som mohol implementovať 2 spôsobmi. V tom jednoduchšom by som nastavil <code>TRANSPARENT_MODE</code>, odstránil zariadenie a spustil novú detekciu. To má však niekoľko nevýhod. V prvom rade nie je možné zariadenie vrátiť späť do pôvodného režimu bez úplného vypnutia notebooku. Druhým problémom je, že touchpad sa môže samovoľne reštartovať (napríklad v dôsledku elektrostatického výboja) a po reštarte by zostal v zlom režime.</p>
+
+<p>Pri zložitejšom spôsobe by som packety nespracovával na úrovni hlavného zariadenia, ale jednoducho by som posielal každý prijatý bit priamo <code>passthrough</code> zariadeniu. Spracovanie prijatého bytu vyzerá takto:</p>
+
+<pre class="code-c">
+static psmouse_ret_t transparent_process_byte(struct psmouse *psmouse)
+{
+    struct synaptics_data *priv = psmouse-&gt;private;
+
+    if (!priv-&gt;pt_port)
+        return PSMOUSE_BAD_DATA;
+
+    serio_interrupt(priv-&gt;pt_port, psmouse-&gt;packet[psmouse-&gt;pktcnt - 1], 0);
+    return PSMOUSE_FULL_PACKET;
+}
+</pre>
+
+<p>Ďalej som musel aktualizovať nastavenie režimu, aby sa po aktivácii <code>TRANSPARENT_MODE</code> začal používať <code>transparent_process_byte</code> namiesto <code>synaptics_process_byte</code>:</p>
+
+<pre class="code-c">
+static void synaptics_update_protocol_handler(struct psmouse *psmouse)
+{
+    struct synaptics_data *priv = psmouse-&gt;private;
+    struct serio *pt_port = priv-&gt;pt_port;
+
+    bool absolute_mode = priv-&gt;absolute_mode;
+    bool transparent_mode = priv-&gt;transparent_mode;
+
+    if (transparent_mode &amp;&amp; pt_port) {
+        psmouse-&gt;protocol_handler = transparent_process_byte;
+    }
+    else {
+        if (absolute_mode) {
+            psmouse-&gt;protocol_handler = synaptics_process_byte;
+            psmouse-&gt;pktsize = 6;
+        } else {
+            /* Relative mode follows standard PS/2 mouse protocol */
+            psmouse-&gt;protocol_handler = psmouse_process_byte;
+            psmouse-&gt;pktsize = 3;
+        }
+    }
+}
+</pre>
+
+<p>Tento prístup mi umožňuje dokonca vytvoriť súbor <code>transparent_mode</code> v <code>/sys/devices/platform/i8042/serio1</code> a prepínať režim bez toho, aby som musel reloadovať modul <code>psmouse</code>.</p>
+
+<pre>
+static ssize_t synaptics_show_transparent_mode(struct psmouse *psmouse,
+                                               void *data, char *buf)
+{
+        struct synaptics_data *priv = psmouse-&gt;private;
+
+        return sprintf(buf, "%c\n", priv-&gt;transparent_mode ? '1' : '0');
+}
+
+static ssize_t synaptics_set_transparent_mode(struct psmouse *psmouse,
+                                              void *data, const char *buf,
+                                              size_t len)
+{
+        struct synaptics_data *priv = psmouse-&gt;private;
+        unsigned int value;
+        int err;
+
+        err = kstrtouint(buf, 10, &amp;value);
+        if (err)
+                return err;
+
+        if (value &gt; 1)
+                return -EINVAL;
+
+        if (value == priv-&gt;transparent_mode)
+                return len;
+
+        priv-&gt;transparent_mode = value;
+
+        synaptics_update_protocol_handler(psmouse);
+
+        if (value) {
+                if (synaptics_enter_transparent_mode(psmouse))
+                        return -EIO;
+        }
+        else {
+                if (synaptics_exit_transparent_mode(psmouse))
+                        return -EIO;
+        }
+
+        return len;
+}
+
+PSMOUSE_DEFINE_ATTR(transparent_mode, S_IWUSR | S_IRUGO, NULL,
+                    synaptics_show_transparent_mode,
+                    synaptics_set_transparent_mode);
+</pre>
+
+<p>Celý patch je o kúsok zložitejší a je <a href="https://patchwork.kernel.org/project/linux-input/patch/71d9dc66-9576-c26f-c9d9-129217f50255@gmail.com/">zverejnený v kerenel mailing liste</a>.</p>
+
+<h2>Pár slov na záver</h2>
+
+<p>Tento príbeh by som rád zakončil slovami: ktokoľvek sa môže zapojiť do vývoja kernelu. Vedomosti nehrajú prakticky žiadnu úlohu. Sám som na začiatku nevedel o vývoji kernelu absolútne nič.</p>
+
+<p>Jednoducho som začal riešiť problém krok za krokom. Od jednej chyby, k druhej. Dokumentáciu som čítal priebežne, podľa toho, čo som práve potreboval vedieť. Dokonca som si nepamätal nič z programovania v C, ale to, čo som potreboval sa dalo naštudovať za necelý deň.</p>
+
+<p>Dopredu som nevedel, aká hlboká bude moja zajačia nora, ale nakoniec som sa po veľmi dlhej ceste s rôznymi odbočkami dostal k 2 dosť dobrým riešeniam.</p>
+
+<h2>Dokumenty</h2>
+
+<ul>
+	<li><a href="http://smbus.org/specs/SMBus_3_1_20180319.pdf">Špecifikácia SMBus 3.1</a></li>
+	<li><a href="https://www.amd.com/system/files/TechDocs/55072_AMD_Family_15h_Models_70h-7Fh_BKDG.pdf">AMD Family 15h bios kernel developer guide (BKDG)</a></li>
+	<li><a href="https://www.dmtf.org/sites/default/files/standards/documents/DSP0136.pdf">Špecifikácia ASF</a></li>
+	<li><a href="https://kupdf.net/download/rmi4-intrfacing-guidepdf_5965a6b4dc0d605362a88e76_pdf">RMI4 Intrfacing Guide</a></li>
+	<li><a href="https://uefi.org/sites/default/files/resources/ACPI_6_3_final_Jan30.pdf">ACPI špecifikácia</a></li>
+	<li><a href="https://kupdf.net/download/rmi4-intrfacing-guidepdf_5965a6b4dc0d605362a88e76_pdf">Synaptics RMI4 Specification</a></li>
+	<li><a href="http://blog.amigas.ru/wp-content/uploads/2014/03/touchpad_RevB.pdf">Synaptics PS/2 TouchPad Interfacing Guide</a></li>
+</ul>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
