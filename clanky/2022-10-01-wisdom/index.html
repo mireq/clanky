@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Vzostup a pád malej firmy</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Vzostup a pád malej firmy</h1>
+
+	<p>Práca v malo startupe je niekedy pekne náročná a hlavne dosť nestála. Náš malý startup dnes prakticky skončil. Rozhodol som sa napísať o tom, čo sme robili, ako sme fungovali a v čom sme boli unikátni.</p>
+</header>
+
+<h2>Učím sa programovať</h2>
+
+<p>Dnes začnem blog pekne zoširoka a najskôr napíšem pár slov o tom, ako som začal programovať. Mojim prvým programovacím jazykom bolo PHP. Učil som sa ho zo seriálu na dnes už nefungujúcom webe <a href="http://web.archive.org/web/20170706111134/http://www.linuxsoft.cz/article_list.php?id_kategory=181">Linuxsoft.cz</a>.</p>
+
+<p>Ako každý blbec som sa v tej dobe výrazne preceňoval a považoval som PHP za najlepší jazyk na svete. Ak som sa s niekym bavil o napríklad Pythone, bol som vyslovene hater. Typický príklad Dunningov-Krugerovho efektu.</p>
+
+<p>Prvý skutočný projekt, ktorý som riešil bol web <a href="https://linuxos.sk/">LinuxOS.sk</a>. Predchádzajúci web bol napísaný strašne a ja som sa Tomášovi Srnkovi ponúkol, že ho dokážem napísať lepšie. Po pár týždňoch práce bol na svete <a href="http://web.archive.org/web/20080101034048/http://www.linuxos.sk/">nový web</a>. Celý bol napísaný síce divným spôsobom, ale oproti predchádzajúcemu webu fungoval bleskovo a celý divný kód, ktorý bežal pod tým mohol byť každému ukradnutý.</p>
+
+<p>Na škole sme mali povinný Pascal (v IDE Turbo pascal). Ako správny hater typu PHP je najlepšie som si naň síce ponadával, ale nič iné, než sa ho naučiť mi nezostávalo. Dnes ma pri slove turbopascal napadne hlavne vynikajúco napísané IDE so žlto-bielym písmom na modrom pozadí. Framework, v ktorom boli napísané IDE ako Turbo C, alebo Turbo Pascal sa volá <a href="https://en.wikipedia.org/wiki/Turbo_Vision">Turbo Vision</a>. Open source alternatívou je dnes napríklad <a href="https://github.com/magiblot/tvision">tvision</a>.</p>
+
+<figure>
+	<a href="img/turbopascal.png"><img src="img/turbopascal.png" alt="Turbo Pascal" /></a>
+	<figcaption>Obrázok <counter></counter>: Turbo Pascal</figcaption>
+</figure>
+
+
+<p>Neskôr na vysokej škole som sa zase musel na objektovom programovaní trápiť s ďalším dialektom pascalu - Objective pascal v prostredí Delphi. Dnes je môj vzťah k Pascalu skôr neutrálny. Programy zostavené v Delphi sú prekvapujúco malé. Preklad je veľmi rýchly a vďaka vynúteným deklaráciám pred implementáciou je jednoprechodový. V dobách štúdia by som asi žiadnu pozitívnu vlastnosť nenašiel.</p>
+
+<h3>C++</h3>
+
+<p>Napriek môjmu presvedčeniu, že PHP je najlepší jazyk na svete som sa začal učiť C++. Chcel som vedieť písať desktopové aplikácie a PHP v tej dobe vážne nebolo dobrou voľbou. Ako samouk som sa tak trochu naučil C++ alebo skôr jeho subset používaný v Qt.</p>
+
+<p>Mnohí C++ pozitívni programátori majú zlý vzťah ku Qt, pretože do C++ prináša taký javovský spôsob programovania.</p>
+
+<p>Trocha paradoxné je, že v tej dobe sme mali v škole vyučovanie v Jave a ja som Javu vyslovene neznášal. Jednoducho korporátny jazyk s príšerným Swing GUI. Z užívateľského hľadiska.</p>
+
+<p>Ak bolo potrebné vypracovať nejaké zadanie pre GUI aplikáciu v Jave, používal som Qt Jambi, čo sú Qt bindingy pre Javu. V zásade nebyť vážne príšerného GUI, asi by som k jave mal skôr neutrálny postoj.</p>
+
+<p>Môj odpor k jave bol dostatočný na to, aby som si pri zadaní "napíše applet do prehliadača" zostavil vlastný prehliadač založený na Qt Webkite a do neho napísal podporu C++ appletov.</p>
+
+<p>Na vysokej škole som sa zoznámil Mišom Kubekom, v podstate sme podobní poloblázni, ktorých baví programovanie. Pokúsili sme sa teda rozbehnúť jeden projekt v C++. Išlo o rozhranie pre dotykové jukeboxy. Ak by to niekoho zaujímalo, uploadol som na youtube <a href="https://www.youtube.com/watch?v=wZpnt38ySm4&amp;list=PLCAFZV4XJzP9E5-4MH4wqSTnyKOg3ElMj&amp;index=1">pár nekvalitných videí</a>. Čo už, bolo to dávno, ale hlavne bola to veľká zábava robiť na takom väčšom projekte.</p>
+
+<figure>
+	<a href="img/jukebox.jpg"><img src="img/jukebox.jpg" alt="Jukebox" /></a>
+	<figcaption>Obrázok <counter></counter>: Jukebox</figcaption>
+</figure>
+
+<p>Z technického hľadiska to bola Qt aplikácia bežiaca pod Linuxom. Licenciu som neriešil. Ak som pochopil správne licenčné podmienky, je možné použitie Qt v komerčnom projekte, ak sa dá zlinkovať s inou verziou. Obchádzali sme to tým, že distribuovaná bola statická binárka s objektovými kódmi, ktoré sa dali v prípade potreby zlinkovať.</p>
+
+<p>Rozhranie bolo mixom Qt widgetov (nastavenia) a QML (používateľské rozhranie). Používateľské rozhranie bolo kompletne a myslím vážne totálne skinovateľné bez nutnosti zásahu do jadra (aj keď tu sa trochu chválim cudzím perím, pretože toto je vlastnosť QML).</p>
+
+<p>Prakticky rovnaký trik som neskôr použil vo svojej <a href="https://github.com/mireq/Qt-Quick-Keyboard">klávesnici pre Qt</a>. Ukážku je možné vidieť na tomto <a href="https://www.youtube.com/watch?v=Rykq33ipPQs">youtube videu</a>.</p>
+
+<figure>
+	<a href="img/keyboard.jpg"><img src="img/keyboard.jpg" alt="Klávesnica" /></a>
+	<figcaption>Obrázok <counter></counter>: Klávesnica</figcaption>
+</figure>
+
+<p>Z bežných programovacích jazykov v škole by som spomenul ešte napríklad python, alebo C#. Oba som v tej dobe do istej miery ovládal. S C# som nemal žiaden zásadnejší problém okrem firmy, ktorá za nim stojí. Python … v tej dobe pre mňa asi neutrálny jazyk. Dokázal som napísať pár skriptov, dokonca som písal podporu skriptovania v pythone do niektorých mojich projektov v C++, ale to je asi tak všetko.</p>
+
+<h2>V práci</h2>
+
+<p>Do práce som nastupoval na pozíciu PHP programátora. Môj prvý deň vyzeral tak, že som sa „nabúral“ do ich CMS. Povedzme to tak, že autentifikácia na základe toho, či je v cookies uložené <code>user_id=1</code> nie je práve najbezpečnejšia.</p>
+
+<p>Čo sa týka práce bola to klasika typu tu web na wordpresse, tam eshop na magente, hentam eshop na wordpresse. Neustále opakovanie viac-menej tých istých činností. Efektivita práce sa limitne blížila k 0 a ja ani vlastne netuším ako sa to dalo financovať.</p>
+
+<h3>Prepis LinuxOS z PHP do Pythonu</h3>
+
+<p>V tej istej dobe Tomáš Srnka už bol preč z LinuxOS, takže celý web viac-menej zostal na mne okrem správy servera. Toť som dostal oznámenie, že Debian, ktorý tam bežal už dávno nedostáva bezpečnostné updaty a staré PHP na ktorom beží LinuxOS tým pádom musí byť aktualizované. Aktualizáciu CMS na LinuxOS som medzitým pripravoval cca 2 roky. Celkovo som si za cieľ dal napísať to bezpečne a kvalitne. K bezpečnosti tak trochu patrilo aj ORM, ktorým som začal a ktoré som nikdy nedokončil. Dovtedy som pokiaľ viem nikde neurobil kód náchylný na SQL injection, ale tej samotnej možnosti som sa bál.</p>
+
+<p>Takže situácia bola taká, že ja som mal 2 roky rozrobené CMS a týždeň aj niečo na dokončenie inak sa LinuxOS vypne. Tak som s jedným bývalým spolužiakom diskutoval o vzniknutej situácii a odporúčal mi <a href="https://www.djangoproject.com/">Django framework</a>. Takže za týždeň práce som mal funkčný web LinuxOS.sk vrátane učenia sa nového frameworku.</p>
+
+<p>V pomerne krátkom čase som pochopil, v čom spočívajú argumenty PHP haterov. Dnes s nimi dokonca 100% súhlasím. Netvrdím, že Python je vo všetkom skvelý, ale je pomerne dobre navrhnutý. V PHP som si vždy musel pamätať obrovské množstvo vecí, ktoré som zrazu mohol zahodiť za hlavu. Nemusel som si pamätať desiatky šialených funkcií začínajúcich sa na <code>array_</code> s náhodným poradím parametrov.</p>
+
+<p>Ak mám napríklad v Pythone jeden slovník s kľúčmi a hodnotami a chcem ho aktualizovať o kľúče a hodnoty z druhého slovníka zavolám jednoducho <code>povodny.update(aktualizacia)</code>. Ak chcem to isté urobiť v PHP, mám na to funkciu <a href="https://www.php.net/manual/en/function.array-merge.php">array_merge</a>. Lenže PHP nerozlišuje medzi zoznamom, slovníkom alebo množinou a <code>array_merge</code> slúži na spojenie všetkého. Výsledkom volania <code>array_merge</code> je ak sú kľúče číselné pripojenie druhého poľa na koniec. Ak sú kľúče textové, potom sa prepíšu hodnoty v poli podľa posledného poľa vpravo s daným argumentom. Čo sa má stať až jedno pole má číselné kľúče a druhé textové? Čo ak sú kľúče iného typu? Nuž chyba sa nevyhodí a niečo sa stane.</p>
+
+<p>Niekto si mávne rukou, ale ja potrebujem jazyk aspoň do takej miery spoľahlivý, aby pri nedefinovanom správaní vyhodil chybu. Vyhodiť používateľovi chybu je stále lepšia možnosť než nechtiac kvôli nedefinovanému chovaniu funkcie urobiť nedefinovanú operáciu, ktorá sa nikde nezaznamená a môže znamenať bezpečnostné riziko.</p>
+
+<p>Tento krok viedol k určitej nevôli používateľov podľa ktorých by do kódu aj prispievali, ale pretože je to v Pythone nebudú. Len tak pripomeniem, že kým bol kód v PHP a návštevnosť bola 20-násobne vyššia, nikto mi ani raz neposlal patch. Budem trochu konkrétny a hádam mi to nebude zazlievať, ale jedným z nich je debian+. Človek, to ktorého som si minule aspoň <a href="https://www.abclinuxu.cz/blog/analyza_greenie_20_04/2022/3/-php-program-n-krat-nieco-vykona-a-pocka-na-dokoncenie#18">trochu kopol</a> za jeho katastrofálny kód :)</p>
+
+<h3>Ako ďalej</h3>
+
+<p>V predchádzajúcej firme bola celá atmosféra nafigu. Pracovalo sa s nízkou efektivitou, robili sme viac-menej opakujúcu sa prácu, ktorú by po krátkom zaškolení zvládol každý. Ja som bol fakt dosť zničený a po dlhej dobe som sa stretol s Mišom Kubekom. Trochu sme sa porozprávali a nebolo potrebné žiadne veľké presviedčanie aby som išiel preč.</p>
+
+<h2>Wisdom Technologies</h2>
+
+<p>Dvaja dobrí programátori rozbiehajú vlastný biznis. Čo by sa tak asi mohlo pokaziť?</p>
+
+<p>Od nového zamestnania som si predstavoval celkovo väčšiu voľnosť, omnoho ľahšie presadzovanie technologických rozhodnutí a to, aby som nemusel riešiť biznis (komunikáciu s klientmi, financie atď). Úlohy sme si teda rozdelili a pustili sme sa do práce.</p>
+
+<p>Nebol som síce priamo zamestnancom a nerobil som len projekty pre Wisdom Technologies (bola tam práca napríklad pre HostService s.r.o. a AMERYS, s.r.o.). Celkovo bola ale väčšina vo Wisdom Technologies a práve to tu práve rozoberiem.</p>
+
+<p>Za celú dobu fungovania sme toho robili veľa. Vážne veľa. V zozname projektov na internom gitlabe tu vidím <strong>198 projektov</strong>. Robili sme toho vážne vážne veľa.</p>
+
+<p>Časté boli technologické debaty. Takmer každé technologické rozhodnutie znamenalo dosť dlhú diskusiu s „oponentom“. Raz som bol oponentom ja, raz Mišo a bolo to fajn. Viem, na prvý pohľad to znie ako nudné naťahovanie sa, ale obaja sme celkom féroví diskutujúci a je fajn konfrontovať svoj názor s opozíciou. Lepšie sa tak zhodnotia nevýhody a riziká daného riešenia.</p>
+
+<p>Neviem kto z nás bol viac inovatívny a kto viac konzervatívny. Čo však môžem povedať s istotou, že unikátne riešenia som sa snažil presadzovať ja. Lenže …</p>
+
+<p><a href="img/unique_not_useful.jpg"><img src="img/unique_not_useful.jpg" alt="Just because you are unique does not mean you are useful" /></a></p>
+
+<p>Teraz vážne. Dlho sme diskutovali nad takými možnosťami, ako robiť jednoduché weby vo wordpresse. Zobrať si nejakých študentov, ktorí by to zvládli a sekať jeden web za druhým. Nakoniec sme tento plán neimplementovali.</p>
+
+<h2>Django CMS</h2>
+
+<p>Z niečoho treba žiť a zo začiatku sme robili rôzne malé weby založené na <a href="https://www.django-cms.org/en/">Django CMS</a>. Ja ako človek, ktorý robil v minulom zamestnaní s Wordpressom môžem zhodnotiť prácu s oboma projektmi. Ak by som chcel jednoduchú blogovaciu platformu, zrejme by bol Wordpress schodný. Ak to má byť web zložený z množstva editovateľných blogov, je to cesta do pekla.</p>
+
+<p>S Django CMS sa dajú pomerne jednoducho definovať editovateľné miesta a vlastné databázové modely. Editácia na frontende sa potom robí dvojklikom na obsah.</p>
+
+<figure>
+	<a href="img/wisdom.png"><img src="img/wisdom_thumb.png" alt="Inline editácia v Django CMS" /></a>
+	<figcaption>Obrázok <counter></counter>: Inline editácia v Django CMS</figcaption>
+</figure>
+
+<p>Ak by sa ma niekto spýtal, či je Django CMS dobrý projekt, poviem asi nie. Niektoré technické rozhodnutia sa mi vôbec nepáčia, napríklad použitie materialized path na reprezentáciu stromu pluginov. Pre tých, ktorí si to nevedia prestaviť prikladám ukážkový select:</p>
+
+<pre>
+SELECT path FROM cms_cmsplugin;
+000E
+000E0001
+000F
+000F0001
+000J
+000K
+000K0001
+</pre>
+
+<p>Na materialized path som sa popálil toľko krát, až to nie je pekné. Ono to síce funguje pomerne rýchlo a pomerne dobre ak je collation nastavený na <code>'C'</code>. Lenže ak je napríklad <code>'SK'</code>, tak sa taká dvojica znakov <code>'CH'</code> zoraďuje úplne inak. V tom prípade sa strom rozbije a rozbije sa úplne katastrofálnym spôsobom, že príkaz <code>cms fix_tree</code> pokojne zmaže polovicu stránok. Najhoršie na celej chybe je, že na to, aby sa človek dostal k <code>CH</code> potrebuje vytvoriť cca. 500 objektov. A bum, po 500 objektoch si zničí stromovú štruktúru.</p>
+
+<p>Ak by som niečo podobné programoval (a ja som to vážne neskôr programoval), zrejme by som to chcel implementovať pomocou <a href="https://code.djangoproject.com/ticket/28919">Common Table Expression (CTE)</a>, ale to nie je v Djangu podporované. Ak by nebola iná možnosť, používal by som len parent link na nadradený záznam a samostatné pole pre poradie.</p>
+
+<h2>Lahôdky</h2>
+
+<p>Okrem toho, že sme robili aj bežné veci nie úplne bežným spôsobom sme sa snažili vytvoriť aj niečo zaujímavé. Úspešné.</p>
+
+<p>Nebudem písať o interných nástrojoch na prácu s dátami aj keď to bola asi najväčšia sranda. Ale nemám zvolenie nič z toho zverejniť. Z vecí, ktoré boli však istú dobu aj online sme mali napríklad vyhľadávač realít. Celkom cool projekt, zber údajov, čistenie neporiadku, spájanie duplicít.</p>
+
+<figure>
+	<a href="img/reality.png"><img src="img/reality_thumb.png" alt="Realitný radar" /></a>
+	<figcaption>Obrázok <counter></counter>: Realitný radar</figcaption>
+</figure>
+
+<p>Po technickej stránke sme robili zaujímavé veci. Po stránke komerčnej sme neboli schopní nakopnúť veľký dlhodobý projekt.</p>
+
+<p>Z cintorína našich neúspešných projektov by som mohol ešte spomenúť facebook analyzer, alebo vlastné CMS, ktoré stroskotalo na mojej technickej nevyspelosti v tej dobe.</p>
+
+<h2>Cesta k e-shopom</h2>
+
+<p>Popri bežných weboch som robieval aj obchody. Zo začiatku bola absolútna väčšina tuším pre AMERYS s.r.o.</p>
+
+<p>Tu som mal absolútnu slobodu vo výbere technológií a ako základ pre e-shop som zvolil framework <a href="https://github.com/django-oscar/django-oscar">Django Oscar</a>. Podľa užívateľov na internete ide o moc komplikovaný systém, ktorý nefunguje spôsobom nainštalujem a pracujem.</p>
+
+<p>Moje skúsenosti sú však skôr opačné. Ide o veľmi veľmi veľmi dobre rozšíriteľný framework na tvorbu e-shopu. Skladá sa z rôznych modulov a takmer každý sa dá nahradiť vlastnou implementáciou. Dokonca nie len nahradiť, ale vlastná implementácia môže byť naimportovaná trieda z projektu Django Oscar s jednou preťaženou metódu.</p>
+
+<p>Celý Django Oscar je postavený na myšlienke rozširovania základného jadra prakticky čímkoľvek. Zároveň má pomerne stabilné API, takže aktualizácia jadra sa zaobíde bez zásahov do vlastných rozšírení.</p>
+
+<figure>
+	<a href="img/nyc.png"><img src="img/nyc_thumb.png" alt="Jeden z nespustených e-shopov" /></a>
+	<figcaption>Obrázok <counter></counter>: Jeden z nespustených e-shopov</figcaption>
+</figure>
+
+<p>Keď pozriem na github, tak celkovo obľúbenejší medzi ľuďmi je napríklad <a href="https://github.com/saleor/saleor">Saleor</a>. Lenže. <strong>LENŽE</strong>. Ja musím byť unikátny.</p>
+
+<p>Teraz vážne. Saleor je podľa mňa neudržiavateľný neporiadok. Nech sa nikto nehnevá, ale súbor so závislosťami dashboardu má <a href="https://github.com/saleor/saleor-dashboard/blob/4c62ebe45da6a024801a41cf46d9aa79fbed4715/package-lock.json">45 499 riadkov</a>.</p>
+
+<p>Čo je ešte horšie je tento popis od autora:</p>
+
+<blockquote>Saleor, as a <strong>forkable</strong> storefront, was built with fully customizable experience in mind. Our goal was to get rid of overriding and encourage people to edit the code directly. Logic is chunked up into the separate libraries (prices handling, taxes, addresses internationalization &amp; validation..), this way you can tailor it up to your needs, your code stays clear, and you're still able to upgrade the <strong>external dependencies</strong> seamlessly.</blockquote>
+
+<p>Keď customizácia znamená fork projektu a aktualizácia znamená akurát aktualizácia externých závislostí a ľudia to žerú tak ja neviem, či žijem na inej planéte alebo čo. Jednoducho som unikátna snežná vločka a asi s tým nič nespravím.</p>
+
+<h2>Zrodil sa wtshop</h2>
+
+<p>Situácia bola taká, že som bol schopný za veľmi krátky čas postaviť dobrý e-shop na projekte Django Oscar. Prečo sme teda začali písať vlastný systém? Netuším. Vážne, nepamätám si technickú diskusiu ani moment, kedy sme sa rozhodli. Ja neviem, či sme boli opití, alebo … v tomto mám okno. Jednoducho sme sa rozhodli - napíšeme vlastný systém. Najlepší na svete!</p>
+
+<p>Počas tvorby sme robili rôzne technické rozhodnutia. Dlho sme s Mišom diskutovali, ale väčšinu rozhodnutí som si vyargumentoval. Niektoré z nich (aj tie, ktoré nám zákazníci omlátili o hlavu) by som predstavil.</p>
+
+<h3>Jinja2</h3>
+
+<p>Ako šablónovací systém sme na začiatku zvolili Django šablóny. V tej dobe som Jinja2 používal na LinuxOS.sk, ale v našom e-shope sme sa dohodli na podpore štandardných šablón v Djangu. Jedna z technických debát, ktorú som prehral :) Nemusíme byť unikátni v každom smere.</p>
+
+<p>Na rôznych fórach sa ľudia zhodovali viac-menej na tom, že je zbytočné riešiť šablónovací systém, pretože aplikácia trávi väčšinu času čakaním na databázu. Realita? Možno u mizerných programátorov. Na nasledujúcom obrázku je výsledok malého benchmarku požičaný z <a href="https://www.dyspatch.io/blog/python-templating-performance-showdown-django-vs-jinja/">dyspatch.io/blog/python-templating-performance-showdown-django-vs-jinja</a>.</p>
+
+<figure>
+	<a href="img/django_render.png"><img src="img/django_render.png" alt="Rýchlosť renderovania" /></a>
+	<figcaption>Obrázok <counter></counter>: Rýchlosť renderovania</figcaption>
+</figure>
+
+<p>Na rýchlosti šablónovacieho jazyka nezáleží u programátora, ktorý neoptimalizuje dotazy a nechá ORM nech robí N+1 dotazov. Ja som robil dosť dobré optimalizácie výsledkom čoho sú odpovede bez renderovania šablóny na úrovni jednotiek ms. Django šablóny natiahnu čas odpovede na približne sekundu, čo je v porovnaní s Jinja2 vážne blbé.</p>
+
+<p>Nakoniec som všetky šablóny postupne prepísal do Jinja2, čo prinieslo výrazne zvýšenie výkonu a zároveň brutálne zlepšilo debugging.</p>
+
+<p>Takže správa všetkým Djangistom - Jinja2 je vážne brutálne brutálne brutálne lepší šablónovací jazyk. Interne (viac-menej neplánovane som pozeral na črevá) sa Jinja2 šablóny prekladajú do python kódu. Vďaka tomu sa ľahko debugujú a zároveň je vykonávanie omnoho rýchlejšie než interprtácia django šablón.</p>
+
+<h3>Vlastná administrácia</h3>
+
+<p>Django má vstavané administrátorské rozhranie. V zásade ho považujem za skvelú prototypovú pomôcku. Zložitejšia customizácia je však pomerne zložitá. Rozhodovanie medzi vstavanou administráciou a vlastným riešením nebolo zase až tak zložité.</p>
+
+<figure>
+	<a href="img/login.png"><img src="img/login_thumb.png" alt="Prihlásenie do administrácie" /></a>
+	<figcaption>Obrázok <counter></counter>: Prihlásenie do administrácie</figcaption>
+</figure>
+
+<figure>
+	<a href="img/admin.png"><img src="img/admin_thumb.png" alt="Administrácia" /></a>
+	<figcaption>Obrázok <counter></counter>: Administrácia</figcaption>
+</figure>
+
+<figure>
+	<a href="img/admin_2.png"><img src="img/admin_2_thumb.png" alt="Úprava používateľa" /></a>
+	<figcaption>Obrázok <counter></counter>: Úprava používateľa</figcaption>
+</figure>
+
+<h3>Žiadne JS knižnice a server side rendering</h3>
+
+<p>Za toto rozhodnutie nás zákazníci viac krát kritizovali. Neprávom.</p>
+
+<p>Občas sa nájdu zákazníci rýpalovia. Niektorí zájdu tak ďaleko, že si nechajú kód <strong>frontendu</strong> skontrolovať nejakou externou firmou, ktorá píše v rôznych cool technológiách ako je React. Samozrejme reactista pozrie zhnusene na web, ohejtuje a ide ďalej. Reálna spätná väzba od užívateľov je však niečo úplne iné.</p>
+
+<p>Pozrime sa napríklad ako vyzerá studené načítanie administrátorského rozhrania:</p>
+
+<figure>
+	<a href="img/load.png"><img src="img/load_thumb.png" alt="Načítanie adminu" /></a>
+	<figcaption>Obrázok <counter></counter>: Načítanie adminu</figcaption>
+</figure>
+
+<p>Áno, rendering aj s celou réžiou HTTP sa zmestí do 20 ms. Kompletné načítanie webu trvá zhruba 100 ms. Rendering sa deje <strong>skoro</strong> výlučne ako server side.</p>
+
+<p>Pri navigácii v admin rozhraní sa nenačítava celý web pri každom kliknutí. V skutočnosti sa tu používa jedna škaredá zastaralá technológia - PushState + Ajax. Ide o to, že po kliknutí na interný odkaz sa pošle požiadavka s upravenou hlavičkou. Sever v tom prípade odpovie namiesto HTML dokumentu JSON dokumentom s vyrenderovanými kusmi HTML kódu. Reálne sa po kliknutí prenesú iba premenlivé časti webu, ktoré sa následne nahradia. Vďaka tomu vyzerá web ako moderná single page aplikácia, ktorá nepotrebuje parsovať CSS/JS pri každom kliknutí, ale zároveň programátor, ktorý upravuje administráciu nepotrebuje vôbec vedieť javascript. Postačujú znalosti HTML a CSS.</p>
+
+<h3>Customizácia čohokoľvek</h3>
+
+<p>Pri návrhu jadra som sa do veľkej miery inšpiroval systémami ako Django Oscar, alebo Magento. Vďaka tomu sa väčšina komponentov jadra dá rozšíriť. V administrácii môžu rozšírenia registrovať vlastné komponenty kdekoľvek do administrácie, či už sú to existujúce zoznamy, formuláre, alebo nové vlastné podsekcie administrácie. Jednoducho kdekoľvek.</p>
+
+<p>Zákazník chce individuálne ceny pre používateľa a produkt? Žiaden problém. Napíše sa malé rozšírenie, ktoré zaregistruje nový tab do formulára produktu, pridá sa nová stratégia výpočtu ceny a je to.</p>
+
+<h3>CMS</h3>
+
+<p>Väčšina e-shopov okrem samotných produktov zobrazuje aj nejaký obsah. Pri tvorbe CMS som sa zase silne inšpiroval systémom Django CMS. Implementoval som podobnú stromovú štruktúru pluginov, ale bez materializovaných ciest (materialized path). Editácia je riešená cez frontend podobne, ako to má Django CMS. Je možné vytvoriť vlastné nové komponenty CMS viac-menej rovnako ako v Django CMS. Tým však podobnosti končia.</p>
+
+<p>Django CMS silne využíva cachovanie. Požičiam si tu jeden citát:</p>
+
+<blockquote>
+	There are only two hard things in Computer Science: cache invalidation and naming things.<br />
+	<br />
+	-- Phil Karlton
+</blockquote>
+
+<p>Naše CMS cachovanie nepotrebuje. O jednu starosť menej.</p>
+
+<p>V django CMS je možné definovať miesta, kde sa budú nachádzať pluginy - takzvané placeholdery. Stránka môže mať kľudne desiatky miest, do ktorých je možné vložiť ľubovoľný obsah. Obsah v Django CMS je viazaný buď na stránku, alebo je globálny (napríklad texty v hlavičke a pätičke sú zvyčajne spoločné pre všetky stránky).</p>
+
+<p>Minimálny počet selectov, ktoré vyžaduje django CMS je počet placeholderov (v každom sa robí select) + počet placeholderov krát počet rôznych typov obsahu na stránke. Reálne to môžu byť desiatky až stovky dotazov.</p>
+
+<p>Moja implemntácia používa tak isto placeholdery, ale pluginy môžu byť attachnuté k ľubovoľnému objektu. Nie len k stránke, ale kľudne k produktu, kategórii … alebo aj k ničomu (globálne). Zároveň sú pred placeholdermi forward deklarácie, vďaka čomu sa všetky dotazy vyriešia naraz. Namiesto stoviek query v Django CMS má moja implementácia v priemere 3-4 query (podľa počtu typov obsahu).</p>
+
+<figure>
+	<a href="img/nespusteny.png"><img src="img/nespusteny_thumb.png" alt="Jeden z nespustených webov" /></a>
+	<figcaption>Obrázok <counter></counter>: Jeden z nespustených webov</figcaption>
+</figure>
+
+<h3>Server side validácia</h3>
+
+<p>Znie to omnoho blbšie, než to v skutočnosti je.</p>
+
+<p>V prvom rade upozorňujem, že server side validácia je nevyhnutná. Vždy. Validácia u klienta je OK, ale klientovi sa nedá veriť. Prečo teda validovať aj na serveri aj na klientovi?</p>
+
+<p>Niekto by mohol namietať, že validáciou u klienta sa znižuje záťaž servera. Na druhej strane ja si momentálne neviem spomenúť ktorý formulár v našom systéme sa dá validovať u klienta. Prakticky všetky majú niektoré obmedzenia, ktoré sa musia kontrolovať na serveri. Či už je to validácia telefónneho čísla, kde databáza formátov čísel podľa krajiny zaberá niekoľko MB, alebo validácia voči záznamom v databáze …</p>
+
+<p>Nakoniec sa urobilo kompromisné riešenie, takže klient pošle štandardným spôsobom formulár s pridaným poľom, ktoré indikuje validáciu. Server v tom prípade pošle JSON so zoznamom chýb. Zvyšok sa už vyrenderuje u klienta (validácia prebieha priamo počas písania).</p>
+
+<h2>Prečo končíme</h2>
+
+<p>Nie, toto nie je reklama. Možno to tak vyzerá, pretože som strávil pár rokov programovaním zaujímavého projektu, ktorému som veril.</p>
+
+<p>Za koncom firmy nie sú ani osobné vzťahy, ani financie. Vlastne wtshop bol jediný komerčne úspešný projekt s každoročne zdvojnásobovaným ziskom. Fungoval skvele, noví klienti bežali na kubernetese a boli sme schopní robiť čoraz väčšie weby s čoraz menším úsilím.</p>
+
+<p>Problémom sú zákazníci. Niektorí sú v pohode a niektorí z človeka doslova vysajú energiu. Niektorí sú vďační, iní si nevedia vážiť, že človek sa im venuje aj cez víkend.</p>
+
+<p>Azda najlepší je jeden zákazník (nebudem menovať), ktorý odchádza ak pozerám do kalendára už rok a pol. Rok a pol očakávania, že konečne pôjde preč. Rok a pol trápenia firmy, ktorá to preberá. Rok a pol nových a nových nezmyselných požiadaviek pre novú firmu.</p>
+
+<h2>Pár slov na záver</h2>
+
+<p>Práca vo Wisdom Technologies možno nebola práve najvýnosnejšia, ale rozhodne neľutujem, že som tu pracoval. Mišo, ak to čítaš, vďaka za všetko.</p>
+
+<p>Čo sa týka zákazníkov, tí prechádzajú pod inú firmu (vrátane mňa).</p>
+
+<p>Na záver ešte upozorňujem, že toto nie je reklamný článok. Dovolím si však jednu malú reklamu na môj blog na LinuxOS, konkrétne tam pribudol článok o <a href="https://linuxos.sk/blog/mirecove-dristy/detail/magneticke-usb-c-konektory/">magnetických USB konektoroch</a> a tiež vyšla nová časť <a href="https://linuxos.sk/blog/mirecove-dristy/series/shadertoy/">môjho seriálu o shaderoch</a>.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
