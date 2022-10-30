@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="226.77" height="226.77" version="1.1" viewBox="0 0 226.77 226.77" xmlns="http://www.w3.org/2000/svg">
+	<g transform="matrix(1.3333 0 0 -1.3333 0 226.77)">
+		<g transform="matrix(1 0 0 -1 0 170.08)">
+			<path d="m0 0h170.08v170.08h-170.08z" fill="#eee" fill-rule="evenodd"/>
+			<g transform="matrix(6.7492 0 0 6.7492 14.173 14.173)">
+				<path d="m0 0h7v7h-7zm9 0h1v1h1v-1h2v1h-1v1h1v1h-1v4h-3v-1h-1v2h-4v2h-2v3h2v-1h-3v-3h-1v-1h3v3h2v2h3v4h1v3h4v-4h1v-7h7v2h-1v2h1v-1h-2v-1h-2v5h-1v1h1v2h-2v-1h-1v-1h1v-2h-2v-1h2v-2h1v-2h-6v1h1v2h-1v1h1v1h1v2h-2v4h-2v-3h3v-2h-1v-1h-1v-3h3v1h1v-9h-4v-1h-1v-1h1zm5 0h7v7h-7zm-13 1h5v5h-5zm14 0h5v5h-5zm-13 1h3v3h-3zm8 0h1v3h-1zm6 0h3v3h-3zm-6 4h1v2h-1zm2 2h3v3h-3zm6 0h1v2h-1zm-12 1h1v1h-1zm2 0h1v2h-3v1h2zm-8 5h7v7h-7zm18 0h3v1h-3zm-17 1h5v5h-5zm1 1h3v3h-3zm17 0h1v4h1v1h-2zm-1 2h3v1h-3zm-7 1h3v2h-3z" fill-rule="evenodd"/>
+			</g>
+		</g>
+	</g>
+</svg>

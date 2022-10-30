@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="SVGRoot" width="500" height="500" version="2.0" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+	<defs>
+		<marker id="Arrow1L" overflow="visible" markerHeight="5" markerWidth="8.75" orient="auto-start-reverse" preserveAspectRatio="xMidYMid" viewBox="0 0 8.75 5">
+			<path id="arrow1L" transform="scale(-.5)" d="m0 0 5-5-17.5 5 17.5 5z" fill="#f00" fill-rule="evenodd"/>
+		</marker>
+	</defs>
+	<path d="m0 0v500m100-500v500m100-500v500m100-500v500m100-500v500m100-500v500m-500-500h500m-500 100h500m-500 100h500m-500 100h500m-500 100h500m-500 100h500" fill="none" stroke="#808080" stroke-width="1px"/>
+	<path d="m100 100v300h300v-300h-300zm100 100h100v100h-100v-100z" fill-rule="evenodd"/>
+	<g fill="none" stroke="#f00" stroke-width="5">
+		<path d="m100 100h300" marker-end="url(#Arrow1L)"/>
+		<path d="m400 100v300" marker-end="url(#Arrow1L)" stroke-opacity=".65"/>
+		<path d="m400 400h-300" marker-end="url(#Arrow1L)" stroke-opacity=".3"/>
+	</g>
+</svg>

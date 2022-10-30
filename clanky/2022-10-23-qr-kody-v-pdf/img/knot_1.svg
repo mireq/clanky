@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="SVGRoot" width="500" height="500" version="2.0" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+	<defs>
+		<marker id="Arrow2" overflow="visible" markerHeight="5.5999999" markerWidth="7.6999998" orient="auto-start-reverse" preserveAspectRatio="xMidYMid" viewBox="0 0 7.7 5.6">
+			<path id="arrow2L" transform="scale(.7)" d="m-2-4 11 4-11 4c2-2.33 2-5.66 0-8z" fill="#f00" fill-rule="evenodd"/>
+		</marker>
+	</defs>
+	<path d="m0 0v500m100-500v500m100-500v500m100-500v500m100-500v500m100-500v500m-500-500h500m-500 100h500m-500 100h500m-500 100h500m-500 100h500m-500 100h500" fill="none" stroke="#808080" stroke-width="1px"/>
+	<path d="m100 100h200v200h-100v-100h200v200h-300z" fill-rule="evenodd"/>
+	<g fill="none" stroke="#f00" stroke-width="5">
+		<path d="m100 100h200" marker-end="url(#Arrow2)"/>
+		<path d="m300 100v100" marker-end="url(#Arrow2)" stroke-opacity=".9"/>
+		<path d="m300 200h100" marker-end="url(#Arrow2)" stroke-opacity=".8"/>
+		<path d="m400 200v200" marker-end="url(#Arrow2)" stroke-opacity=".7"/>
+		<path d="m400 400h-300" marker-end="url(#Arrow2)" stroke-opacity=".6"/>
+		<path d="m200 200h100" marker-end="url(#Arrow2)" stroke-opacity=".5"/>
+		<path d="m300 200v100" marker-end="url(#Arrow2)" stroke-opacity=".4"/>
+		<path d="m300 300h-100" marker-end="url(#Arrow2)" stroke-opacity=".3"/>
+	</g>
+</svg>

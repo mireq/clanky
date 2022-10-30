@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>QR kódy v PDF</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>QR kódy v PDF</h1>
+
+	<p>Cez víkendy robievam rôzne mini projekty. Jedným z nich je môj malý generátor QR kódov použiteľný či už v Reportlab dokumentoch, alebo aj samostatne ako nástroj pre príkazový riadok.</p>
+</header>
+
+<p>QR kódy boli navrhnuté japonskou automobilovou spoločnosťou Denso. Neprekvapí preto, že práve Japonsko bolo prvou krajinou, kde sa začali objavovať aj na verejných priestranstvách. Dnes už ikonické QR kódy ľahko rozoznateľné podľa troch veľkých štvorcov nájdeme bežne už aj na Slovnesku. Stretneme sa s nimi na verejných priestranstvách v podobe URL odkazov, v rôznych tlačovinách, alebo faktúrach. Práve kvôli poslednému spomenutému spôsobu použitia som sa rozhodol implementovať vlastnú knižnicu.</p>
+
+<h2>Inštalácia</h2>
+
+<p>Namiesto systémovej inštalácie budem používať lokálnu do python virtual environmentu. Ak by niekto chcel inštaláciu pre celý systém, postačí spustiť príkaz pip pod rootom bez aktivovaného virtualenvironmentu.</p>
+
+<pre class="code-bash">
+python3 -m venv virtualenv
+. ./virtualenv/bin/activate
+pip install reportlab_qr_code_generator z3c.rml
+</pre>
+
+<h2>Zdrojové kódy a dokumentácia</h2>
+
+<p>Zdrojové kódy a dokumentáciu mám už tradične uložené <a href="https://github.com/mireq/reportlab-qr-code">na githube</a>. Projekt používa licenciu MIT.</p>
+
+<h2>Rozhranie pre príkazový riadok</h2>
+
+<p>Nainštalovaný balík sa dá cez <code>python</code> zavolať príkazom <code>python -m &lt;názov balíka&gt;</code>. V tomto prípade teda <code>python -m reportlab_qr_code</code>. Bez ďalších argumentov prijíma dáta na štandardnom vstupe a vypisuje PDF na štandardný výstup. Po napísaní pár znakov, stlačení enter a <code>Ctrl+D</code> sa na štandardný výstup vypíše PDF.</p>
+
+<p>Vstupný text sa dá vložiť aj priamo do príkazu. V tom prípade bude PDF zase vypísané na štandardný výstup:</p>
+
+<pre>python -m reportlab_qr_code <strong>"Hello world"</strong></pre>
+
+<p>Výstupný súbor sa dá určiť parametrom <code>--outfile</code></p>
+
+<pre>python -m reportlab_qr_code "Hello world" <strong>--outfile hello.pdf</strong></pre>
+
+<p>Príkaz vygeneruje PDF súbor s veľkosťou necelé 2 kB. Ak vynechám hlavičky, samotný QR kód zaberá 595 bytov.</p>
+
+<figure>
+	<a href="img/hello.svg"><img src="img/hello.svg" alt="Hello world v QR" /></a>
+	<figcaption>Obrázok <counter></counter>: Hello world v QR</figcaption>
+</figure>
+
+
+<p>Parametrom <code>--size</code> je možné zmeniť veľkosť a <code>--padding</code> mení veľkosť okraja:</p>
+
+<pre>python -m reportlab_qr_code "Padding 0.5cm" --outfile out.pdf \
+  <strong>--size 6cm --padding 0.5cm</strong></pre>
+
+<figure>
+	<a href="img/size.svg"><img src="img/size.svg" alt="Vlastná veľkosť" /></a>
+	<figcaption>Obrázok <counter></counter>: Vlastná veľkosť</figcaption>
+</figure>
+
+<p>Nastaviť sa dá samozrejme aj vlastná farba. Ak nie je definovaná farba pozadia, výsledný kód je transparentný.</p>
+
+<pre>python -m reportlab_qr_code "http://linuxos.sk" --outfile out.pdf \
+  <strong>--bg "#b5c7e3" --fg "#3f68a7"</strong></pre>
+
+<figure>
+	<a href="img/color.svg"><img src="img/color.svg" alt="Vlastná farba" /></a>
+	<figcaption>Obrázok <counter></counter>: Vlastná farba</figcaption>
+</figure>
+
+<p>QR kód môže byť voliteľne vytvorený aj z gradientu. Ten je definovaný súradnicami <code>x1 y1 x2 y2</code> a farbami buď vo forme jednoduchého zoznamu, alebo dvojíc <code>pozícia farba</code>. Nasledujúci kód vykreslí gradient začínajúci sa v súradniciach 0.2, 0.2 (0 0 je ľavý horný roh, 1 1 pravý dolný) a končiaci sa v 1, 1. Na začiatku je oranžová farba, v 10% zelená, 20% modrá a gradient končí červenou.</p>
+
+<pre>python -m reportlab_qr_code "https://linuxos.sk/" --outfile out.pdf \
+  <strong>--gradient "linear 0.2 0.2 1 1 #ee8800 0.1 #00ff00 0.2 #0000ff #ff0000"</strong></pre>
+
+<figure>
+	<a href="img/gradient.svg"><img src="img/gradient.svg" alt="Gradient" /></a>
+	<figcaption>Obrázok <counter></counter>: Gradient</figcaption>
+</figure>
+
+<p>Nastaviť je možné aj korekciu chýb (možnosti <code>'L'</code>, <code>'M'</code>, <code>'Q'</code> a <code>'H'</code>) a verziu.</p>
+
+<pre>python -m reportlab_qr_code "reportlab" --outfile out.pdf \
+  <strong>--error_correction L</strong></pre>
+
+<figure>
+	<a href="img/error_l.svg"><img src="img/error_l.svg" alt="Nízka korekcia chýb" /></a>
+	<figcaption>Obrázok <counter></counter>: Nízka korekcia chýb</figcaption>
+</figure>
+
+<pre>python -m reportlab_qr_code "reportlab" --outfile out.pdf \
+  <strong>--error_correction H</strong></pre>
+
+<figure>
+	<a href="img/error_h.svg"><img src="img/error_h.svg" alt="Vysoká korekcia chýb" /></a>
+	<figcaption>Obrázok <counter></counter>: Vysoká korekcia chýb</figcaption>
+</figure>
+
+<pre>python -m reportlab_qr_code "reportlab" --outfile out.pdf \
+  <strong>--version 10</strong></pre>
+
+<figure>
+	<a href="img/version_10.svg"><img src="img/version_10.svg" alt="Manuálne nastavenie verzie" /></a>
+	<figcaption>Obrázok <counter></counter>: Manuálne nastavenie verzie</figcaption>
+</figure>
+
+<p>Implementovaná je aj taká chuťovka ako zaoblenie hrán. Zaoblenie sa určuje v jednotkách relatívnych k veľkosti pixelu, takže veľkosť <code>0.5</code> zaoblí jednotlivé pixely kódu do perfektného kruhu.</p>
+
+<pre>python -m reportlab_qr_code "Paradajka" --outfile out.pdf \
+  <strong>--radius 0.5</strong></pre>
+
+<figure>
+	<a href="img/radius_simple.svg"><img src="img/radius_simple.svg" alt="Jednoduché zaoblenie" /></a>
+	<figcaption>Obrázok <counter></counter>: Jednoduché zaoblenie</figcaption>
+</figure>
+
+<p>Vektorový obrázok sa dá reprezentovať aj pomocou prekrížených slučiek. Bez zaoblenia je rendering identický, akurát kód s prekríženými slučkami je kratší. Pri zaoblení sa prekrížené slučky vypínajú, ale dajú sa zapnúť voľbou <code>--enhanced-path</code></p>
+
+<pre>python -m reportlab_qr_code "Paradajka" --outfile out.pdf \
+  --radius 0.5 <strong>--enhanced-path</strong></pre>
+
+<figure>
+	<a href="img/radius_enhanced.svg"><img src="img/radius_enhanced.svg" alt="Zaoblenie s prekríženými slučkami" /></a>
+	<figcaption>Obrázok <counter></counter>: Zaoblenie s prekríženými slučkami</figcaption>
+</figure>
+
+<p>Polomer zaoblenia môže byť väčší než jeden pixel. V takom prípade však negarantujem čitateľnosť kódu.</p>
+
+<pre>python -m reportlab_qr_code "Paradajka" --outfile out.pdf \
+ --radius <strong>3.5</strong></pre>
+
+<figure>
+	<a href="img/radius_large.svg"><img src="img/radius_large.svg" alt="Veľmmi veľký polomer" /></a>
+	<figcaption>Obrázok <counter></counter>: Veľmi veľký polomer</figcaption>
+</figure>
+
+<pre>python -m reportlab_qr_code "Paradajka" --outfile out.pdf \
+ --radius 3.5 --enhanced-path</pre>
+
+<figure>
+	<a href="img/radius_large_enhanced.svg"><img src="img/radius_large_enhanced.svg" alt="Veľa šťastia s načítavaním" /></a>
+	<figcaption>Obrázok <counter></counter>: Veľa šťastia s načítavaním</figcaption>
+</figure>
+
+<p>Je možné vygenerovať kód aj s invertovanými farbami.</p>
+
+<pre>python -m reportlab_qr_code "OSLINUX" --outfile out.pdf \
+  <strong>--invert</strong> --radius 0.5 --padding 0 --bg "#000000" --fg "#ffffff"</pre>
+
+<figure>
+	<a href="img/inverted.svg"><img src="img/inverted.svg" alt="Invertovaný kód" /></a>
+	<figcaption>Obrázok <counter></counter>: Invertovaný kód</figcaption>
+</figure>
+
+<h2>Použitie v RML</h2>
+
+<p>Vytvoriť jedno PDF s QR kódom je síce pekné, ale väčšina ľudí chce QR kód použiť v nejakom dokumente.</p>
+
+<p>Jedným zo spôsobov, ako generovať PDF dokument je použitie Reportlab RML dokumente, čo je XML do istej miery podobné HTML. Dokumentácia k jazyku RML je dostupná ako vo forme <a href="https://www.reportlab.com/docs/rml2pdf-userguide.pdf">užívateľskej príručky</a>, tak aj vo forme <a href="https://www.reportlab.com/docs/rml-for-idiots.pdf">zjednodušenej príručky "RML for Idiots"</a>.</p>
+
+<p>Knižnica Reportlab je open source generátor PDF dokumentov šírený pod BSD licenciou. Jazyk RML je však komerčným doplnkom v Reportlab Plus, ktorého cena začína už od 1500 britských libier ročne. Ehm. Je to kvalitná knižnica a niekto to zaplatiť musí. Ja to však nie som.</p>
+
+<p>Takže nikomu to nehovorte, ale existuje takmer na 100% kompatibilná implementácia RML <a href="https://pypi.org/project/z3c.rml/">z3c.rml</a>.</p>
+
+<p>Na začiatok ukážem jednoduchý výpis textu "Ahoj svet!" na jednu stránku A4. Súbor <code>doc.rml</code> bude vyzerať takto:</p>
+
+<pre class="code-xml">
+&lt;!DOCTYPE document SYSTEM "rml_1_0.dtd"&gt;
+&lt;document filename="out.pdf" invariant="1" compression="1"&gt;
+
+&lt;template pagesize="a4"&gt;
+	&lt;pageTemplate id="main" pagesize="a4 portrait"&gt;
+		&lt;frame id="main" x1="1cm" y1="1cm" width="19cm" height="27.7cm"/&gt;
+	&lt;/pageTemplate&gt;
+&lt;/template&gt;
+
+&lt;story&gt;
+	&lt;para&gt;Ahoj svet!&lt;/para&gt;
+&lt;/story&gt;
+
+&lt;/document&gt;
+</pre>
+
+<p>PDF dokument <code>out.pdf</code> sa dá vytvoriť príkazom <code>python3 -m z3c.rml.rml2pdf doc.rml</code>.</p>
+
+<figure>
+	<a href="img/page_1.png"><img src="img/page_1.png" alt="PDF dokument" /></a>
+	<figcaption>Obrázok <counter></counter>: PDF dokument</figcaption>
+</figure>
+
+<p>Vložiť QR kód do dokumentu je možné zavolaním tagu <code>&lt;plugInGraphic module="reportlab_qr_code" function="qr"&gt;</code>.</p>
+
+<p>Obsah tagu je bodkočiarkami oddelný na <code>voľby;formát;obsah</code>. Formát je buď <code>text</code>, alebo <code>base64</code>. Obsah vysvetľovať netreba a voľby sú čiarkou oddelený zoznam vo forme <code>názov=hodnota,názov2=hodnota2</code>. Voľby prakticky zodpovedajú parametrom v CLI. Isté malé rozdiely tam sú, preto odporúčam pozrieť <a href="https://github.com/mireq/reportlab-qr-code">detaily v dokumentácii</a>.</p>
+
+<pre class="code-xml">
+&lt;!DOCTYPE document SYSTEM "rml_1_0.dtd"&gt;
+&lt;document filename="out.pdf" invariant="1" compression="1"&gt;
+
+&lt;template pagesize="a4"&gt;
+	&lt;pageTemplate id="main" pagesize="a4 portrait"&gt;
+		&lt;frame id="main" x1="1cm" y1="1cm" width="19cm" height="27.7cm"/&gt;
+	&lt;/pageTemplate&gt;
+&lt;/template&gt;
+
+&lt;story&gt;
+	&lt;para&gt;Ahoj svet!&lt;/para&gt;
+
+	&lt;illustration height="15cm" width="15cm" align="center"&gt;
+		&lt;plugInGraphic module="reportlab_qr_code" function="qr"&gt;size=15cm,padding=0.5cm,error_correction=L,fg=#ff0000;text;http://linuxos.sk&lt;/plugInGraphic&gt;
+	&lt;/illustration&gt;
+&lt;/story&gt;
+
+&lt;/document&gt;
+</pre>
+
+<figure>
+	<a href="img/page_2.png"><img src="img/page_2.png" alt="PDF dokument s QR kódom" /></a>
+	<figcaption>Obrázok <counter></counter>: PDF dokument s QR kódom</figcaption>
+</figure>
+
+<p>Jednou z vecí, ktoré nefungujú v RML dokumentoch je gradient. Namiesto neho existuje parameter <code>mask=1</code>, ktorý spôsobí, že všetky objekty vykreslené v bloku <code>illustration</code> nasledujúce za <code>plugInGraphic</code> budú orezané podľa QR kódu. Ako podklad kódu je tak možné použiť farebný gradient, obrázok, vektorovú grafiku, jednoducho čokoľvek, čo sa dá vykresliť v <code>illustration</code>.</p>
+
+<p>Nasledujúci kód využíva masku na vykreslenie QR kódu cez fraktál.</p>
+
+<pre class="code-xml">
+&lt;!DOCTYPE document SYSTEM "rml_1_0.dtd"&gt;
+&lt;document filename="out.pdf" invariant="1" compression="1"&gt;
+
+&lt;template pagesize="a4"&gt;
+	&lt;pageTemplate id="main" pagesize="a4 portrait"&gt;
+		&lt;frame id="main" x1="1cm" y1="1cm" width="19cm" height="27.7cm"/&gt;
+	&lt;/pageTemplate&gt;
+&lt;/template&gt;
+
+&lt;story&gt;
+	&lt;illustration height="15cm" width="15cm" align="center"&gt;
+
+		&lt;!-- obrázok pozadia --&gt;
+		&lt;image file="fractal.png" x="0" y="0" width="15cm" height="15cm" /&gt;
+
+		&lt;!-- prekrytý polopriehľadným bielym štvorcom --&gt;
+		&lt;fill color="rgba(255,255,255,0.8)"/&gt;
+		&lt;rect x="0" y="0" width="15cm" height="15cm" fill="true" stroke="false" /&gt;
+		&lt;fill color="#000"/&gt;
+
+		&lt;!-- nastavenie masky --&gt;
+		&lt;plugInGraphic module="reportlab_qr_code" function="qr"&gt;size=15cm,padding=1cm,mask=1;text;http://linuxos.sk&lt;/plugInGraphic&gt;
+
+		&lt;!-- znovu vykreslenie obrázka, ale bez prekrytia --&gt;
+		&lt;image file="fractal.png" x="0" y="0" width="15cm" height="15cm" /&gt;
+
+	&lt;/illustration&gt;
+&lt;/story&gt;
+
+&lt;/document&gt;
+</pre>
+
+<figure>
+	<a href="img/page_3.png"><img src="img/page_3.png" alt="QR kód s maskou" /></a>
+	<figcaption>Obrázok <counter></counter>: QR kód s maskou</figcaption>
+</figure>
+
+<p>Samozrejme ten istý efekt sa dá dosiahnuť aj jednoduchšie polopriehľadným invertovaným QR kódom:</p>
+
+<pre class="code-xml">
+&lt;!DOCTYPE document SYSTEM "rml_1_0.dtd"&gt;
+&lt;document filename="out.pdf" invariant="1" compression="1"&gt;
+
+&lt;template pagesize="a4"&gt;
+	&lt;pageTemplate id="main" pagesize="a4 portrait"&gt;
+		&lt;frame id="main" x1="1cm" y1="1cm" width="19cm" height="27.7cm"/&gt;
+	&lt;/pageTemplate&gt;
+&lt;/template&gt;
+
+&lt;story&gt;
+	&lt;illustration height="15cm" width="15cm" align="center"&gt;
+		&lt;image file="img/mandelbrot_spiral2.png" x="0.05cm" y="0.05cm" width="14.9cm" height="14.9cm" /&gt;
+		&lt;plugInGraphic module="reportlab_qr_code" function="qr"&gt;size=15cm,padding=1cm,fg=#ffffffcc,negative=1,radius=0.5;text;http://linuxos.sk&lt;/plugInGraphic&gt;
+	&lt;/illustration&gt;
+&lt;/story&gt;
+
+&lt;/document&gt;
+</pre>
+
+<figure>
+	<a href="img/page_4.png"><img src="img/page_4.png" alt="Transparentný kód" /></a>
+	<figcaption>Obrázok <counter></counter>: Transparentný kód</figcaption>
+</figure>
+
+<h2>Python API</h2>
+
+<p>Použitie z python kódu je podobne jednoduché ako v RML dokumente. Stačí zavolať funkciu <code>qr_draw</code> s parametrami <code>canvas</code> a <code>content</code> (obsah). Zvyšné parametre sú voliteľné a zodpovedajú predchádzajúcim príkladom.</p>
+
+<pre class="code-python">
+from reportlab.pdfgen import canvas
+from reportlab_qr_code import qr_draw
+
+
+c = canvas.Canvas("py.pdf", pageCompression=0)
+qr_draw(c, "Hello world", x="1cm", y="1cm", size="19cm", bg="#eeeeee")
+c.showPage()
+c.save()
+</pre>
+
+<h2>Porovnanie s inými možnosťami vloženia QR kódu do PDF</h2>
+
+<p>Existujú samozrejme aj iné možnosti, ako vložiť QR kód do PDF dokumentu. Je tu napríklad možnosť vygenerovať bitmapový obrázok a vložiť ho do PDF. V tom prípade však hrozí, že obrázok bude v dôsledku vyhladzovania rozmazaný. Do istej miery sa to dá kompenzovať uložením v podstatne vyššom rozlíšení, ale nepovažujem to za práve najelegantnejší spôsob. Moja knižnica generuje vektorový obrázok, preto nemá problém s ľubovoľným zväčšením.</p>
+
+<p>Existujú aj iné knižnice pre reportlab, napríklad <a href="https://pypi.org/project/reportlab-qrcode/">reportlab-qrcode</a>. Ten má však niekoľko nevýhod. V prvom rade nemá rozhranie pre vkladanie do RML dokumentu, čo je ale drobnosť.</p>
+
+<p>Táto knižnica skladá QR kód zo štvorcov, čo vedie niekedy k renderingu s medzerami medzi štvorcami. Na nasledujúcom obrázku je napríklad QR kód otvorený v inkscape.</p>
+
+<figure>
+	<a href="img/bad_rendering.png"><img src="img/bad_rendering.png" alt="Zlý rendering v inkscape" /></a>
+	<figcaption>Obrázok <counter></counter>: Zlý rendering v inkscape</figcaption>
+</figure>
+
+<p>Moja knižnica má implementovaný algoritmus na spájanie susedných pixelov do jednej veľkej plochy, vďaka čomu nemá žiadne medzery medzi pixelmi.</p>
+
+<p>Spájanie pixelov má aj ďalšiu výhodu - redukciu veľkosti súboru, pretože sa zbytočne neopakujú tie isté súradnice.</p>
+
+<p>Nakoniec posledným významným zlepšením je použitie transformačnej matice namiesto absolútnych súradníc. Nasledujúci kód je ukážka PDF z reportlab-qrcode.</p>
+
+<pre>
+0 0 0 rg
+n 39.09856 234.5914 9.77464 9.77464 re f*
+n 39.09856 224.8167 9.77464 9.77464 re f*
+n 39.09856 215.0421 9.77464 9.77464 re f*
+n 39.09856 205.2674 9.77464 9.77464 re f*
+n 39.09856 195.4928 9.77464 9.77464 re f*
+n 39.09856 185.7182 9.77464 9.77464 re f*
+n 39.09856 175.9435 9.77464 9.77464 re f*
+n 39.09856 156.3942 9.77464 9.77464 re f*
+n 39.09856 146.6196 9.77464 9.77464 re f*
+n 39.09856 127.0703 9.77464 9.77464 re f*
+n 39.09856 97.7464 9.77464 9.77464 re f*
+n 39.09856 87.97176 9.77464 9.77464 re f*
+…
+</pre>
+
+<p>Moja knižnica nastavuje najskôr transformačnú maticu, vďaka čomu môže generovať celočíselné súradnice.</p>
+
+<pre>
+0 0 0 rg
+20.71472 0 0 20.71472 51.7868 51.7868 cm
+n 0 0 m 7 0 l 7 7 l 0 7 l h 8 0 m 10 0 l 10 1 l 12 1 l 12 0 l 11 0 l 11 3 l 13
+3 l 13 2 l 12 2 l 12 4 l 13 4 l 13 5 l 8 5 l 8 2 l 9 2 l 9 1 l 8 1 l h 14 0 m 21
+0 l 21 7 l 14 7 l h 1 1 m 6 1 l 6 6 l 1 6 l h 15 1 m 20 1 l 20 6 l 15
+6 l h 2 2 m 5 2 l 5 5 l 2 5 l h 16 2 m 19 2 l 19 5 l 16 5 l h 9 4 m 10 4 l 10
+7 l 11 7 l 11 6 l 8 6 l 8 7 l 9 7 l h 12 6 m 13 6 l 13 10 l 14 10 l 14 11 l 15
+11 l 15 13 l 14 13 l 14 12 l 17 12 l 17 10 l 16 10 l 16 16 l 15 16 l 15 18 l 16
+18 l 16 20 l 17 20 l 17 21 l 19 21 l 19 20 l 18 20 l 18 18 l 19 18 l 19 19 l 15
+19 l 15 21 l 14 21 l 14 20 l 13 20 l 13 16 l 14 16 l 14 15 l 9 15 l 9 12 l 8 12
+…
+</pre>
+
+<p>Výsledné nekomprimované PDF je v priemere o 80% menšie.</p>
+
+<h2>Algoritmus</h2>
+
+<p>Môj pôvodný generátor mal všetky problémy, ktoré som videl inde. Tie isté problémy <a href="https://gitlab.com/inkscape/extensions/-/merge_requests/35">mali aj používatelia inkscape</a>. Tak som sa teda rozhodol opraviť svoj rendering a vymyslel som nejaký algoritmus. Neviem ako sa volá, ani či má svoje meno (určite nie som sám, kto to riešil takto). V nasledujúcich pár riadkoch skúsim vysvetliť aspoň ako funguje.</p>
+
+<p>Môj algoritmus by sa dal popísať asi takto:</p>
+
+<pre>
+kým obrázok obsahuje čierne pixely
+	spracuj_segment()
+koniec
+</pre>
+
+<pre>
+procedúra spracuj_segment:
+
+začiatok := nájdi ľavý horný pixel
+
+cesta := [začiatok]
+pozícia := začiatok
+smer := doprava
+
+urob_krok() # zmení pozíciu podľa aktuálneho smeru
+
+kým pozícia != začiatok # postupným spracovaním sa posúvame na začiatok
+
+	ak dá_sa_zahnúť_vľavo() potom
+		cesta := cesta + [pozícia]
+		otoč_smer_doľava()
+		urob_krok()
+
+	alebo ak dá_sa_ísť_rovno() potom
+		urob_krok()
+
+	inak # ak nie je iná možnosť, musí sa ísť napravo
+		cesta := cesta + [pozícia]
+		otoč_smer_doprava()
+		urob_krok()
+
+	koniec
+
+koniec
+
+vyčisti_pixely_v_segmente()
+</pre>
+
+<p>Nájdenie prvého pixelu vľavo hore zaručuje, že vždy bude prvý smer doprava, pretože minimálna šírka je jeden pixel a dohora sa zahnúť nedá keďže sme na prvom pixeli.</p>
+
+<p>Algoritmus je určite konečný pre segmenty konečnej veľkosti. Pri opisovaní povrchu týmto algoritmom nemôže dôjsť k nekonečnej slučke. Pozrime sa bližšie na jeden príklad.</p>
+
+<figure>
+	<a href="img/algorithm_simple_1.svg"><img src="img/algorithm_simple_1.svg" alt="Príklad algoritmu na štvorci" /></a>
+	<figcaption>Obrázok <counter></counter>: Príklad algoritmu na štvorci</figcaption>
+</figure>
+
+<p>Začína sa vľavo hore na pozícii <code>(1, 1)</code> (súradnice x a y). Súradnice sa zaznamenajú do cesty - <code>cesta = [(1,1)]</code>. Urobí sa krok na pozíciu <code>(2, 1)</code>. Doľava sa nedá ísť, takže sa ide rovno. Na pozícii <code>(3, 1)</code> je situácia rovnaká, nedá sa ísť vľavo, takže sa pokračuje rovno. Pozícia <code>(4, 1)</code> je zaujímavejšia, pretože nie je možné pkračovať ani vľavo, ani rovno. Nakoniec jedinou možnou cestou je napravo. Do cesty sa preto zaznamenajú aktuálne súradnice - <code>cesta = [(1,1), (4,1)]</code> a smer sa otočí doprava (teda doprava + otočenie doprava = dole). Rovnako pokračuje algoritmus ďalej až kým nenarazí na súradnice <code>(4, 4)</code>, <code>(1, 4)</code> a nakoniec <code>(1, 1)</code>, kde algoritmus končí.</p>
+
+<p>Ako teória znie pekne, ale prakticky algoritmus nevie vykresliť duté objekty.</p>
+
+<figure>
+	<a href="img/algorithm_simple_2.svg"><img src="img/algorithm_simple_2.svg" alt="Nesprávne vykreslenie dutého objektu" /></a>
+	<figcaption>Obrázok <counter></counter>: Nesprávne vykreslenie dutého objektu</figcaption>
+</figure>
+
+<p>V počítačovej grafike sa nie len tak prenič-zanič používa pravidlo nepárna - párna. Znamená to, že sa vyplní tá časť objektu, ktorá je oddelená <strong>nepárnym</strong> počtom hrán. Jedna hrana - vykreslí sa, 2 hrany - nevykreslí. V takom prípade vykreslenie cesty vo vnútri bude znamenať "vykrojenie" diery do objektu.</p>
+
+<p>Dôležitou súčasťou algoritmu je práve vyčistenie pixelov v segmente. Ak by sa nevyčistili, algoritmus by nikdy neskončil. Niekoho by mohla napadnúť jednoduchá implemntácia, pri ktorej sa všetky pixely vo vnútri zmenia na biele, ale v tom prípade by sa už nedali vykresliť vykrojenia objektu. Ak sa však všetky pixely vo vnútri invertujú, tj. z čiernej sa stane biela a opačne, potom po vyčistení zostane práve ten útvar, ktorý je potrebné vykrojiť.</p>
+
+<p>Ak má vnútro objektu viac bielych pixelov než čiernych, môže sa stať, že po vyčistení bude tých čiernych viac než pred vyčistením. Na mieste je tu otázka: bude algoritmus konečný? Aj keď sa môže počet čierných pixelov zvýšiť, určite sa plocha segmentu zmenší minimálne o jeden pixel, pretože algoritmus sa pohybuje po obvode, ktorý musí tvoriť minimálne jeden čierny pixel.</p>
+
+<figure>
+	<a href="img/algorithm_simple_3.svg"><img src="img/algorithm_simple_3.svg" alt="Zostatok po inverzii vnútra" /></a>
+	<figcaption>Obrázok <counter></counter>: Zostatok po inverzii vnútra</figcaption>
+</figure>
+
+<p>Tento algoritmus rozhodne nie je optimálny. Napadol ma minimálne jeden príklad, pri ktorom by mohol mať kratší výstup.</p>
+
+<figure>
+	<a href="img/knot_1.svg"><img src="img/knot_1.svg" alt="Uzol" /></a>
+	<figcaption>Obrázok <counter></counter>: Uzol</figcaption>
+</figure>
+
+<p>Algoritmus by v tomto prípade zostavil cestu <code>[(1,1), (3,1), (3,2), (4,2), (4,4), (1,4), (1,1), (2,2), (3,2), (3,3), (2,3), (2,2)]</code>.</p>
+
+<figure>
+	<a href="img/knot_2.svg"><img src="img/knot_2.svg" alt="Optimalizované prechádzanie uzlom" /></a>
+	<figcaption>Obrázok <counter></counter>: Optimalizované prechádzanie uzlom</figcaption>
+</figure>
+
+<p>Optimálne by bolo <code>[(1,1), (3,1), (3,3), (2,3), (2,2), (4,2), (4,4), (1,4), (1,1)]</code>, teda 9 bodov namiesto 12.</p>
+
+<p>Doplnenie algoritmu je pomerne jednoduché. Stačí rozpoznať nasledujúci vzor:</p>
+
+<figure>
+	<a href="img/checker.svg"><img src="img/checker.svg" alt="Kríženie ciest" /></a>
+	<figcaption>Obrázok <counter></counter>: Kríženie ciest</figcaption>
+</figure>
+
+<p>Podľa pôvodného algoritmu by sa pri smere dole v strede mal zmeniť smer doprava. Efektívnejšie by v tomto prípade bolo ísť rovno. Úprava spočíva len v tejto jednoduchej detekcii a otočení smeru algoritmu (namiesto preferovaného ľavého smeru sa bude preferovať pravý) po prechode cez prekríženie.</p>
+
+<p>Po zmene je namieste zase otázka, či algoritmus bude konečný.</p>
+
+<p>Ak algoritmus prejde uzol, potom sa musí vrátiť späť na pôvodné miesto (pretože zase ide po prvchu ako z vonkajšej strany). Je ľahko dokázateľné, že po návrate na pôvodné miesto bude smer kolmý na pôvodný smer. Vždy pri prvom prechode dôjde k prepólovaniu smeru, pričom pri druhom prechode sa prepóluje na pôvodný smer otáčania. Po slučke bude algoritmus pokračovať presne tak isto, ako keby v slučke vôbec nebol. Keď toto platí pre ľubovoľnú vnorenú slučku, bude to platiť aj pre slučky vnorené v slučkách. Algoritmus je teda konečný a nemôže dôjsť k zacykleniu. Či je optimálny, to neviem posúdiť, ale nenašiel som žiaden príklad, kedy by výstup nebol optimálny.</p>
+
+<h2>Zoblenie</h2>
+
+<p>Hrany sú voliteľne zaoblené pomocou beziérovych kriviek. Moja cesta k výsledku nebola tak priamočiara, ako by sa mohlo zdať. Nech sa páči, tu je pár mojich neúspešných pokusov :)</p>
+
+<figure>
+	<a href="img/round.png"><img src="img/round.png" alt="Pokusy o zaoblenie" /></a>
+	<figcaption>Obrázok <counter></counter>: Pokusy o zaoblenie</figcaption>
+</figure>
+
+<p>Dokumentácia k beziérovym krivkám mi bola trochu nejasná, takže som najskôr išiel systémom pokus omyl. Niektoré pokusy boli dokonca celkom celkom elegantné, ale väčšinou absolútne nečitateľné. Nakoniec som to nejakým spôsobom doklepal.</p>
+
+<p>Mimochodom, vždy som si myslel, že pre vykreslenie presného kruhu majú byť kontrolné body beziérovej krivky presne v rohoch štvorca, ktorý opíše kruh. Ak by to niekto náhodou riešil upozorňujem, že body majú byť vo vzdialenosti <code>(4/3)*tan(π/8)</code> = 0,552 a nie v rohoch (1).</p>
+
+<p>Nakoniec som teda dopísal asi najlepšiu knižnicu na generovanie QR kódov pre reportlab.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>

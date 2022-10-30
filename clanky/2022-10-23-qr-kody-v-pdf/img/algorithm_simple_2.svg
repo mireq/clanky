@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="SVGRoot" width="500" height="500" version="2.0" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+	<path d="m0 0v500m100-500v500m100-500v500m100-500v500m100-500v500m100-500v500m-500-500h500m-500 100h500m-500 100h500m-500 100h500m-500 100h500m-500 100h500" fill="none" stroke="#808080" stroke-width="1px"/>
+	<path d="m100 100 300 0 0 300 -300 0z" fill-rule="evenodd"/>
+</svg>
