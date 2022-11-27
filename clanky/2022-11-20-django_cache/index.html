@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Oprava nepoužiteľného memcache v Django frameworku</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Oprava nepoužiteľného memcache v Django frameworku</h1>
+
+	<p>Nedávno ma prekvapila nedostupnosť jedného z mojich serverov pri miernom zvýšení záťaže. Chyba bola prekvapivo v zle implementovanom cachovacom backende. V dnešnom článku ukážem diagnostiku chyby a moju opravu.</p>
+</header>
+
+<p>Z Django frameworku bolo vo verzii 4.1 odstránená podpora cache backendu <a href="https://github.com/django/django/commit/05f3a6186efefc9fca2204a745b992501c6fd91f">MemcachedCache</a>. Dôvodom odstránenia je <a href="https://github.com/linsomniac/python-memcached/issues/95">ukončenie vývoja python-memcached</a>.</p>
+
+<p>Náhradou za neudržiavaný backend by mal byť <code>PyLibMCCache</code> založený na <a href="https://pypi.org/project/pylibmc/">pylibmc</a> a <code>PyMemcacheCache</code> založený na <a href="https://pypi.org/project/pymemcache/">pymemcache</a>. Obe alternatívy sú vraj stabilné a dajú sa použiť ako drop-in náhrada.</p>
+
+<h2>Server neodpovedá</h2>
+
+<p>Chtiac-nechtiac momentálne spravujem malú skupinu serverov, na ktorých prevádzkujem veľké množstvo webových aplikácií. V zásade moje servery fungujú ako masívne zdieľaný hosting. Všetci zákazníci bežia v cgroupách, majú čiastočne zdieľanú RAM, čiastočne zdieľané CPU, ale žiaden nemá plný prístup.</p>
+
+<p>Jedného dňa mám hlásený výpadok, kedy celý web jedného zákazníka prestal odpovedať. Dosť neštandardná situácia, ak bol doteraz CPU využívaný na 10 %. K žiadnemu DOS útoku ani zásadnému zvýšeniu trafficu však nedošlo. Kde by mohol byť problém?</p>
+
+<h2>Diagnostika</h2>
+
+<p>Veľká časť webu (bavíme sa prevažne o e-commerce systémoch) je cachovaná. Vďaka tomu trvá vyrenderovanie webu okolo 10ms (skoro všade mám CPU AMD EPYC 7642 čo je vážne super železo). V jednom momente začal server odpovedať za 2 500 ms namiesto štandardných 10 ms. Zmena bola skoková a okamžite som videl zvýšenie záťaže SQL servera, čo naznačovalo výpadok cache.</p>
+
+<p>V tomto momente som začal experimentovať s niektorými parametrami <code>memcached</code> daemona a <code>PyMemcacheCache</code> backendu, ale všetko bolo viac-menej bez výsledku. Presnejšie povedané keď som znížil čas reconnectu, alebo počet pokusov na reconnect, dokázal som znížiť odozvu servera pri záťaži na 500 ms z pôvodných 2 500 ms. Trocha sa zastavím ešte u šialenej hodnoty 2 500 ms. Bez cache trvá vyrenderovanie domovskej stránky 500 ms. Cache má timeout 1s a počet opakovaných pokusov 2, takže ak sa 2x nedokáže pripojiť (čo trvá 2s), vyrenderuje sa bez cache za zvyšnú pol sekundu.</p>
+
+<h2>Testujeme</h2>
+
+<p>Začal som experimentovať s vláknami na vlastnom stroji. Spustil teda príkaz <code>ab -n 300 -c 5 -g vystup.tsv 'http://localhost:8000/'</code>, ktorý zaťažuje server s 5 paralelnými vláknami. Všetko beží stabilne. Druhý krát som opakoval ten istý test, ale tentoraz som povolil 5 paralelných vlákien servera. Bumbác zrazu server odpovedá 10x pomalšie so šialenou štandardnou odchýlkou.</p>
+
+<figure>
+	<a href="img/stats_default.svg"><img src="img/stats_default.svg" alt="Porovnanie rýchlosti a 5/95 percentilu" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie rýchlosti a 5/95 percentilu</figcaption>
+</figure>
+
+<figure>
+	<a href="img/time_default.svg"><img src="img/time_default.svg" alt="Časy odpovede" /></a>
+	<figcaption>Obrázok <counter></counter>: Časy odpovede</figcaption>
+</figure>
+
+<h2>Vysvetlenie</h2>
+
+<p>Ak server vybavuje naraz len jednu požiadavku, všetko funguje ako má. Ak musí obslúžiť viacej požiadaviek súčasne, začne vypadávať cache. To je extrémne nepríjemná situácia, pretože stačí pár požiadaviek za sebou a všetky ďalšie požiadavky už spôsobia DOS servera.</p>
+
+<p>Evidentne sa tam niečo deje s vláknami. Po krátkom vyhľadávaní som zistil, že ani jeden backend nie je thread safe, takže pri súbežnom použití z viacerých vlákien dôjde zákonite k zmiešaniu packetov a vypnutiu cache v dôsledku chyby (výnimka sa nevyhadzuje, pretože nechcem vyhadzovať chybu pri obyčajnom výpadku <code>memcached</code> servera).</p>
+
+<p>Podľa dokumentácie môže <code>PyMemcacheCache</code> fungovať aj s povolenými vláknami ak má nastavený parameter <code>use_pooling</code>. Dokumentácia toho znesie veľa, reálne to nepomohlo.</p>
+
+<h2>Oprava</h2>
+
+<p>Problém som sa rozhodol opraviť vytvorením samostatného spojenia pre každé vlákno. Teoreticky by bolo možné použiť zámky, ale radšej by som chcel maximalizovať priepustnosť. Môj blbý cache backend som ako obvykle <a href="https://github.com/mireq/django-pylibmc-threadsafe">zverejnil na githube</a>. Možnosti nastavenia sú rovnaké ako v <code>PyLibMCCache</code>. Jednoduché nastavenie vyzerá napríklad takto:</p>
+
+<pre class="code-python">
+CACHES = {
+    'default': {
+        'BACKEND': 'django_pylibmc_threadsafe.PyLibMCCache',
+        'LOCATION': '127.0.0.1:11211',
+        'KEY_PREFIX': '',
+        'OPTIONS': {
+            'binary': True,
+            'ignore_exc': True,
+            'behaviors': {
+                'ketama': True,
+            }
+        }
+    },
+}
+</pre>
+
+<p>Výsledný časový priebeh po úprave vyzerá podstatne lepšie, aj keď priepustnosť je nižšia. Tu musím pripomenúť, že Python má GIL, takže podľa očakávania je priepustnosť napriek vyššiemu počtu vlákien nižšia. Vlákna sú však užitočné pri I/O operáciách, napríklad komunikácia s databázou.</p>
+
+<figure>
+	<a href="img/time_new.svg"><img src="img/time_new.svg" alt="Časy odpovede po oprave" /></a>
+	<figcaption>Obrázok <counter></counter>: Časy odpovede po oprave</figcaption>
+</figure>
+
+<figure>
+	<a href="img/stats_comparison.svg"><img src="img/stats_comparison.svg" alt="Porovnanie rýchlosti" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie rýchlosti</figcaption>
+</figure>
+
+<h2>Záver</h2>
+
+<p>Všetky memcache backendy v Djangu sú momentálne nepoužiteľné pri zapnutom multithread režime. Bacha na to. Problémom sa dá vyhnúť buď vypnutím threadov a používaním len multiprocesového režimu, alebo použitím vlastného (prípadne môjho) cache backendu.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
