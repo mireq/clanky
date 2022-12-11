@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Audio spektrogram pod linuxom</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Audio spektrogram pod linuxom</h1>
+
+	<p>Dnešný zápis bude o softvéri pre generovanie / prehliadanie spektrogramov. Zápis samozrejme skončí ako vždy naprogramovaním vlastného skriptu :)</p>
+</header>
+
+<h2>Open source riešenia</h2>
+
+<p>Nie, nie som jediný človek, ktorý chcel vidieť spektrogram. Preto existuje mnoho open source nástrojov. Niektoré z nich predstavím.</p>
+
+<h3>sox</h3>
+
+<p>Nástroj sox je konzolová aplikácia určená pre spracovanie a analýzu zvukových súborov. Spektrogram k audio súboru sa dá vygenerovať príkazom <code>sox vstup.wav -n spectrogram</code>. </p>
+
+<figure>
+	<a href="img/sox_1.png"><img src="img/sox_1.png" alt="Spektrogram generovaný nástrojom sox" /></a>
+	<figcaption>Obrázok <counter></counter>: Spektrogram generovaný nástrojom sox</figcaption>
+</figure>
+
+<p>Nastaviť sa dá farba spektrogramu, rozmery, či niektoré parametre ako window fungukcia. Nasledujúci obrázok je vygenerovaný príkazom <code>sox vstup.wav -n spectrogram -x 500 -h</code>.</p>
+
+<figure>
+	<a href="img/sox_2.png"><img src="img/sox_2.png" alt="Upravené farby" /></a>
+	<figcaption>Obrázok <counter></counter>: Upravené farby</figcaption>
+</figure>
+
+<h3>baudline</h3>
+
+<p>Tento nástroj je pekným rýchlym realtime analyzátorom. Rozhranie je na môj vkus dosť šialené, ale nič, na čo by sa nedalo zvyknúť.</p>
+
+<figure>
+	<a href="img/baudline.png"><img src="img/baudline.png" alt="Baudline" /></a>
+	<figcaption>Obrázok <counter></counter>: Baudline</figcaption>
+</figure>
+
+<h3>spek</h3>
+
+<p>Tento nástroj vie zobraziť spektrogram. Jeden konkrétny typ bez možnosti zmeniť farby, alebo čokoľvek ovplyvniť.</p>
+
+<figure>
+	<a href="img/spek.png"><img src="img/spek.png" alt="Spek" /></a>
+	<figcaption>Obrázok <counter></counter>: Spek</figcaption>
+</figure>
+
+<h2>Kde je problém?</h2>
+
+<p>Hlavný problém, na ktorý som narazil u všetkých projektov je lineárne mierka pre frekvencie. Najdôležitejšie spektrálne čiary sú sústredené do frekvencie 1 kHz, ktorá je sotva viditeľná.</p>
+
+<h2>Vlastný nástroj</h2>
+
+<p>Keďže som vážne nenašiel nič použiteľné, rozhodol som sa napísať vlastný malý nástroj. Výber padol ako obyčajne na pythone s použitím funkcie <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.stft.html">stft</a> z balíka scipy. Závislosti budú obmedzené na <code>numpy</code> (numerické výpočty), <code>scipy</code> (spracovanie signálov) a <code>matplotlib</code> (vykreslenie výsledkov).</p>
+
+<h3>Podpora vstupných formátov</h3>
+
+<p>Medzi závislosťami som neuviedol žiadnu knižnicu na načítanie multimediálnych súborov. Pri podpore súborov sa nechcem uspokojiť s ničím menším než so všetkým, čo podporuje <code>ffmpeg</code>. Namiesto použitia knižnice ale používam priamo binárku <code>ffmpeg</code> a <code>ffprobe</code>. Teraz sa budem chvíľu zaoberať malými ulitlity funkciami. Najskôr definujem šablóny pre volanie príkazov <code>ffmpeg</code> a <code>ffprobe</code>.</p>
+
+<pre class="code-python">
+FFPROBE_CMDLINE = 'ffprobe {file} -print_format json -show_format -show_streams -loglevel error'
+FFMPEG_CMDLINE = 'ffmpeg -i {file} {trim} -ac 1 -f s16le -vn -loglevel error -'
+</pre>
+
+<p>Do príkazov som pridal nejaké zástupné symboly - <code>{file}</code> pre vstupný súbor a <code>{trim}</code> pre orezanie vstupu. Výstupom príkazu <code>ffmpeg</code> bude jednokanálový prúd 16-bitových little endian hodnôt.</p>
+
+<p>Pre zostavenie príkazu som pripravil funkciu <code>build_shell_command</code>, ktorá nahradí zástupné symboly. Funkcia nepracuje na úrovni reťazcov, ale na úrovni tokenov, čo umožňuje zostaviť príkaz bezpečnejším spôsobom - pri spustení sa bude priamo používať pole argumentov namiesto reťazca, takže sa nemôže stať, aby niekto vložil do zástupného symbolu úvodzovky, bodkočiarku, čo by mu umožnilo spustiť vlastný príkaz.</p>
+
+<p>Token je možné nahradiť hodnotou:</p>
+
+<ul>
+	<li><code>None</code> - token sa odstráni</li>
+	<li><code>reťazec</code> - token sa nahradí reťazcom</li>
+	<li><code>pole</code> - na mieste tokenu sa vloží niekoľko argumentov</li>
+</ul>
+
+<p>Samotná funkcia vyzerá takto:</p>
+
+<pre class="code-python">
+def build_shell_command(cmd, replacements):
+	# Rozdelenie na tokeny
+	params = shlex.split(cmd)
+
+	# Vytvorenie poľa náhrad
+	replacements = {'{'+key+'}': val for key, val in replacements.items()}
+
+	new_params = []
+	for param in params:
+		# Nájdenie náhrady
+		replacement = replacements.get(param, param)
+		# Hodnota None odstráni token
+		if replacement is None:
+			continue
+		elif isinstance(replacement, list):
+			# Zoznam sa pripojí k existujúcim parametrom
+			new_params += replacement
+		else:
+			# Inak sa len token nahradí hodnotou
+			new_params.append(replacement)
+	return new_params
+</pre>
+
+<p>K spracovaniu vstupného súboru je potrebné zistiť jeho parametre, napríklad počet samplov za sekundu. Získanie informácií nástrojom <code>ffprobe</code> vyzerá takto:</p>
+
+<pre class="code-python">
+def get_media_info(file):
+    cmd = build_shell_command(FFPROBE_CMDLINE, {'file': file})
+    return json.loads(subprocess.check_output(cmd))
+</pre>
+
+<h3>Analýza</h3>
+
+<p>Analýza audio signálu pomocou funkcie <code>stft</code> je pomerne jednoduchá.</p>
+
+<pre class="code-python">
+fft_size = 2048 # veľkosť FFT okna
+step_size = 512 # 512 samplov na pixel
+
+frequency, time, fft = signal.stft(
+	audio_data,
+	audio_sample_rate,
+	window=args.window,
+	nperseg=fft_size,
+	noverlap=fft_size - step_size
+)
+
+fft = np.abs(fft)
+fft = 20.*np.log10(fft)
+</pre>
+
+<h3>Zobrazenie</h3>
+
+<p>Analýzu signálu by sme mali za sebou, zostáva už len zobraziť výsledok. Nasledujúci kód používa <code>matplotlib</code> na vygenerovanie obrázka.</p>
+
+<pre class="code-python">
+import matplotlib.pyplot as plt
+
+fig = plt.figure()
+ax = fig.add_subplot()
+
+# Zobrazenie fft s minimálnym ziskom -100dB a maximom -30dB
+im = ax.pcolormesh(time, frequency, fft, vmax=-30, vmin=-100, cmap='inferno', shading='gouraud')
+# Nastavenie osí
+ax.set_ylim(0, 8000)
+ax.set_ylabel('Frequency [Hz]')
+ax.set_xlabel('Time [sec]')
+# Zobrazenie mriežky
+ax.grid(color='#ffffff', axis='y', which='major', alpha=0.5)
+ax.grid(linestyle='dotted', color='#ffffff', axis='y', which='minor', alpha=0.3)
+
+fig.savefig("spektrogram.png")
+</pre>
+
+<figure>
+	<a href="img/2048_1536_linear.png"><img src="img/2048_1536_linear.png" alt="Vlastný spektrogram" /></a>
+	<figcaption>Obrázok <counter></counter>: Vlastný spektrogram</figcaption>
+</figure>
+
+<p>Počkať, nehovoril som niečo o logaritmickej mierke? Aha, tak pridám do zobrazenia nasledujúci riadok:</p>
+
+<pre class="code-python">
+ax.set_yscale('log')
+ax.set_ylim(80, 8000)
+</pre>
+
+<figure>
+	<a href="img/2048_0.png"><img src="img/2048_0.png" alt="Logaritmická mierka frekvencie pri veľkosti okna 2048" /></a>
+	<figcaption>Obrázok <counter></counter>: Logaritmická mierka frekvencie pri veľkosti okna 2048</figcaption>
+</figure>
+
+<h3>Vylepšenia</h3>
+
+<p>Rozlíšenie v oblasti nízkych frekvencií je mizerné. V tejto časti skúsim popísať niektoré vlastnosti rýchlej fourierovej transformácie a jej parametrov.</p>
+
+<p>Dôležitým parametrom je <code>fft_size</code>, teda veľkosť okna fourierovej transformácie. Hodnota musí byť celou mocninou čísla 2. Čím väčšia je táto hodnota, tým viacej jemné bude zobrazenie. Napríklad ak je samplovacia frekvencia 44 100 Hz, potom výstupom rýchlej fourierovej transformácie bude rozdelenie signálu na frekvencie v rozsahu 0 - 22 050 Hz (teda polovica samplovacej frekvencie). Frekvencie budú rozdelené na rovnaké úseky, ktorých počet je polovičná veľkosť FFT okna (napríklad veľkosť okna 2048 vygeneruje 1024 frekvencíí, teda frekvencia bude delená na 21,5 Hz úseky - 22050 / 1024 = 21,5). Postačuje teda zvýšiť veľkosť okna?</p>
+
+<figure>
+	<a href="img/4096_0.png"><img src="img/4096_0.png" alt="Logaritmická mierka frekvencie pri veľkosti okna 4096" /></a>
+	<figcaption>Obrázok <counter></counter>: Logaritmická mierka frekvencie pri veľkosti okna 4096</figcaption>
+</figure>
+
+<figure>
+	<a href="img/8192_0.png"><img src="img/8192_0.png" alt="Logaritmická mierka frekvencie pri veľkosti okna 8192" /></a>
+	<figcaption>Obrázok <counter></counter>: Logaritmická mierka frekvencie pri veľkosti okna 8192</figcaption>
+</figure>
+
+<p>Univerzálne riešenie samozrejme neexistuje. Čím je väčšie rozlíšenie vo frekvenčnej oblasti, tým menšie je rozlíšenie v časovej oblasti. Teoretickým riešením je posúvanie okna o menšiu vzdialenosť než veľkosť okna (parameter <code>noverlap</code> funkcie <code>stft</code>).</p>
+
+<figure>
+	<a href="img/4096_2048.png"><img src="img/4096_2048.png" alt="Logaritmická mierka frekvencie pri veľkosti okna 4096 a posune 2048" /></a>
+	<figcaption>Obrázok <counter></counter>: Logaritmická mierka frekvencie pri veľkosti okna 4096 a posune 2048</figcaption>
+</figure>
+
+<figure>
+	<a href="img/8192_7680.png"><img src="img/8192_7680.png" alt="Logaritmická mierka frekvencie pri veľkosti okna 8192 a posune 512" /></a>
+	<figcaption>Obrázok <counter></counter>: Logaritmická mierka frekvencie pri veľkosti okna 8192 a posune 512</figcaption>
+</figure>
+
+<figure>
+	<a href="img/16384_15872.png"><img src="img/16384_15872.png" alt="Logaritmická mierka frekvencie pri veľkosti okna 16384 a posune 512" /></a>
+	<figcaption>Obrázok <counter></counter>: Logaritmická mierka frekvencie pri veľkosti okna 16384 a posune 512</figcaption>
+</figure>
+
+<p>Výsledky sú podstatne lepšie, ale stále je tu problém, že pri väčšej veľkosti okna sa síce zaostria spodné frekvencie, ale na časovej osi sa signál rozostrí. Ideálne by teda bolo na vysokých frekvenciách znížiť veľkosť FFT okna a na nižších naopak používať čo najväčšie FFT okno, aby sa skombinovali výhody / nevýhody podľa oblasti.</p>
+
+<figure>
+	<a href="img/spectrum_combined.png"><img src="img/spectrum_combined.png" alt="Kombinované spektrum" /></a>
+	<figcaption>Obrázok <counter></counter>: Kombinované spektrum</figcaption>
+</figure>
+
+<h2>Finálny projekt</h2>
+
+<p>Môj malý skript som zverejnil <a href="https://github.com/mireq/audio-spectrogram">na githube</a>. Program podporuje rôzne parametre na nastavenie farieb, frekvencií, ziskov, škály atď. Nasledujúci obrázok je generovaný príkazom:</p>
+
+<pre>./spectrogram \
+	vstup.wav \
+	spektrogram.png \
+	--grid \
+	--scale \
+	--colorbar \
+	--colormap nipy_spectral \
+	--gain_min -80 \
+	--gain_max -20 \
+	--step_size 256 \
+	--frequency_min 100 \
+	--frequency_max 10000</pre>
+
+<figure>
+	<a href="img/custom_frequency.png"><img src="img/custom_frequency.png" alt="Jedna z možností ako generovať spektrogram" /></a>
+	<figcaption>Obrázok <counter></counter>: Jedna z možností ako generovať spektrogram</figcaption>
+</figure>
+
+<p>Podporované sú nasledujúce parametre:</p>
+
+<dl>
+	<dt>--start</dt>
+	<dd>Počiatočná sekunda</dd>
+	<dt>--length</dt>
+	<dd>Dĺžka záznamu (v sekundách)</dd>
+	<dt>--window</dt>
+	<dd><a href="https://www.tek.com/en/blog/window-functions-spectrum-analyzers">Window funkcia</a></dd>
+	<dt>--colormap</dt>
+	<dd>Farebná mapa (z matplotlibu)</dd>
+	<dt>--grid</dt>
+	<dd>Zobraziť mriežku</dd>
+	<dt>--scale</dt>
+	<dd>Zobrazenie mierky</dd>
+	<dt>--colorbar</dt>
+	<dd>Zobrazenie colorbaru na bočnej strane</dd>
+	<dt>--linear</dt>
+	<dd>Generovanie lineárnej časovej mierky</dd>
+	<dt>--image_width</dt>
+	<dd>Šírka výsledného obrázka</dd>
+	<dt>--image_height</dt>
+	<dd>Výška výsledného obrázka</dd>
+	<dt>--gain_min</dt>
+	<dd>Minimálny zisk (štandardne -100dB)</dd>
+	<dt>--gain_max</dt>
+	<dd>Maximálny zisk (štandardne -30dB)</dd>
+	<dt>--frequency_min</dt>
+	<dd>Minimálna frekvencia (štandardne 80Hz)</dd>
+	<dt>--frequency_max</dt>
+	<dd>Maximálna frekvencia (štandardne 8 000Hz)</dd>
+	<dt>--step_size</dt>
+	<dd>Počet samplov na jeden bod na časovej osi (štandardne 512)</dd>
+</dl>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
