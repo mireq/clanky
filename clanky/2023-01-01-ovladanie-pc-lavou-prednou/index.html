@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Ovládanie počítača ľavou prednou</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Ovládanie počítača ľavou prednou</h1>
+
+	<p>Dnešný blog bude o tom, ako som sa vysporiadal s jednou malou nehodou, pri ktorej som si zlomil záprstnú kosť za malíčkom, kvôli čomu som musel určitú dobu ovládať počítač iba ľavou rukou.</p>
+</header>
+
+<h2>Ovládanie klávesnice jednou rukou</h2>
+
+<p>Či už je to písanie veľkých písmen, alebo stláčanie klávesových skratiek, každý z nás potrebuje občas stlačiť niekoľko kláves súčasne. S jednou rukou to môže byť celkom slušný problém. Našťastie na tieto prípady tu existuje možnosť "Sticky keys".</p>
+
+<p>Ide o ovládanie, pri ktorom sa najskôr stlačia postupne modifikačné klávesy a nakoniec sa stlačí niektorý z nemodifikačných klávesov. Ak chcem napríklad stlačiť <code>Ctrl+Shift+S</code> stlačím klávesu <code>Ctrl</code>, potom <code>Shift</code> a nakoniec <code>S</code>. Poradie <code>Ctrl</code> a <code>Shift</code> môžem samozrejme prehodiť.</p>
+
+<p>Väčšinou je táto možnosť dostupná v nastaveniach grafického prostredia v sekcii prístupnosť (accessibility). Napríklad v KDE je to pod Prispôsobenie &gt; Prístupnosť &gt; Modifikačné klávesy. Ostatné prostredia nemám nainštalované, ale nemal by byť problém to nájsť.</p>
+
+<figure>
+	<a href="img/sticky_keys_kde.png"><img src="img/sticky_keys_kde.png" alt="Sticky keys v prostredí KDE" /></a>
+	<figcaption>Obrázok <counter></counter>: Sticky keys v prostredí KDE</figcaption>
+</figure>
+
+<h3>X11 s ľahkým prostredím</h3>
+
+<p>Ja nepoužívam žiadne ťažké prostredie s akýmikoľvek možnosťami nastavenia, preto som musel nájsť univerzálnejší spôsob, ktorý bude fungovať kdekoľvek. Presnejšie povedané kdekoľvek v X11 (zatiaľ som neprešiel na Wayland a pravdu povediac zatiaľ ma to ani neláka).</p>
+
+<p>Nastavenie je možné dosiahnuť úpravou klávesovej mapy, alebo cez <code>xmodmap</code>. Ja som však použil podľa mňa jednoduchšiu možnosť - <code>xkbset</code>. Nastavenie sa skladá z 2 príkazov. Najskôr je to zapnutie rozšírenia <code>accessx</code> s povolenými sticky klávesami. Zároveň vypínam sticky klávesy pri stlačení 2 kláves súčasne. V tomto prípade znamienko mínus pred príznakom znamená jeho vypnutie. V niektorých prípadoch keď sú klávesy blízko modifikačnej klávesy ich viem stlačiť naraz a nepotrebujem k tomu možnosť sticky, preto to automatické vypnutie (<code>-twokey</code>) keď sa mi podarí stlačiť ich súčasne. Nakoniec sa môže ešte hodiť parameter <code>-latchlock</code> pre vypnutie podržania klávesy 2 stlačeniami.</p>
+
+<pre class="code-bash">
+xkbset accessx sticky -twokey
+</pre>
+
+<p>Lepkavé (sticky) klávesy sa štandardne vypnú po 120s používania. Preto sa používa ešte druhý príkaz, ktorý zakáže zrušenie <code>accessx</code> režimu. V tomto prípade sa časovač nastaví na 1 sekundu, ale príznaky sa zachovávajú (znamienko <code>=</code> pred príznakom určuje, že sa hodnota po uplynutí časovača nemá zmeniť). Preto je vlastne jedno, že časovač je nastavený na 1 sekundu.</p>
+
+<pre>
+xkbset exp 1 =accessx =sticky =twokey =latchlock
+</pre>
+
+<h2>Myš</h2>
+
+<p>Počítačová myš je zariadenie, ktoré sa typicky ovláda jednou rukou. Ak nie je ergonomicky tvarovaná, mala by sa dať použiť v jednej, či druhej ruke bez úprav.</p>
+
+<p>Ja väčšinou pracujem na notebooku, kde používam ako polohovacie zariadenie trackpoint. Ovládanie ľavou rukou mi v tomto prípade nerobilo žiaden problém ani bez premapovania tlačidiel pre ľavákov.</p>
+
+<p>Samotné premapovanie tlačidiel je zase ľahko dostupné buď grafickom prostredí, alebo príkazom <code>xmodmap -e "pointer = 3 2 1"</code>, ktorý je použiteľný aj v ľahkých grafických prostrediach. Aby zmeny boli permanentné, dá sa príkaz umiestniť napríklad do <code>~/.xinitrc</code>.</p>
+
+<p>Tieto malé drobnosti sú podľa mňa postačujúce na ovládanie počítača jednou rukou. Oproti ovládaniu oboma rukami je to je to stále bolestivo pomalé, ale ako programátor nie som platený len za počet znakov, ktoré dokážem dostať do editoru.</p>
+
+<p>Zvyšok článku už nebude o počítačoch, ale drobné zhrnutie, ako prebiehala liečba zlomeniny u mňa.</p>
+
+<h2>Zlomenina záprstnej kosti - čo očakávať, priebeh liečby</h2>
+
+<p>Typicky sa zlomenina metakarpu ak je bez komplikácii lieči zasádrovaním na 4-5 týždňov a nejakou tou rehabilitáciou v nasledujúcich týždňoch. V nasledujúcom texte opisujem konkrétny priebeh u mňa.</p>
+
+<p><strong>Deň 0</strong></p>
+
+<p>Pondelok, približne 6:57 ráno. Áno, zvyčajne si potrpím na presný čas, ale sekundu si vážne nepamätám. V oblasti kĺbu malíčka mám hrču a nie som si istý, či je to vykĺbené, alebo zlomené, takže idem do nemocnice.</p>
+
+<p>Pondelok, 8:30 - začína diagnostika. Po 2 RTG snímkoch je jasné, že je to trieštivá zlomenina záprstnej kosti (metakarpu) s rôznymi úlomkami a výrazne posunutou kosťou. Po pár dlhých telefonátoch sa lekári rozhodli, že to môžu skúsiť napraviť bez operácie.</p>
+
+<p>Nasledoval niekoľkominútový pokus o napravenie polohy kostí. V zásade to bolo celkom nepríjemné naťahovanie prstov, krútenie, posúvanie. Nakoniec sa to celé zasádrovalo a pokračoval som na ďalšie 2 RTG snímky, podľa ktorých to vyzerá dobre, takže môžem ísť domov.</p>
+
+<p><strong>Deň 4</strong></p>
+
+<p>Tento typ zlomeniny sa často zrastie zle, preto sa v priebehu liečby často robia kontroly. Najbližšiu kontrolu som mal naplánovanú hneď v piatok. Podľa dvoch RTG snímkov všetko prebieha v poriadku.</p>
+
+<p>Na fungovanie s ľavou rukou som si medzitým celkom zvykol. Vlastne to nie je až taký problém aj preto, že som ľavák, ktorý z praktických dôvodov píše pravou rukou. Sporty však robím v režime ľaváka, aj písať som sa pôvodne naučil ľavou rukou.</p>
+
+<p><strong>Deň 11</strong></p>
+
+<p>Tentoraz si doma robím srandu, že určite prídem domov bez sádry. V zásade som mal trochu aj pravdu, pretože sádru mi dali dole. Ale … pekne jedno za druhým.</p>
+
+<p>Kontrola začala klasicky 2 RTG snímkami ráno. Tentokrát som v čakárni podstatne dlhšie. Nakoniec idem k lekárovi ako posledný.</p>
+
+<p>Nasledujúci rozhovor začal otázkou, či potrebujem precízne hýbať malíčkom, alebo bude vadiť keď s nim nebudem môcť poriadne hýbať. No ako človek, ktorý pracuje s klávesnicou by som mal vážne rád plne funkčný aj malíček.</p>
+
+<p>Nasleduje zloženie sádry, repozícia a znovu zasádrovanie a zase 2x RTG.</p>
+
+<p><strong>Deň 18</strong></p>
+
+<p>Klasická kontrola, kde som po ďalších 2 RTG dostal 2 správy. Jednu dobrú a jednu zlú. Tá dobrá bola, že všetko je v poriadku zrastené a budúci týždeň mi dajú sádru dole. Tá zlá, že si nevšimli to, že len minulý týždeň to bolo napravené, takže až o 2 týždne.</p>
+
+<p><strong>Deň 33</strong></p>
+
+<p>Tentoraz začínam deň zložením sádry a 2x RTG už bez nej.</p>
+
+<p>Počas cesty na RTG zisťujem, že rozhýbať kĺby nebude až taká sranda ako som predpokladal. Napriek tomu som hrubou silou dokázal dostať pohyblivosť na cca 80%.</p>
+
+<figure>
+	<a href="img/ruka.jpg"><img src="img/ruka_tmb.jpg" alt="Ruka" /></a>
+	<figcaption>Obrázok <counter></counter>: Vzhľad ruky pred odstránením odumretej kože, klikať len na vlastné riziko</figcaption>
+</figure>
+
+<p>Po 14 RTG snímkoch teda idem konečne domov s voľnou rukou a odporúčaním, aby som si kúpil rehabilitačnú loptičku.</p>
+
+<p><strong>Rehabilitácia</strong></p>
+
+<p>Je piatok a ja začínam rehabilitáciu … teda vypnutím všetkých accessibility funkcií a idem programovať konečne plnou rýchlosťou.</p>
+
+<p>Zisťujem, že potrebujem tvrdú klávesnicu, aby som nestláčal klávesy omylom keďže som ešte nedokázal vystrieť prsty.</p>
+
+<p>Prvý deň v práci bol pekne bolestivý. Každý pohyb dlho nepoužívaných kĺbov bolí, ale tú radosť z toho, že dokážem opäť normálne písať mi to nepokazí.</p>
+
+<p>Nasledujúce 2 dni som vážne rád, že je víkend, pretože v piatok som to s pohybom dosť prehnal. Od pondelka už môžem hýbať prstami na 90% bez väčších problémov. Dosť dobré na to, že všeobecná lekárka ma strašila, že s tým budem mať problém minimálne mesiac. Celé dni buď píšem, alebo cvičím s loptičkou, alebo len tak precvičujem počas chôdze v prírode. Jednoducho chcem to rozcvičiť bez kompromisov v čo najkratšom čase.</p>
+
+<p>Po cca týždni môžem hýbať prstami +/- v plnom rozsahu. Pevnosť som neplánovane vyskúšal zase v piatok keď som sa v zime pošmykol na improvizovanej lavičke zo stromov a spadol som priamo na zlomené miesto. Keby som si to zlomil znovu tak neviem ako by som toto vysvetľoval :D</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
