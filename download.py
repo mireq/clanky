@@ -28,6 +28,8 @@ def main():
 	args = vars(parser.parse_args())
 	args['article_directory'] = Path(args['article_directory'])
 	args['article_directory'].mkdir(parents=True, exist_ok=True)
+	args['files_directory'] = args['article_directory'] / 'files'
+	args['files_directory'].mkdir(parents=True, exist_ok=True)
 	downloader_name = args.pop('downloader')
 	downloaders[downloader_name].handle_download(**args)
 
