@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import urlparse
 
+import logging
 import requests
 from lxml import html
-from typing import Set
+from typing import Set, Dict
+from hashlib import md5
+
+
+logger = logging.getLogger(__name__)
 
 
 class DownloadError(RuntimeError):
@@ -27,12 +32,13 @@ class BaseDownloader(object):
 	def parsed_url(self):
 		return urlparse(self.kwargs['url'])
 
-
 	def handle_download(self, **kwargs):
 		self.kwargs = kwargs
 		self.main_document = self.download_main_document()
 		self.main_document_tree = self.parse_main_document()
+		self.files = self.load_existing_files()
 		self.links = self.extract_links()
+		self.files.update(self.download_links(self.links))
 
 	def download_main_document(self):
 		req = requests.get(self.kwargs['url'])
@@ -56,11 +62,36 @@ class BaseDownloader(object):
 		if main_content is None:
 			raise DownloadError(f"Element {self.ARTICLE_XPATH} not found")
 		candidates = set()
-		candidates |= self.find_fragment_links(main_content)
+		candidates |= self.find_links_from_content(main_content)
 		return candidates
 
-	def find_fragment_links(self, fragment) -> Set[str]:
+	def find_links_from_content(self, fragment) -> Set[str]:
 		links = set()
 		for attr in self.LINK_ATTRS:
 			links |= set(element.attrib[attr] for element in fragment.iterfind(f'.//*[@{attr}]'))
 		return links
+
+	def hash_file(self, file) -> bytes:
+		if isinstance(file, bytes):
+			return md5(file).digest()
+		else:
+			with open(file, 'rb') as fp:
+				return md5(fp.read()).digest()
+
+	def load_existing_files(self) -> Dict[bytes, str]:
+		files = {}
+		for entry in self.kwargs['files_directory'].iterdir():
+			if not entry.is_file():
+				continue
+			with entry.open('rb') as fp:
+				files[md5(fp.read()).digest()] = entry
+		return files
+
+	def download_links(self, links: Set[str]) -> Dict[bytes, str]:
+		files = {}
+		for link in links:
+			try:
+				print(link)
+			except Exception:
+				logger.exception("Failed to download link %s", link)
+		return files
