@@ -6,7 +6,7 @@ import traceback
 from collections import namedtuple
 from pathlib import Path
 
-from lxml import etree, html
+from lxml import html
 
 
 PUBLISHERS = [
