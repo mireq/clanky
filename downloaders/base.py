@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
+import logging
+import mimetypes
+import os
+from hashlib import md5
+from typing import Set, Dict
 from urllib.parse import urlparse
 
-import logging
 import requests
 from lxml import html
-from typing import Set, Dict
-from hashlib import md5
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ class BaseDownloader(object):
 		self.kwargs = {}
 		self.main_document = ''
 		self.main_document_tree = None
+		self.links = set()
 
 	def add_arguments(self, parser):
 		pass
@@ -36,9 +39,8 @@ class BaseDownloader(object):
 		self.kwargs = kwargs
 		self.main_document = self.download_main_document()
 		self.main_document_tree = self.parse_main_document()
-		self.files = self.load_existing_files()
 		self.links = self.extract_links()
-		self.files.update(self.download_links(self.links))
+		self.download_links(self.links)
 
 	def download_main_document(self):
 		req = requests.get(self.kwargs['url'])
@@ -78,20 +80,46 @@ class BaseDownloader(object):
 			with open(file, 'rb') as fp:
 				return md5(fp.read()).digest()
 
-	def load_existing_files(self) -> Dict[bytes, str]:
-		files = {}
-		for entry in self.kwargs['files_directory'].iterdir():
-			if not entry.is_file():
-				continue
-			with entry.open('rb') as fp:
-				files[md5(fp.read()).digest()] = entry
-		return files
+	def download_links(self, links: Set[str]) -> Dict[str, str]:
+		link_replacements = {}
 
-	def download_links(self, links: Set[str]) -> Dict[bytes, str]:
-		files = {}
+		file_names = set()
+		def generate_unique_name(name):
+			base_name = name
+			i = 1
+			while name in file_names:
+				name = list(os.path.splitext(base_name))
+				name[0] = f'{name[0]}_{i}'
+				name = ''.join(name)
+				i += 1
+			file_names.add(name)
+			return name
+
 		for link in links:
 			try:
-				print(link)
+				response = requests.get(link, stream=True)
+				#response.raise_for_status()
+				content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
+				new_link = self.preprocess_link_response(link, response)
+				if new_link is not None:
+					print("new link", new_link)
+					continue
+				response_data = response.raw.read()
+				filename = link
+				filename.rstrip('/')
+				filename = filename.split('/')[-1]
+				expected_ext = mimetypes.guess_extension(content_type)
+				if expected_ext is not None:
+					filename, __ = os.path.splitext(filename)
+					filename = f'{filename}{expected_ext}'
+				filename = generate_unique_name(filename)
 			except Exception:
 				logger.exception("Failed to download link %s", link)
-		return files
+
+		return link_replacements
+
+	def preprocess_link_response(self, link, response):
+		content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
+		print(link)
+		if content_type == 'text/html':
+			return link

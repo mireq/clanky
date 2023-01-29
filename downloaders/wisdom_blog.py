@@ -7,6 +7,7 @@ from .base import BaseDownloader
 
 class Downloader(BaseDownloader):
 	ARTICLE_XPATH = 'body/main/div[@class="main-text"]'
+	WEB_PREFIX = 'https://www.wisdomtech.sk'
 
 	def parse_main_document(self):
 		doc = super().parse_main_document()
@@ -14,3 +15,8 @@ class Downloader(BaseDownloader):
 		if sharer is not None:
 			sharer.getparent().remove(sharer)
 		return doc
+
+	def preprocess_link_response(self, link, response):
+		link = super().preprocess_link_response(link, response)
+		if link is not None and link.startswith(self.WEB_PREFIX):
+			return link[len(self.WEB_PREFIX):]
