@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+import re
+
 from .base import BaseDownloader
 
-# https://eu-central-1.linodeobjects.com/wisdomtech/media/filer_public_thumbnails/filer_public/66/7d/667d69dd-d314-4753-97eb-813ebfc549cb/pisanie_ciarok.png__1600x1100_subsampling-2.png
-# https://eu-central-1.linodeobjects.com/wisdomtech/media/filer_public/66/7d/667d69dd-d314-4753-97eb-813ebfc549cb/pisanie_ciarok.png
+
+THUMBNAIL_RX = re.compile(f'^{re.escape("https://eu-central-1.linodeobjects.com/wisdomtech/media/filer_public_thumbnails/")}(.*)__[0-9.]+x[0-9.]+.*$')
 
 
 class Downloader(BaseDownloader):
@@ -16,7 +18,8 @@ class Downloader(BaseDownloader):
 			sharer.getparent().remove(sharer)
 		return doc
 
-	def preprocess_link_response(self, link, response):
-		link = super().preprocess_link_response(link, response)
-		if link is not None and link.startswith(self.WEB_PREFIX):
-			return link[len(self.WEB_PREFIX):]
+	def download_link(self, link):
+		match = THUMBNAIL_RX.match(link)
+		if match:
+			link = f'https://eu-central-1.linodeobjects.com/wisdomtech/media/{match.group(1)}'
+		return super().download_link(link)

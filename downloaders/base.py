@@ -97,12 +97,11 @@ class BaseDownloader(object):
 
 		for link in links:
 			try:
-				response = requests.get(link, stream=True)
+				response = self.download_link(link)
 				#response.raise_for_status()
 				content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
 				new_link = self.preprocess_link_response(link, response)
 				if new_link is not None:
-					print("new link", new_link)
 					continue
 				response_data = response.raw.read()
 				filename = link
@@ -113,6 +112,9 @@ class BaseDownloader(object):
 					filename, __ = os.path.splitext(filename)
 					filename = f'{filename}{expected_ext}'
 				filename = generate_unique_name(filename)
+				with (self.kwargs['files_directory'] / filename).open('wb') as fp:
+					fp.write(response_data)
+				link_replacements[link] = os.path.join('files', filename)
 			except Exception:
 				logger.exception("Failed to download link %s", link)
 
@@ -120,6 +122,8 @@ class BaseDownloader(object):
 
 	def preprocess_link_response(self, link, response):
 		content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
-		print(link)
 		if content_type == 'text/html':
 			return link
+
+	def download_link(self, link):
+		return requests.get(link, stream=True)
