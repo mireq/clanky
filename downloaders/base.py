@@ -7,10 +7,34 @@ from typing import Set, Dict
 from urllib.parse import urlparse
 
 import requests
-from lxml import html
+from lxml import html, etree
 
 
 logger = logging.getLogger(__name__)
+
+
+ARTICLE_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1></h1>
+
+	<p></p>
+</header>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
+"""
+
 
 
 class DownloadError(RuntimeError):
@@ -27,6 +51,7 @@ class BaseDownloader(object):
 		self.main_document = ''
 		self.main_document_tree = None
 		self.links = set()
+		self.link_replacements = {}
 
 	def add_arguments(self, parser):
 		pass
@@ -40,7 +65,9 @@ class BaseDownloader(object):
 		self.main_document = self.download_main_document()
 		self.main_document_tree = self.parse_main_document()
 		self.links = self.extract_links()
-		self.download_links(self.links)
+		self.link_replacements = self.download_links(self.links)
+		self.reqplace_links(self.main_document_tree, self.link_replacements)
+		self.write_article()
 
 	def download_main_document(self):
 		req = requests.get(self.kwargs['url'])
@@ -127,3 +154,18 @@ class BaseDownloader(object):
 
 	def download_link(self, link):
 		return requests.get(link, stream=True)
+
+	def reqplace_links(self, tree, link_replacements):
+		for attr in self.LINK_ATTRS:
+			for element in tree.iterfind(f'.//*[@{attr}]'):
+				val = element.attrib[attr]
+				element.attrib[attr] = link_replacements.get(val, val)
+
+	def write_article(self):
+		code = html.fromstring(ARTICLE_TEMPLATE)
+		article = code.find('.//article')
+		perex = code.find('.//p')
+		title = code.find('.//h1')
+		head_title = code.find('.//title')
+		with (self.kwargs['article_directory'] / 'index.html').open('wb') as fp:
+			fp.write(etree.tostring(code, doctype='<!DOCTYPE html>', method='html'))
