@@ -25,8 +25,6 @@ ARTICLE_TEMPLATE = """<!DOCTYPE html>
 
 <header>
 	<h1></h1>
-
-	<p></p>
 </header>
 
 </article>
@@ -161,11 +159,32 @@ class BaseDownloader(object):
 				val = element.attrib[attr]
 				element.attrib[attr] = link_replacements.get(val, val)
 
+	def extract_title(self, tree):
+		title = tree.find('./head/title')
+		if title is not None:
+			return title.text
+		return ''
+
+	def extract_perex(self, tree): # pylint: disable=unused-argument
+		return []
+
+	def extract_content(self, tree): # pylint: disable=unused-argument
+		return []
+
+	def write_contents(self, output_document, input_document):
+		article = output_document.find('.//article')
+		perex = output_document.find('.//header')
+		title = output_document.find('.//h1')
+		head_title = output_document.find('.//title')
+		title.text = self.extract_title(input_document)
+		for fragment in self.extract_perex(input_document):
+			perex.append(fragment)
+		head_title.text = self.extract_title(input_document)
+		for fragment in self.extract_content(input_document):
+			article.append(fragment)
+
 	def write_article(self):
-		code = html.fromstring(ARTICLE_TEMPLATE)
-		article = code.find('.//article')
-		perex = code.find('.//p')
-		title = code.find('.//h1')
-		head_title = code.find('.//title')
+		output = html.fromstring(ARTICLE_TEMPLATE)
+		self.write_contents(output, self.main_document_tree)
 		with (self.kwargs['article_directory'] / 'index.html').open('wb') as fp:
-			fp.write(etree.tostring(code, doctype='<!DOCTYPE html>', method='html'))
+			fp.write(etree.tostring(output, doctype='<!DOCTYPE html>', method='html', encoding='utf-8'))
