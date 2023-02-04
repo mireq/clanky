@@ -143,13 +143,11 @@ class BasePublisher(object):
 		for candidate in candidates:
 			try:
 				file_info = self.__get_file_info(candidate)
+				files_by_name[file_info.name] = file_info
 			except FileNotFoundError as e:
 				sys.stderr.write(f"File does not exist {e.filename}\n")
-				continue
 			except Exception:
 				traceback.print_exc()
-				continue
-			files_by_name[file_info.name] = file_info
 		return files_by_name
 
 	def __get_file_info(self, filename):
