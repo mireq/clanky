@@ -128,8 +128,17 @@ class Publisher(BasePublisher):
 		return self.decode_library_element(attachments), self.decode_library_element(gallery)
 
 	def create_libraries_if_dont_exist(self):
+		# update id values for element
+		def set_id(element, val):
+			element['value'] = val
+			element['list_url'] = element['list_url'].replace('__library_id__', val)
+			element['upload_url'] = element['upload_url'].replace('__library_id__', val)
+			element['update_url'] = element['update_url'].replace('__library_id__', val)
+
 		# already exist
 		if self.attachments_element['value'] and self.gallery_element['value']:
+			set_id(self.attachments_element, self.attachments_element['value'])
+			set_id(self.gallery_element, self.gallery_element['value'])
 			return
 		# get form
 		update_url = f'{self.server}dashboard/blog/blogpost/{self.article_id}/change/'
@@ -138,14 +147,8 @@ class Publisher(BasePublisher):
 		html_doc = etree.fromstring(response.text, etree.HTMLParser())
 		form_element = html_doc.find('.//form[@id="blogpost_form"]')
 
+		headers = {'Accept': 'application/json'}
 		cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
-
-		# update id values for element
-		def set_id(element, val):
-			element['value'] = val
-			element['list_url'] = element['list_url'].replace('__library_id__', val)
-			element['upload_url'] = element['upload_url'].replace('__library_id__', val)
-			element['update_url'] = element['update_url'].replace('__library_id__', val)
 
 		# create libraries
 		if not self.attachments_element['value']:
@@ -153,7 +156,7 @@ class Publisher(BasePublisher):
 			form_data = {
 				'csrfmiddlewaretoken': cookies['csrftoken'],
 			}
-			response = self.session.post(self.server + self.attachments_element['create_library_url'], data=form_data)
+			response = self.session.post(self.server + self.attachments_element['create_library_url'], data=form_data, headers=headers)
 			response.raise_for_status()
 			set_id(self.attachments_element, str(response.json()['id']))
 		if not self.gallery_element['value']:
@@ -161,7 +164,7 @@ class Publisher(BasePublisher):
 			form_data = {
 				'csrfmiddlewaretoken': cookies['csrftoken'],
 			}
-			response = self.session.post(self.server + self.gallery_element['create_library_url'], data=form_data)
+			response = self.session.post(self.server + self.gallery_element['create_library_url'], data=form_data, headers=headers)
 			response.raise_for_status()
 			set_id(self.gallery_element, str(response.json()['id']))
 
@@ -208,5 +211,27 @@ class Publisher(BasePublisher):
 		if not files:
 			return {}
 
+		attachment_upload_url = f'{self.server}{self.attachments_element["upload_url"].lstrip("/")}'
+		gallery_upload_url = f'{self.server}{self.gallery_element["upload_url"].lstrip("/")}'
+
 		upload_metadata = {}
+
+		for info in files:
+			with open(info.path, 'rb') as fp:
+				file_data = fp.read()
+			upload_data = {'file': (info.path.name, file_data)}
+			cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+			form_data = {
+				'action': 'upload',
+				'csrfmiddlewaretoken': cookies['csrftoken'],
+				'attachment_gallery': self.attachments_element['value'] if info.image_size is None else self.gallery_element['value']
+			}
+			upload_url = attachment_upload_url if info.image_size is None else gallery_upload_url
+			headers = {'Accept': 'application/json'}
+			response = self.session.post(upload_url, data=form_data, files=upload_data, headers=headers)
+			response.raise_for_status()
+			attachment = [a for a in response.json()['attachments'] if a['is_new']][0]
+			flag = 'a' if info.image_size is None else 'g'
+			upload_metadata[info.hash] = [f'{flag}{attachment["id"]}', attachment["url"]]
+
 		return upload_metadata
