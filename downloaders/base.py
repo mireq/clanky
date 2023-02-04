@@ -123,6 +123,8 @@ class BaseDownloader(object):
 		for link in links:
 			try:
 				response = self.download_link(link)
+				if response is None:
+					continue
 				#response.raise_for_status()
 				content_type = response.headers.get('Content-Type', '').split(';')[0].strip()
 				new_link = self.preprocess_link_response(link, response)

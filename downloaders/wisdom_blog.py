@@ -20,6 +20,8 @@ class Downloader(BaseDownloader):
 		return doc
 
 	def download_link(self, link):
+		if not link.startswith('https://eu-central-1.linodeobjects.com/'):
+			return None
 		match = THUMBNAIL_RX.match(link)
 		if match:
 			link = f'https://eu-central-1.linodeobjects.com/wisdomtech/media/{match.group(1)}'
