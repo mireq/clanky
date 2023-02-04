@@ -57,7 +57,7 @@ class BasePublisher(object):
 		self.article = article
 		self.cleanup_code()
 		self.__load_metadata()
-		self.__extract_files()
+		self._files_by_name = self.extract_files()
 		self.replace_counters()
 		self.replace_footnotes()
 		self.publish(**options)
@@ -132,8 +132,8 @@ class BasePublisher(object):
 	def set_metadata(self, option, value, section=None):
 		return self.__set_config(self._metadata, option, value, section)
 
-	def __extract_files(self):
-		self._files_by_name = {}
+	def extract_files(self):
+		files_by_name = {}
 		is_local = lambda val: not ('://' in val or val.startswith('/'))
 		body = self.article.doc.find('body/article')
 		candidates = set()
@@ -149,7 +149,8 @@ class BasePublisher(object):
 			except Exception:
 				traceback.print_exc()
 				continue
-			self._files_by_name[file_info.name] = file_info
+			files_by_name[file_info.name] = file_info
+		return files_by_name
 
 	def __get_file_info(self, filename):
 		path = (self.article.path.parent / Path(filename)).absolute()
