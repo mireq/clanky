@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-from .base import BasePublisher
+import json
+import re
+import sys
+import traceback
+from datetime import datetime
 from getpass import getpass
 from urllib.parse import urlparse
-import sys
+
 import requests
-import re
-import json
-import traceback
 from lxml import etree
+
+from .base import BasePublisher
 
 
 class Publisher(BasePublisher):
@@ -289,6 +292,8 @@ class Publisher(BasePublisher):
 		response = self.session.get(update_url, allow_redirects=False)
 		response.raise_for_status()
 
+		article_element = self.article.doc.find('body/article')
+
 		html_doc = etree.fromstring(response.text, etree.HTMLParser())
 		form_element = html_doc.find('.//form[@id="blogpost_form"]')
 		form_data = self.get_html_form_data(form_element)
@@ -310,6 +315,14 @@ class Publisher(BasePublisher):
 
 		form_data['content'] = etree.tostring(content, encoding='unicode')[len('<article>'):-len('</article>')]
 
+		if 'data-page-title' in article_element.attrib:
+			form_data['page_title'] = article_element.attrib['data-page-title']
+		if 'data-pub-time' in article_element.attrib:
+			pub_time = datetime.strptime(article_element.attrib['data-pub-time'], '%Y-%m-%d')
+			form_data['pub_time_0'] = pub_time.strftime('%Y-%m-%d')
+			form_data['pub_time_1'] = pub_time.strftime('%H:%M:%S')
+			form_data['is_published'] = 1
+
 		response = self.session.post(update_url, data=form_data, allow_redirects=False)
 		if response.status_code != 302:
-			raise RuntimeError("Failed to create gallery")
+			raise RuntimeError("Failed to update article")
