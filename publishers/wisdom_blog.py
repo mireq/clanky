@@ -184,9 +184,7 @@ class Publisher(BasePublisher):
 		to_delete_hashes = set(uploaded_files.keys()) - set(info.hash for info in self.files.values())
 
 		try:
-			# TODO: implement
-			#self.delete_files(uploaded_files[h] for h in to_delete_hashes)
-			pass
+			self.delete_files(uploaded_files[h] for h in to_delete_hashes)
 		except Exception:
 			traceback.print_exc()
 		for h in to_delete_hashes:
@@ -235,3 +233,51 @@ class Publisher(BasePublisher):
 			upload_metadata[info.hash] = [f'{flag}{attachment["id"]}', attachment["url"]]
 
 		return upload_metadata
+
+	def delete_files(self, files):
+		files = list(files)
+		if not files:
+			return
+
+		headers = {'Accept': 'application/json'}
+
+		urls = {
+			'attachments': f'{self.server}{self.attachments_element["list_url"].lstrip("/")}',
+			'gallery': f'{self.server}{self.gallery_element["list_url"].lstrip("/")}',
+		}
+		lists = {
+			'attachments': self.session.get(urls['attachments'], headers=headers).json()['attachments'],
+			'gallery': self.session.get(urls['gallery'], headers=headers).json()['attachments'],
+		}
+		to_delete = {
+			'attachments': set(),
+			'gallery': set(),
+		}
+
+		for file_id, __ in files:
+			if file_id[:1] == 'g':
+				to_delete['gallery'].add(int(file_id[1:]))
+			else:
+				to_delete['attachments'].add(int(file_id[1:]))
+
+		for section in ['attachments', 'gallery']:
+			if not to_delete[section]:
+				continue
+			form_data = {
+				'action': 'update',
+				'form-INITIAL_FORMS': str(len(lists[section])),
+				'form-TOTAL_FORMS': str(len(lists[section])),
+				'form-MAX_NUM_FORMS': '1000',
+				'form-MIN_NUM_FORMS': '0',
+			}
+			for row, instance in enumerate(lists[section]):
+				form_data[f'form-{row}-ORDER'] = str(row + 1)
+				form_data[f'form-{row}-id'] = instance['id']
+				form_data[f'form-{row}-DELETE'] = '1' if int(instance['id']) in to_delete[section] else ''
+
+			cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+			form_data['csrfmiddlewaretoken'] = cookies['csrftoken']
+
+			response = self.session.post(urls[section], data=form_data, allow_redirects=False)
+			if response.status_code != 302:
+				raise RuntimeError("Failed to create delete attachments")
