@@ -216,7 +216,7 @@ class Publisher(BasePublisher):
 		response = self.session.get(update_url, allow_redirects=False)
 		response.raise_for_status()
 		if response.status_code != 200:
-			raise RuntimeError(f"Wrong status code {response.status_code} for url {attachments_url}")
+			raise RuntimeError(f"Wrong status code {response.status_code} for url {update_url}")
 
 		html_doc = etree.fromstring(response.content, etree.HTMLParser())
 		article_form = html_doc.find('.//div[@id="main_content"]//form')
