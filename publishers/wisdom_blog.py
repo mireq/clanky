@@ -23,6 +23,8 @@ class Publisher(BasePublisher):
 		self.attachments_element, self.gallery_element = self.get_library_elements()
 		self.create_libraries_if_dont_exist()
 		file_mapping = self.update_files()
+		self.article_replace_links((src.name, dest[1]) for src, dest in file_mapping)
+		self.update_article()
 
 	def is_logged(self):
 		response = self.session.get(self.server + 'dashboard/blog/blogpost/')
@@ -281,3 +283,33 @@ class Publisher(BasePublisher):
 			response = self.session.post(urls[section], data=form_data, allow_redirects=False)
 			if response.status_code != 302:
 				raise RuntimeError("Failed to create delete attachments")
+
+	def update_article(self):
+		update_url = f'{self.server}dashboard/blog/blogpost/{self.article_id}/change/'
+		response = self.session.get(update_url, allow_redirects=False)
+		response.raise_for_status()
+
+		html_doc = etree.fromstring(response.text, etree.HTMLParser())
+		form_element = html_doc.find('.//form[@id="blogpost_form"]')
+		form_data = self.get_html_form_data(form_element)
+
+		form_data['title'] = self.extract_title()
+		form_data['perex'] = self.extract_perex(as_string=True)
+		form_data['summary'] = form_data['perex']
+
+		content = self.extract_content()
+		for __, element in etree.iterwalk(content, events=['end']):
+			if element.tag == 'pre' and 'class' in element.attrib:
+				classes = element.attrib['class'].split()
+				highlight_classes = [c for c in classes if c.startswith('code-')]
+				other_classes = [c for c in classes if not c.startswith('code-')]
+				if not other_classes:
+					del element.attrib['class']
+				if highlight_classes:
+					element.attrib['data-code-highlight'] = highlight_classes[0][5:]
+
+		form_data['content'] = etree.tostring(content, encoding='unicode')[len('<article>'):-len('</article>')]
+
+		response = self.session.post(update_url, data=form_data, allow_redirects=False)
+		if response.status_code != 302:
+			raise RuntimeError("Failed to create gallery")
