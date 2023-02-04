@@ -2,11 +2,12 @@
 import base64
 import configparser
 import hashlib
+import json
 import os
 import sys
 import traceback
-from copy import deepcopy
 from collections import Counter, namedtuple, defaultdict
+from copy import deepcopy
 from http.cookiejar import LWPCookieJar
 from io import StringIO
 from pathlib import Path
@@ -271,3 +272,9 @@ class BasePublisher(object):
 			return text.strip()
 		else:
 			return article
+
+	def get_uploaded_fiels(self):
+		uploads = self.get_metadata('uploads', section=self.server)
+		if not uploads:
+			return {}
+		return json.loads(uploads)

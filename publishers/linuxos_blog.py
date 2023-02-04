@@ -108,12 +108,6 @@ class Publisher(BasePublisher):
 			self.set_metadata('id', article_id, section=self.server)
 		return article_id
 
-	def get_uploaded_fiels(self):
-		uploads = self.get_metadata('uploads', section=self.server)
-		if not uploads:
-			return {}
-		return json.loads(uploads)
-
 	def update_files(self):
 		uploaded_files = self.get_uploaded_fiels()
 		to_delete_hashes = set(uploaded_files.keys()) - set(info.hash for info in self.files.values())
