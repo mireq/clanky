@@ -77,7 +77,7 @@ class Publisher(BasePublisher):
 			form_data = {
 				'csrfmiddlewaretoken': cookies['csrftoken'],
 				'sk': '',
-				'title': 'draft',
+				'title': self.extract_title(),
 				'_continue': '1',
 			}
 			create_url = self.server + 'dashboard/blog/blogpost/add/'
@@ -85,7 +85,6 @@ class Publisher(BasePublisher):
 			response = self.session.post(create_url, data=form_data)
 			url = urlparse(response.url)
 			path = url.path
-			print(path)
 			if path == '/dashboard/blog/blogpost/add/':
 				raise RuntimeError("Article not created")
 			article_id = re.match(r'^/dashboard/blog/blogpost/(\d+)/change/$', path).group(1)
