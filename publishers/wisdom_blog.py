@@ -21,6 +21,7 @@ class Publisher(BasePublisher):
 		self.do_login()
 		self.article_id = self.get_or_create_article_id()
 		self.attachments_element, self.gallery_element = self.get_library_elements()
+		self.create_libraries_if_dont_exist()
 		file_mapping = self.update_files()
 
 	def is_logged(self):
@@ -126,8 +127,56 @@ class Publisher(BasePublisher):
 		gallery = html_doc.find('.//input[@name="gallery"]')
 		return self.decode_library_element(attachments), self.decode_library_element(gallery)
 
+	def create_libraries_if_dont_exist(self):
+		# already exist
+		if self.attachments_element['value'] and self.gallery_element['value']:
+			return
+		# get form
+		update_url = f'{self.server}dashboard/blog/blogpost/{self.article_id}/change/'
+		response = self.session.get(update_url)
+		response.raise_for_status()
+		html_doc = etree.fromstring(response.text, etree.HTMLParser())
+		form_element = html_doc.find('.//form[@id="blogpost_form"]')
+
+		cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+
+		# update id values for element
+		def set_id(element, val):
+			element['value'] = val
+			element['list_url'] = element['list_url'].replace('__library_id__', val)
+			element['upload_url'] = element['upload_url'].replace('__library_id__', val)
+			element['update_url'] = element['update_url'].replace('__library_id__', val)
+
+		# create libraries
+		if not self.attachments_element['value']:
+			cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+			form_data = {
+				'csrfmiddlewaretoken': cookies['csrftoken'],
+			}
+			response = self.session.post(self.server + self.attachments_element['create_library_url'], data=form_data)
+			response.raise_for_status()
+			set_id(self.attachments_element, str(response.json()['id']))
+		if not self.gallery_element['value']:
+			cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+			form_data = {
+				'csrfmiddlewaretoken': cookies['csrftoken'],
+			}
+			response = self.session.post(self.server + self.gallery_element['create_library_url'], data=form_data)
+			response.raise_for_status()
+			set_id(self.gallery_element, str(response.json()['id']))
+
+		cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+
+		form_data = self.get_html_form_data(form_element)
+		form_data['attachments'] = self.attachments_element['value']
+		form_data['gallery'] = self.gallery_element['value']
+		form_data['csrfmiddlewaretoken'] = cookies['csrftoken']
+
+		response = self.session.post(update_url, data=form_data, allow_redirects=False)
+		if response.status_code != 302:
+			raise RuntimeError("Failed to create gallery")
+
 	def update_files(self):
-		print(self.attachments_element)
 		uploaded_files = self.get_uploaded_fiels()
 		to_delete_hashes = set(uploaded_files.keys()) - set(info.hash for info in self.files.values())
 
