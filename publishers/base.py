@@ -13,6 +13,7 @@ from io import StringIO
 from pathlib import Path
 
 import requests
+from PIL import Image
 from lxml import etree
 
 
@@ -31,7 +32,7 @@ def get_config_dir():
 		return Path.home() / '.config'
 
 
-FileInfo = namedtuple('FileInfo', ['name', 'hash', 'path'])
+FileInfo = namedtuple('FileInfo', ['name', 'hash', 'path', 'image_size'])
 
 
 class BasePublisher(object):
@@ -152,9 +153,16 @@ class BasePublisher(object):
 
 	def get_file_info(self, filename):
 		path = (self.article.path.parent / Path(filename)).absolute()
+		image_size = None
 		with open(path, 'rb') as fp:
 			file_hash = hashlib.sha224(fp.read()).hexdigest()
-		return FileInfo(filename, file_hash, path)
+			fp.seek(0)
+			try:
+				img = Image.open(fp)
+				image_size = img.size
+			except Exception:
+				pass
+		return FileInfo(filename, file_hash, path, image_size)
 
 	@property
 	def files(self):
