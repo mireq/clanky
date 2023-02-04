@@ -129,7 +129,7 @@ class BaseDownloader(object):
 				if new_link is not None:
 					continue
 				response_data = response.raw.read()
-				filename = link
+				filename = response.url
 				filename.rstrip('/')
 				filename = filename.split('/')[-1]
 				expected_ext = mimetypes.guess_extension(content_type)
