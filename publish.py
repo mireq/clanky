@@ -11,6 +11,7 @@ from lxml import html
 
 PUBLISHERS = [
 	'linuxos_blog',
+	'wisdom_blog',
 ]
 
 
