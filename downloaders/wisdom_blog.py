@@ -71,3 +71,8 @@ class Downloader(BaseDownloader):
 		article_date = datetime.datetime.strptime(info, '%d. %m %Y')
 
 		article.attrib['data-pub-time'] = article_date.strftime('%Y-%m-%d')
+
+		title_image = input_document.find('.//div[@class="blog-header"]/div[@class="img"]/img[@src]')
+		if title_image is not None:
+			thumbnail = next(iter(self.download_links([title_image.attrib['src']]).values()))
+			article.attrib['data-title-image'] = article_date.strftime(thumbnail)
