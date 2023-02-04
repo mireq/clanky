@@ -142,7 +142,7 @@ class BasePublisher(object):
 		candidates = set(candidate for candidate in candidates if is_local(candidate))
 		for candidate in candidates:
 			try:
-				file_info = self.__get_file_info(candidate)
+				file_info = self.get_file_info(candidate)
 				files_by_name[file_info.name] = file_info
 			except FileNotFoundError as e:
 				sys.stderr.write(f"File does not exist {e.filename}\n")
@@ -150,7 +150,7 @@ class BasePublisher(object):
 				traceback.print_exc()
 		return files_by_name
 
-	def __get_file_info(self, filename):
+	def get_file_info(self, filename):
 		path = (self.article.path.parent / Path(filename)).absolute()
 		with open(path, 'rb') as fp:
 			file_hash = hashlib.sha224(fp.read()).hexdigest()
