@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Prečo som napísal vlastný konzolový nástroj na ovládanie hlasitosti</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Prečo som napísal vlastný konzolový nástroj na ovládanie hlasitosti</h1>
+
+	<p>Niekedy jednoduchá chyba vo zvukovom serveri vedie ľudí k divným činom. Napríklad napísanie vlastného nástroja pre ovládanie hlasitosti. Práve o tom bude dnešný blog.</p>
+</header>
+
+<p>Dlhodobo používam ľahké grafické prostredie <a href="https://github.com/awesomeWM/awesome/issues/1395">awesomeWM</a>. Vlastne ani neviem, či to nazvať prostredím, alebo skôr frameworkom na napísanie vlastného prostredia. V každom prípade awesome samo o sebe neobsahuje ovládanie hlasitosti.</p>
+
+<p>Neznamená to, že by neexistoval spôsob, ako ovládať hlasitosť. Ako som už spomenul, <code>awesomeWM</code> je skôr framework než hotové prostredie a preto nie je problém čokoľvek vlastné doprogramovať. Ako programovací jazyk autori zvolili <a href="https://www.lua.org/">Lua</a>, čo je myslím celkom dobrá voľba v tomto prípade.</p>
+
+<p>Doteraz som ovládal hlasitosť cez malý <em>lua</em> kód, ktorý spúšťal konzolové nástroje <code>alsactl</code> pre zmenu hlasitosti a <code>alsactl monitor</code> pre monitorovanie aktuálnej úrovne, aby prostredie reagovalo na zmenu hlasitosti externým nástrojom. Tento prístup fungoval so zvukovým systémom <em>alsa</em>. On dokonca fungoval aj po prechode na <em>pulseaudio</em>, pretože to si registruje vlastný <em>alsa</em> mixér a samotné aplikácie sa naďalej môžu tváriť, že komunikujú s <em>alsou</em>. Fungovalo to dokonca aj po prechode na zvukový server <em>pipewire</em>, ktorý tiež emuluje <em>alsu</em>. Fungovalo …</p>
+
+<p>Prvé problémy začali po určitej aktualizácii, kedy sa spomalil štart <em>pipewire</em> čo viedlo k tomu, že <code>alsactl monitor</code> začal monitorovať nesprávnu zvukovku. Zatiaľ som to riešil reštartom <em>awesomeWM</em> hneď po štarte, aby nabehol s monitoringom správnej zvukovky. Nepríjemné, ale nechcelo sa mi to opravovať. Ďalšou aktualizáciou sa objavil ďalší problém a totiž <code>alsactl</code> dokázal nastaviť iba 3 úrovne hlasitosti. Úroveň 0 znamenal stíšený zvuk. Úroveň 1% pipewire zvukovky znamenal vyše 30% reálnej, 2% boli zhuba 70% reálnej a všetko od 3% vyššie znamenalo 100% hlasitosti. To už akceptovateľné nebolo.</p>
+
+<p>Nie som človek, ktorý by donekonečna na niečo nadával, takže keď niečo nefunguje skôr si vyhrniem rukávy a idem to opraviť. Tak to bolo aj v tomto prípade.</p>
+
+<h2>Aké sú možnosti</h2>
+
+<p>Po aktualizácii zostalo ovládanie cez <em>alsa</em> nepoužiteľné. Ovládanie cez pulseaudio API a pipewire funguje super. Problém je, že ani v jednom prípade som nenašiel vhodný konzolový nástroj pre monitoring zmeny hlasitosti.</p>
+
+<p>Rozhodol som sa preto napísať vlastné CLI vhodné pre zapracovanie do <em>awesomeWM</em>. Mojim cieľom bolo napísať nástroj dostatočne robustný na to, aby mu nevadilo, že naštartuje skôr než zvukový server. Nástroj, ktorý by vedel reagovať na pripojenie / odpojenie nových vstupov / výstupov. Nástroj, ktorý by v sebe kombinoval možnosť ovládania cez <em>štandardný vstup</em> a monitoring cez <em>štandardný výstup</em>. Tak sa zrodil <a href="https://github.com/mireq/pulsectrl">pulsectrl</a>.</p>
+
+<h2>Ovládanie</h2>
+
+<p>Nástroj <code>pulsectrl</code> po spustení vypisuje na štandardný výstup správy o zmene hlasitosti a zmene predvoleného vstupu a výstupu. Príklad výstupu:</p>
+
+<pre>
+default sink	alsa_output.pci-0000_07_00.6.HiFi__hw_Generic_1__sink
+volume sink	*M	0.27586	alsa_output.pci-0000_07_00.6.HiFi__hw_Generic_1__sink
+default source	alsa_input.pci-0000_07_00.6.HiFi__hw_acp__source
+volume source	*M	1.00000	alsa_input.pci-0000_07_00.6.HiFi__hw_acp__source
+</pre>
+
+<p>Riadky <code>default sink</code> a <code>default source</code> znamenajú zmenu predvoleného zvukového výstup a vstupu.</p>
+
+<p>Riadok <code>volume (tabulátor) [sink|source] (tabulátor) príznaky (tabulátor) zariadenie</code> sa vypíše pri zmene hlasitosti. Všetky polia sú oddelené tabulátormi. Príznaky je pole o dĺžke 2 znakov, kde prvý je buď hviezdička pre predvolený vstup / výstup, alebo prázdny znak. Druhý príznak je <code>'M'</code> pre stíšený stav (<em>mute</em>). Hlasitosť je vypísaná ako desatinné číslo v rozsahu 0 - 1.</p>
+
+<p>Okrem monitoringu nástroj umožňuje aj ovládať hlasitosť. Príkazy musia byť zadané presne a operandy sú oddelené vždy 1 medzerou. Holt ide o nástroj, ktorý má byť ovládaný programovo, takže si z neintuitívneho ovládania nerobím ťažkú hlavu. Podporované sú nasledujúce príkazy:</p>
+
+<table>
+	<thead>
+		<tr>
+			<th>Príkaz</th>
+			<th>Hodnota</th>
+			<th>Popis</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td><code>sink mute_toggle</code></td>
+			<td></td>
+			<td>prepnutie stíšenia reporduktoru</td>
+		</tr>
+		<tr>
+			<td><code>sink mute_set</code></td>
+			<td></td>
+			<td>stíšiť reproduktor</td>
+		</tr>
+		<tr>
+			<td><code>sink mute_clear</code></td>
+			<td></td>
+			<td>zrušiť stíšenie reproduktor</td>
+		</tr>
+		<tr>
+			<td><code>sink set</code></td>
+			<td>0 - 1</td>
+			<td>nastavenie hlasitosti reporduktoru<br />napr:<code>sink set 0.5</code> - 50% hlasitosť</td>
+		</tr>
+		<tr>
+			<td><code>sink change</code></td>
+			<td>-1 - 1</td>
+			<td>relatívna zmena hasitosti reproduktoru<br />napr: <code>sink change -0.1</code> - stíšenie o 10%</td>
+		</tr>
+		<tr>
+			<td><code>source [príkaz]</code></td>
+			<td>[hodnota]</td>
+			<td>ovládanie mikrofónu, príkazy sú totožné s reproduktorom</td>
+		</tr>
+	</tbody>
+</table>
+
+<h2>Integrácia do awesomeWM</h2>
+
+<p>Paradoxne aj keď som svoj program navhol pre <em>awesomeWM</em>, nebolo to tak jednoduché integrovať ho. Nie je síce problém zavolať jednorázovú utilitku s parametrami, alebo čakať na to, kým niečo vypíše na stdout, ale skutočný problém je, že že <em>awesomeWM</em> okamžite zatvára stdin aplikácie spustenej cez <a href="https://awesomewm.org/doc/api/libraries/awful.spawn.html#with_line_callback">with_line_callback</a>. Teoreticky som to mohol riešiť iba v lue, ale asynchrónne spracovanie, ktoré má <em>awesomeWM</em> my vyhovuje viac, takže som si mierne upravil túto funkciu a hodil do vlastného <a href="https://github.com/mireq/awesome-wm-config/blob/92748832a2beb763f928a128a2ec0f50f9738587/rc.lua#L282">rc.lua</a>.</p>
+
+<p>Aj otvorenie <em>stdin</em> je pomerne veľký hack - <code>volume_monitor_ctl = io.open('/proc/' .. pid .. '/fd/0', 'w')</code>. Nechcel som používať ďalšiu dodatočnú knižnicu, ktorá by mi obalila číslo deskriptoru do file IO objektu, preto tento hack. Samotné ovládanie hlasitosti po počiatočných problémoch vyzerá pomerne jednoducho:</p>
+
+<pre class="code-lua">
+local function volume(mode)
+	if volume_monitor_ctl == nil then
+		return
+	end
+
+	if mode == "up" then
+		volume_monitor_ctl:write('sink change 0.01\n')
+		volume_monitor_ctl:flush()
+	elseif mode == "down" then
+		volume_monitor_ctl:write('sink change -0.01\n')
+		volume_monitor_ctl:flush()
+	elseif mode == "mute" then
+		volume_monitor_ctl:write('sink mute_toggle\n')
+		volume_monitor_ctl:flush()
+	elseif mode == "micmute" then
+		volume_monitor_ctl:write('source mute_toggle\n')
+		volume_monitor_ctl:flush()
+	end
+end
+local volumekeys = awful.util.table.join(
+	awful.button({ }, 4, function () volume("up") end),
+	awful.button({ }, 5, function () volume("down") end),
+	awful.button({ }, 1, function () volume("mute") end)
+)
+</pre>
+
+<p>Ovládanie hlasitosti funguje opäť spoľahlivo a presne ako za čias keď som používal čistú <em>alsu</em>.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
