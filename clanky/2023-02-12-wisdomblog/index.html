@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Predstavujem wisdomtech blog</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article>
+
+<header>
+	<h1>Predstavujem wisdomtech blog</h1>
+
+	<p>Môj najnovší open source projekt je jednoduchý publikačný systém založený na django frameworku. V tomto článku predstavím projekt a niektoré netradičné technické riešenia.</p>
+</header>
+
+<p>Spoločnosť Wisdom Technologies s.r.o., pod ktorou som pracoval nedávno ukončila svoju činnosť. Možno sa pýtate, čo sa zmenilo a prečo teraz predstavujem nový projekt.</p>
+
+<p>Dôvodom vytvorenia novej platformy na písanie blogov je snaha o zachovanie súčasného obsahu a pridávanie nových článkov.</p>
+
+<p>Vytvorenie úplne nového webu a presun obsahu som si zobral na starosť ja. Nový web je aktuálne online na adrese <a href="https://wisdomtech.sk/">wisdomtech.sk</a>. Toto predstavenie sa však týka projektu a nemá byť reklamou (vlastne čo tak môže neexistujúca firma ponúkať?).</p>
+
+<p>Predstavenie začnem licenciou. Vybral som MIT, ktorá patrí medzi tie slobodnejšie z pohľadu vývojára. Zdrojové kódy sú zverejnené na <a href="https://github.com/mireq/wisdomtech-blog">github</a>e.</p>
+
+<h2>Technologický stack</h2>
+
+<p>S webovým frameworkom <a href="https://www.djangoproject.com/">Django</a> pracujem pomerne dlhú dobu. Celý projekt je preto postavený na <em>Djanngu</em>.</p>
+
+<p>Ako webový server je použitý <a href="https://www.nginx.com/">nginx</a> s agresívnym cachovaním. Ako databázový server je použitý štandardný <a href="https://www.postgresql.org/">PostgreSQL</a> bez nejakých tých špecialít typu <a href="https://github.com/postgrespro/rum">RUM</a>.</p>
+
+<p>Javascripty a css súbory sú kombinované / kompilované pythonom bez externých závislostí na nodejs, alebo dart (scss). O ich generovanie sa stará <a href="https://pypi.org/project/django-compressor/">django-compressor</a>.</p>
+
+<p>Ako šablónovací systém som zvolil <a href="https://pypi.org/project/Jinja2/">Jinja2</a>. HTML je kompletne renderované na serveri.</p>
+
+<p>V zásade celý technologický stack je pomerne konzervatívny a niektorí „moderní“ javascriptoví developeri by tento prístup označili za stredovek.</p>
+
+<h2>Výkon na prvom mieste</h2>
+
+<p>Pri vývoji frontendu sa snažím dlhodobo vyhýbať veľkým frameworkom a kombinovaniu niekoľkých MB javascriptu do jedného veľkého súboru. Namiesto toho píšem čo najmenší postačujúci kód. Tak je to aj v tomto prípade.</p>
+
+<figure>
+	<a href="img/blog_speed.png"><img src="img/blog_speed.png" alt="Rýchlosť načítania" /></a>
+	<figcaption>Obrázok <counter></counter>: Rýchlosť načítania</figcaption>
+</figure>
+
+<p>Štýl webu tvorí necelých <code>6 kB CSS</code>. Funkcionalitu dopĺňa niečo cez <code>1 kB javascriptu</code>. Najviac priestoru zaberajú webové fonty, ktoré sú síce slušne optimalizované, ale aj tak je to najväčšia časť prenosu dát. Holt nejaká tá konzistencia medzi rôznymi zariadeniami s rôznymi nainštalovanými štýlmi písma nie je zadarmo.</p>
+
+<figure>
+	<a href="img/pagespeed.png"><img src="img/pagespeed.png" alt="Rýchlosť webu" /></a>
+	<figcaption>Obrázok <counter></counter>: Rýchlosť webu</figcaption>
+</figure>
+
+<p>Úroveň optimalizácie v niektorých častiach prekračuje všetky rozumné medze. Napríklad modul stránkovania je navrhnutý tak, aby mu nevadilo stránkovanie nad niekoľko terabajtovou databázou. Fakt delo na komára, ale tu by som chcel povedať, že nie je to jediný projekt, na ktorom pracujem a potreboval som si vyskúšať, či môj modul funguje korektne. O stránkovaní v relačných databázach mám v pláne napísať niekedy inokedy (a zatiaľ ani neviem na ktorom webe).</p>
+
+<h2>Dizajn</h2>
+
+<p>Ako dizajn som chcel niečo jednoduché. Už pomerne dlhú dobu píšem články s použitím <a href="https://linuxos.sk/blog/mirecove-dristy/detail/ako-publikujem-clanky/">vlastnej šablóny</a>, ktorá je založená na štýle <a href="http://matejlatin.github.io/Gutenberg/example2/">Gutenberg</a>. Keď sme sa rozprávali, akú šablónu použijeme, zhodli sme sa na tom, že chceme niečo jednoduché. Hneď som ako príklad ukázal svoj publikačný systém a tak bolo rozhodnutie použiť <em>Gutenberg</em> schválené.</p>
+
+<p>V kóde <em>Gutenbergu</em> som urobil dosť zásadné zmeny. Takpovediac z pôvodného kódu zostal asi len komentár v hlavičke. Vzhľad je ale silne inšpirovaný, preto tam aj komentár zostáva.</p>
+
+<figure>
+	<a href="img/homepage.jpg"><img src="img/homepage_small.jpg" alt="Domovská stránka" /></a>
+	<figcaption>Obrázok <counter></counter>: Domovská stránka</figcaption>
+</figure>
+
+<figure>
+	<a href="img/content.png"><img src="img/content.png" alt="Ukážka detailu" /></a>
+	<figcaption>Obrázok <counter></counter>: Ukážka detailu</figcaption>
+</figure>
+
+<p>Na obrázkoch je <a href="https://en.wikipedia.org/wiki/Mandelbrot_set">Mandelbrotova množina</a>. Kód pre rendering množiny som zverejnil na <a href="https://www.shadertoy.com/view/7ldyDf">shadertoy.com</a>.</p>
+
+<h2>CSS</h2>
+
+<p>Štýly sa generujú z <a href="https://github.com/mireq/wisdomtech-blog/blob/115f147c925a221ff6f4af54ebbaef960af2522a/static/css/style.scss">scss</a> zdrojového kódu pomocou knižnice <em>libsass</em>. V porovnaní s referenčnou implementáciou má minimálne závislosti, rádovo vyšší výkon a možnosť registrovať si vlastné natívne funkcie.</p>
+
+<p>Vektorové obrázky sú vložené do scss pomocou <a href="https://github.com/mireq/wisdomtech-blog/blob/115f147c925a221ff6f4af54ebbaef960af2522a/static/css/_svg.scss">utility funkcie</a> a <a href="https://github.com/mireq/wisdomtech-blog/blob/115f147c925a221ff6f4af54ebbaef960af2522a/web/scss.py">vlastného rozšírenia libsass</a>, ktoré vie vložiť svg kód do scss. Okrem vkladania obrázkov umožňuje aj vložiť vstavaný CSS štýl priamo do SVG, čo sa dá použiť napríklad na vloženie viacerých variantov toho istého SVG so zmenenými farbami.</p>
+
+<h2>Nginx cache</h2>
+
+<p>Chcel som dosiahnuť rýchlosť odpovede servera porovnateľnú so statickými generátormi. V praxi to znamená, že cache musí byť implementované na úrovni webového serveru. Lenže ...</p>
+
+<blockquote>
+	There are only two hard things in Computer Science: cache invalidation and naming things.<br />-- Phil Karlton.
+</blockquote>
+
+<p>Začnem tou jednoduchšou časťou - ukladanie cache. Webový server <em>nginx</em> má podporu ukladania cache na disk, prečo to teda nenakonfigurovať a z django aplikácie vo vhodný moment len premazať cache?</p>
+
+<p>Navrhol som teda ukladanie cache do adresára <code>/tmp/blog_cache</code>. V ňom som vytvoril ešte jeden podadresár pre cachovanie zoznamu článkov. Nastavenie v nginx vyzerá pomerne jednoducho:</p>
+
+<pre>
+uwsgi_cache_path /tmp/blog_cache levels=1:2 keys_zone=blog_cache:10m max_size=100m inactive=14d;
+uwsgi_cache_path /tmp/blog_cache/list levels=1:2 keys_zone=blog_cache_list:10m max_size=100m inactive=14d;
+
+server {
+	listen 80;
+	listen [::]:80;
+
+	set $base_host "wisdomtech.sk";
+	server_name wisdomtech.sk www.wisdomtech.sk;
+
+	include snippets/letsencrypt.conf;
+	include snippets/ssl.conf;
+	include snippets/django-vhost.conf;
+	include snippets/standard-error-pages.conf;
+
+	location ~ ^/(en/|sk/|)$ {
+		include snippets/https-redirect.conf;
+		include snippets/no-www-redirect.conf;
+
+		uwsgi_cache blog_cache_list;
+		uwsgi_cache_valid 200 1d;
+		uwsgi_cache_key "${uri}:${arg_page}";
+
+		include snippets/call-uwsgi.conf;
+	}
+
+	location ~ ^/(en/|sk/|)[-a-zA-Z0-9_]+-p\d+/$ {
+		include snippets/https-redirect.conf;
+		include snippets/no-www-redirect.conf;
+
+		uwsgi_cache blog_cache;
+		uwsgi_cache_valid 200 301 302 7d;
+		uwsgi_cache_key "${uri}";
+
+		include snippets/call-uwsgi.conf;
+	}
+
+	location / {
+		include snippets/https-redirect.conf;
+		include snippets/no-www-redirect.conf;
+		try_files $uri @uwsgi;
+	}
+}
+</pre>
+
+<p>Názov cache súboru je vypočítaný ako <code>md5sum</code> z <code>cache_key</code>. Pri každom uložení stačí vymazať cache pre detail a podadresár <code>list</code>. Znie síce jednoducho, ale tu som narazil na jeden problém. Práva cache adresára sú <code>700</code> a súbory majú <code>600</code>. Server <em>nginx</em> neumožňuje nastaviť iného vlastníka, či režim cache súborov. Ako to teda vyriešiť?</p>
+
+<p>Nechcel som, aby <em>nginx</em> a aplikácia bežali pod rovnakým užívateľom. Nakoniec som to vyriešil primontovaním cache adresára cez <a href="https://bindfs.org/">bindfs</a> s premapovaným vlastníkom.</p>
+
+<h2>Kód na prvom mieste</h2>
+
+<p>Som programátor a často publikujem články s rôznymi ukážkami zdrojového kódu.</p>
+
+<figure>
+	<a href="img/source_editor.png"><img src="img/source_editor.png" alt="Editácia výpisu zdrojového kódu" /></a>
+	<figcaption>Obrázok <counter></counter>: Editácia výpisu zdrojového kódu</figcaption>
+</figure>
+
+<p>Mnoho publikačných systémov trpí rôznymi nepríjemnými vlastnosťami. Za najnepríjemnejšiu považujem nahrádzanie úvodzoviek vo výpisoch.</p>
+
+<p>Moja implementácia v prvom rade nemodifikuje zdrojové kódy a kód v značke <code>&lt;code&gt;</code>. Do bežného textu sa pomocou slovníka pridávajú znaky zalomenia slova (<a href="https://en.wikipedia.org/wiki/Soft_hyphen">soft hyphen</a>).</p>
+
+<p>Do zdrojových kódov sa pridáva zvýrazňovanie syntaxe priamo na strane servera pomocou knižnice <a href="https://pygments.org/">pygments</a>. Publikačné systémy dnes väčšinou riešia zvýrazňovanie na strane klienta pomocou javascriptu. Za rendering na serveri ma možno niektorí budú považovať za fosíliu, ale čo už. My starí programátori si na to musíme zvyknuť.</p>
+
+<p>Z neštandardných vlastností by som spomenul ešte možnosť kombinovať markup v zdrojových kódoch. V praxi to znamená, že v zdrojovom kóde môžem zvýrazniť riadok, či časť kódu. Vo WYSIWYG editore stačí označiť relevantnú časť, stlačiť <code>Ctrl+B</code> pre tučné písmo a je to. Na serveri je <a href="https://github.com/mireq/wisdomtech-blog/blob/115f147c925a221ff6f4af54ebbaef960af2522a/web/utils/syntax_highlight.py#L102">príšerný kus kódu</a>, ktorý spojí môj markup s výstupom z highlightera. Nepýtajte sa ako to funguje, písal som to ja a netuším ako to fungovalo ani keď som to písal. Proste to funguje a rieši to všetky možné spôsoby kríženia tagov.</p>
+
+<figure>
+	<a href="img/code.png"><img src="img/code.png" alt="Ukážka kódu" /></a>
+	<figcaption>Obrázok <counter></counter>: Ukážka kódu</figcaption>
+</figure>
+
+<h2>Obrázky</h2>
+
+<p>Pre generovanie náhľadov používam modul <a href="https://easy-thumbnails.readthedocs.io/en/latest/">easy thumbnails</a>. Samozrejme nebol by som to ja, keby som ho nepoužíval trochu neštandardným spôsobom a nenarazil by som pri tom na niektoré corner casy, kvôli ktorým som aj písal vlastné patche. Tie sú už našťastie začlenené v hlavnom projekte.</p>
+
+<p>Obrázky sa generujú v niekoľkých veľkostiach a niekoľkých formátoch. Je na prehliadači, aby si vybral správny obrázok na základe šírky viewportu v pixeloch (myslím tie reálne, nie tie v CSS). Kompresia je tým vyššia, čím je väčšie rozlíšenie obrázka. Dôvodom je, že obrázky s väčším rozlíšením sa typicky renderujú na HiDPI displayoch, ale fyzická veľkosť obrázka na displayi nie je tak veľká, aby bolo viditeľné zníženie kvality povedzme z 80% na 60%.</p>
+
+<p>Všetky obrázky (aj tie v obsahu stránky) majú automaticky nastavenú šírku a výšku vďaka čomu ani pri lazy loadingu nedochádza k prepočítavaniu layout stránky. Samotný kód obrázka vyzerá ako celkom slušné monštrum.</p>
+
+<pre>
+&lt;picture&gt;
+	&lt;source
+		type="image/webp"
+		srcset="
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.828x569_LxxUgxPXyElIm8YNruKDMRPi.jpg.webp 828w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.328x225_LxxUgxPXyElIm8YNruKDMRPi.jpg.webp 328w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.496x340_LxxUgxPXyElIm8YNruKDMRPi.jpg.webp 496w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.656x450_LxxUgxPXyElIm8YNruKDMRPi.jpg.webp 656w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.984x676_t_YubxSW0WssWJBfRk0fakrX.jpg.webp 984w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.1656x1138_GFZfoNLQBEUWG955RDv2VPdz.jpg.webp 1656w"
+	&gt;
+	&lt;img
+		src="/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.828x569_LxxUgxPXyElIm8YNruKDMRPi.jpg"
+		srcset="
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.828x569_LxxUgxPXyElIm8YNruKDMRPi.jpg 828w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.328x225_LxxUgxPXyElIm8YNruKDMRPi.jpg 328w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.496x340_LxxUgxPXyElIm8YNruKDMRPi.jpg 496w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.656x450_LxxUgxPXyElIm8YNruKDMRPi.jpg 656w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.984x676_t_YubxSW0WssWJBfRk0fakrX.jpg 984w
+			/64af9506-9dfd-415a-b516-7e52e80ee1d0.jpg.1656x1138_GFZfoNLQBEUWG955RDv2VPdz.jpg 1656w"
+		alt="Nunc scelerisque, tellus at eleifend viverra"
+		width="828"
+		height="569"&gt;
+&lt;/picture&gt;
+</pre>
+
+<h2>Administrácia</h2>
+
+<p>Namiesto vlastného administrátorského rozhrania som išiel cestou najmenšieho odporu a využil som vstavané rozhranie <em>djanga</em>. Editáciu obsahu zabezpečuje <a href="https://www.tiny.cloud/">TinyMCE</a>. Inak tu nie je asi nič zaujímavé, jednoducho staré nudné automaticky generované administrátorské rozhranie. Nenadchne. Neurazí.</p>
+
+<figure>
+	<a href="img/admin.jpg"><img src="img/admin_small.jpg" alt="Administrácia" /></a>
+	<figcaption>Obrázok <counter></counter>: Administrácia</figcaption>
+</figure>
+
+<h2>Záver</h2>
+
+<p>Čo by som mal napísať na záver? Hádam už len zopakujem odkaz na <a href="https://github.com/mireq/wisdomtech-blog">repozitár</a>. Vďaka slobodne licencii pokojne forkujte, kopírujte časti kódu, inšpirujte sa, jednoducho urobte internet lepším miestom.</p>
+
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
