@@ -3,11 +3,13 @@ import base64
 import configparser
 import hashlib
 import json
+import re
 import os
 import sys
 import traceback
 from collections import Counter, namedtuple, defaultdict
 from copy import deepcopy
+from decimal import Decimal as D, ROUND_CEILING
 from http.cookiejar import LWPCookieJar
 from io import StringIO
 from pathlib import Path
@@ -30,6 +32,29 @@ def get_config_dir():
 		return Path(xdg_config_home)
 	else:
 		return Path.home() / '.config'
+
+
+LENGTH_TO_PIX = {
+	'': lambda val: val,
+	'em': lambda val: val * 16,
+	'ex': lambda val: val * 6,
+	'in': lambda val: val * 96,
+	'cm': lambda val: val * D('37.8'),
+	'mm': lambda val: val * D('3.78'),
+	'pt': lambda val: (val * 4) / 3,
+	'pc': lambda val: val * 16,
+	'%': lambda val: val * 800,
+}
+
+
+def parse_svg_length(length):
+	match = re.match(r'(\d*\.?\d*)\s*(.*)', length)
+	number, unit = match.groups()
+	unit = unit.lower().strip()
+	number = D(number)
+	pixels = LENGTH_TO_PIX.get(unit, LENGTH_TO_PIX[''])(number)
+	pixels = pixels.quantize(D(1), ROUND_CEILING)
+	return int(pixels)
 
 
 FileInfo = namedtuple('FileInfo', ['name', 'hash', 'path', 'image_size'])
@@ -160,6 +185,21 @@ class BasePublisher(object):
 			try:
 				img = Image.open(fp)
 				image_size = img.size
+			except Exception:
+				pass
+			try:
+				__, ext = os.path.splitext(path)
+				if ext.lower() == '.svg':
+					fp.seek(0)
+					tree = etree.parse(fp)
+					root = tree.getroot()
+					width, height, view_box = root.attrib.get('width'), root.attrib.get('height'), root.attrib.get('viewBox')
+					if (not width or not height) and view_box:
+						__, __, width, height = view_box.split()
+					if width and height:
+						width = parse_svg_length(width)
+						height = parse_svg_length(height)
+						image_size = (width, height)
 			except Exception:
 				pass
 		return FileInfo(filename, file_hash, path, image_size)
