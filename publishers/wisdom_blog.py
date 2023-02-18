@@ -15,7 +15,7 @@ from .base import BasePublisher
 
 class Publisher(BasePublisher):
 	def add_arguments(self, parser):
-		parser.add_argument('--server', default='https://blog.wisdomtech.sk/')
+		parser.add_argument('--server', default='https://wisdomtech.sk/')
 
 	def publish(self, server):
 		self.server = server
