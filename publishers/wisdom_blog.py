@@ -233,7 +233,10 @@ class Publisher(BasePublisher):
 			headers = {'Accept': 'application/json'}
 			response = self.session.post(upload_url, data=form_data, files=upload_data, headers=headers)
 			response.raise_for_status()
-			attachment = [a for a in response.json()['attachments'] if a['is_new']][0]
+			response = response.json()
+			if not 'attachments' in response:
+				raise RuntimeError("Failed to upload file: %s" % repr(response))
+			attachment = [a for a in response['attachments'] if a['is_new']][0]
 			flag = 'a' if info.image_size is None else 'g'
 			upload_metadata[info.hash] = [f'{flag}{attachment["id"]}', attachment["url"]]
 
