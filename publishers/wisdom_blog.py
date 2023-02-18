@@ -93,7 +93,7 @@ class Publisher(BasePublisher):
 			url = urlparse(response.url)
 			path = url.path
 			if path == '/dashboard/blog/blogpost/add/':
-				raise RuntimeError("Article not created")
+				raise RuntimeError("Article not created:\n%s" % response.text)
 			article_id = re.match(r'^/dashboard/blog/blogpost/(\d+)/change/$', path).group(1)
 			self.set_metadata('id', article_id, section=self.server)
 		return article_id
