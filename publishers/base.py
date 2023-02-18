@@ -9,7 +9,7 @@ import sys
 import traceback
 from collections import Counter, namedtuple, defaultdict
 from copy import deepcopy
-from decimal import Decimal as D, ROUND_CEILING
+from decimal import Decimal as D
 from http.cookiejar import LWPCookieJar
 from io import StringIO
 from pathlib import Path
@@ -53,7 +53,7 @@ def parse_svg_length(length):
 	unit = unit.lower().strip()
 	number = D(number)
 	pixels = LENGTH_TO_PIX.get(unit, LENGTH_TO_PIX[''])(number)
-	pixels = pixels.quantize(D(1), ROUND_CEILING)
+	pixels = pixels.quantize(D(1))
 	return int(pixels)
 
 
