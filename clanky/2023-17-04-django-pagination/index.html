@@ -99,20 +99,20 @@ ALTER TABLE ONLY book_rating
 
 <pre class="u-nowrap">
 SELECT book_id, rating FROM book_rating ORDER BY id LIMIT 10;
-┌─────────┬────────┐
-│ book_id │ rating │
-├─────────┼────────┤
-│   91406 │      4 │
-│    7794 │      1 │
-│   11422 │      2 │
-│   54729 │      4 │
-│   24238 │      1 │
-│   12438 │      2 │
-│   79359 │      5 │
-│   58785 │      4 │
-│    3287 │      2 │
-│   50076 │      5 │
-└─────────┴────────┘
++---------+--------+
+| book_id | rating |
++---------+--------+
+|   91406 |      4 |
+|    7794 |      1 |
+|   11422 |      2 |
+|   54729 |      4 |
+|   24238 |      1 |
+|   12438 |      2 |
+|   79359 |      5 |
+|   58785 |      4 |
+|    3287 |      2 |
+|   50076 |      5 |
++---------+--------+
 (10 rows)
 
 Time: <strong>0,371</strong> ms
@@ -122,14 +122,14 @@ Time: <strong>0,371</strong> ms
 
 <pre class="u-nowrap">
 EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT book_id, rating FROM book_rating ORDER BY id LIMIT 10;
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                   QUERY PLAN                                    │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│ Limit (actual rows=10 loops=1)                                                  │
-│   -&gt;  Index Scan using book_rating_pkey on book_rating (actual rows=<strong>10</strong> loops=1) │
-│ Planning Time: 0.133 ms                                                         │
-│ Execution Time: <strong>0.081</strong> ms                                                        │
-└─────────────────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------------------+
+|                                   QUERY PLAN                                    |
++---------------------------------------------------------------------------------+
+| Limit (actual rows=10 loops=1)                                                  |
+|   -&gt;  Index Scan using book_rating_pkey on book_rating (actual rows=<strong>10</strong> loops=1) |
+| Planning Time: 0.133 ms                                                         |
+| Execution Time: <strong>0.081</strong> ms                                                        |
++---------------------------------------------------------------------------------+
 </pre>
 
 <p>Dotaz vykonáva rýchly index sken obmedzený na 10 riadkov. Samotný čas vykonávanie 0.081 ms je veľmi dobrá hodnota.</p>
@@ -140,11 +140,11 @@ EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT book_id, rating FROM bo
 
 <pre class="u-nowrap">
 SELECT COUNT(*) FROM book_rating;
-┌─────────┐
-│  count  │
-├─────────┤
-│ 1000000 │
-└─────────┘
++---------+
+|  count  |
++---------+
+| 1000000 |
++---------+
 (1 row)
 
 Time: <strong>34,262</strong> ms
@@ -157,11 +157,11 @@ ANALYZE
 Time: 183,467 ms
 
 SELECT COUNT(*) FROM book_rating;
-┌─────────┐
-│  count  │
-├─────────┤
-│ 1000000 │
-└─────────┘
++---------+
+|  count  |
++---------+
+| 1000000 |
++---------+
 (1 row)
 
 Time: <strong>35,655</strong> ms
@@ -171,14 +171,14 @@ Time: <strong>35,655</strong> ms
 
 <pre class="u-nowrap">
 EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT COUNT(*) FROM book_rating;
-┌─────────────────────────────────────────────────────────────┐
-│                         QUERY PLAN                          │
-├─────────────────────────────────────────────────────────────┤
-│ Aggregate (actual rows=1 loops=1)                           │
-│   -&gt;  <strong>Seq Scan</strong> on book_rating (actual rows=<strong>1000000</strong> loops=1) │
-│ Planning Time: 0.100 ms                                     │
-│ Execution Time: <strong>44.656</strong> ms                                   │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                         QUERY PLAN                          |
++-------------------------------------------------------------+
+| Aggregate (actual rows=1 loops=1)                           |
+|   -&gt;  <strong>Seq Scan</strong> on book_rating (actual rows=<strong>1000000</strong> loops=1) |
+| Planning Time: 0.100 ms                                     |
+| Execution Time: <strong>44.656</strong> ms                                   |
++-------------------------------------------------------------+
 </pre>
 
 <p>Pre spočítanie riadkov v tabuľke musí databázový systém preskenovať (prečítať) kompletne celú tabuľku. Väčšina čitateľov, ktorá do hĺbky neštudovala databázové systémy si teraz asi hovorí, prečo databázový systém nepoužije index? Však uložiť počet riadkov ako metadáta tabuľky nemôže byť predsa nič ťažké.</p>
@@ -234,20 +234,20 @@ LIMIT 10;
 <p>Samotný výber riadkov je celkom uspokojivý.</p>
 
 <pre class="u-nowrap">
-┌────┬────────┬─────────────────┬───────────────┐
-│ id │ rating │      name       │ total_revenue │
-├────┼────────┼─────────────────┼───────────────┤
-│  1 │      4 │ mwJLdKU7i0Iqpe3 │        224.00 │
-│  2 │      1 │ 4AYnAqiSSAmfDt5 │        232.00 │
-│  3 │      2 │ EgYd9e4nYC1YX72 │        310.00 │
-│  4 │      4 │ kFCMna9vycWFvNT │        337.00 │
-│  5 │      1 │ 5Z9V3tTUCQPcWse │        243.00 │
-│  6 │      2 │ fuQu2GhvrwMIPfE │         88.00 │
-│  7 │      5 │ Wxn3gH6v2xeGD3p │        252.00 │
-│  8 │      4 │ VaeKeqymBj6fOEH │        180.00 │
-│  9 │      2 │ V3rkEJZ7ag8lAG0 │        310.00 │
-│ 10 │      5 │ 0msAG9UwymXRs5Z │        239.00 │
-└────┴────────┴─────────────────┴───────────────┘
++----+--------+-----------------+---------------+
+| id | rating |      name       | total_revenue |
++----+--------+-----------------+---------------+
+|  1 |      4 | mwJLdKU7i0Iqpe3 |        224.00 |
+|  2 |      1 | 4AYnAqiSSAmfDt5 |        232.00 |
+|  3 |      2 | EgYd9e4nYC1YX72 |        310.00 |
+|  4 |      4 | kFCMna9vycWFvNT |        337.00 |
+|  5 |      1 | 5Z9V3tTUCQPcWse |        243.00 |
+|  6 |      2 | fuQu2GhvrwMIPfE |         88.00 |
+|  7 |      5 | Wxn3gH6v2xeGD3p |        252.00 |
+|  8 |      4 | VaeKeqymBj6fOEH |        180.00 |
+|  9 |      2 | V3rkEJZ7ag8lAG0 |        310.00 |
+| 10 |      5 | 0msAG9UwymXRs5Z |        239.00 |
++----+--------+-----------------+---------------+
 (10 rows)
 
 Time: <strong>1,586</strong> ms
@@ -275,11 +275,11 @@ SELECT
 <p>Výsledok je hrozný:</p>
 
 <pre class="u-nowrap">
-┌─────────┐
-│  count  │
-├─────────┤
-│ 1000000 │
-└─────────┘
++---------+
+|  count  |
++---------+
+| 1000000 |
++---------+
 (1 row)
 
 Time: <strong>2982,649</strong> ms (00:02,983)
@@ -288,27 +288,27 @@ Time: <strong>2982,649</strong> ms (00:02,983)
 <p>Pre doplnenie pridávam výstup z explainu:</p>
 
 <pre class="u-nowrap">
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                                  QUERY PLAN                                   │
-├───────────────────────────────────────────────────────────────────────────────┤
-│ Aggregate (actual rows=1 loops=1)                                             │
-│   -&gt;  HashAggregate (actual rows=1000000 loops=1)                             │
-│         Group Key: book_rating.id, book.name                                  │
-│         Batches: 257  Memory Usage: 9489kB  Disk Usage: <strong>507472kB</strong>              │
-│         -&gt;  Hash Left Join (actual rows=10005165 loops=1)                     │
-│               Hash Cond: (book.id = book_order.book_id)                       │
-│               -&gt;  Hash Join (actual rows=1000000 loops=1)                     │
-│                     Hash Cond: (book_rating.book_id = book.id)                │
-│                     -&gt;  Seq Scan on book_rating (actual rows=1000000 loops=1) │
-│                     -&gt;  Hash (actual rows=100000 loops=1)                     │
-│                           Buckets: 131072  Batches: 1  Memory Usage: 6493kB   │
-│                           -&gt;  Seq Scan on book (actual rows=100000 loops=1)   │
-│               -&gt;  Hash (actual rows=1000000 loops=1)                          │
-│                     Buckets: 262144  Batches: 8  Memory Usage: 6981kB         │
-│                     -&gt;  Seq Scan on book_order (actual rows=1000000 loops=1)  │
-│ Planning Time: 0.494 ms                                                       │
-│ Execution Time: <strong>3958.023</strong> ms                                                   │
-└───────────────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------------------+
+|                                  QUERY PLAN                                   |
++-------------------------------------------------------------------------------+
+| Aggregate (actual rows=1 loops=1)                                             |
+|   -&gt;  HashAggregate (actual rows=1000000 loops=1)                             |
+|         Group Key: book_rating.id, book.name                                  |
+|         Batches: 257  Memory Usage: 9489kB  Disk Usage: <strong>507472kB</strong>              |
+|         -&gt;  Hash Left Join (actual rows=10005165 loops=1)                     |
+|               Hash Cond: (book.id = book_order.book_id)                       |
+|               -&gt;  Hash Join (actual rows=1000000 loops=1)                     |
+|                     Hash Cond: (book_rating.book_id = book.id)                |
+|                     -&gt;  Seq Scan on book_rating (actual rows=1000000 loops=1) |
+|                     -&gt;  Hash (actual rows=100000 loops=1)                     |
+|                           Buckets: 131072  Batches: 1  Memory Usage: 6493kB   |
+|                           -&gt;  Seq Scan on book (actual rows=100000 loops=1)   |
+|               -&gt;  Hash (actual rows=1000000 loops=1)                          |
+|                     Buckets: 262144  Batches: 8  Memory Usage: 6981kB         |
+|                     -&gt;  Seq Scan on book_order (actual rows=1000000 loops=1)  |
+| Planning Time: 0.494 ms                                                       |
+| Execution Time: <strong>3958.023</strong> ms                                                   |
++-------------------------------------------------------------------------------+
 </pre>
 
 <p>Len pre zaujímavosť, databázový systém musel zapísať zhruba 500 MB dát na disk, aby vykonal korektne agregáciu.</p>
@@ -353,27 +353,27 @@ LIMIT 10;
 <p>Výsledný plán skutočne potreboval prejsť len 10 riadkov a pri každom prechode robil dodatočnú agregáciu s použitím jednoduchého index scanu:</p>
 
 <pre class="u-nowrap">
-┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                                    QUERY PLAN                                                     │
-├───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Limit (actual rows=10 loops=1)                                                                                    │
-│   -&gt;  Nested Loop (actual rows=10 loops=1)                                                                        │
-│         -&gt;  Index Scan using book_rating_pkey on book_rating (actual rows=<strong>10</strong> loops=1)                             │
-│         -&gt;  Memoize (actual rows=1 loops=<strong>10</strong>)                                                                      │
-│               Cache Key: book_rating.book_id                                                                      │
-│               Cache Mode: logical                                                                                 │
-│               Hits: 0  Misses: <strong>10</strong>  Evictions: 0  Overflows: 0  Memory Usage: 2kB                                  │
-│               -&gt;  Index Scan using book_pkey on book (actual rows=1 loops=<strong>10</strong>)                                     │
-│                     Index Cond: (id = book_rating.book_id)                                                        │
-│         SubPlan 1                                                                                                 │
-│           -&gt;  Limit (actual rows=1 loops=<strong>10</strong>)                                                                      │
-│                 -&gt;  GroupAggregate (actual rows=1 loops=<strong>10</strong>)                                                       │
-│                       Group Key: u0.book_id                                                                       │
-│                       -&gt;  Index Scan using book_order_book_id_4178112d on book_order u0 (actual rows=<strong>10</strong> loops=10) │
-│                             Index Cond: (book_id = book_rating.book_id)                                           │
-│ Planning Time: 0.414 ms                                                                                           │
-│ Execution Time: <strong>0.891</strong> ms                                                                                          │
-└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------------------------------------------------------+
+|                                                    QUERY PLAN                                                     |
++-------------------------------------------------------------------------------------------------------------------+
+| Limit (actual rows=10 loops=1)                                                                                    |
+|   -&gt;  Nested Loop (actual rows=10 loops=1)                                                                        |
+|         -&gt;  Index Scan using book_rating_pkey on book_rating (actual rows=<strong>10</strong> loops=1)                             |
+|         -&gt;  Memoize (actual rows=1 loops=<strong>10</strong>)                                                                      |
+|               Cache Key: book_rating.book_id                                                                      |
+|               Cache Mode: logical                                                                                 |
+|               Hits: 0  Misses: <strong>10</strong>  Evictions: 0  Overflows: 0  Memory Usage: 2kB                                  |
+|               -&gt;  Index Scan using book_pkey on book (actual rows=1 loops=<strong>10</strong>)                                     |
+|                     Index Cond: (id = book_rating.book_id)                                                        |
+|         SubPlan 1                                                                                                 |
+|           -&gt;  Limit (actual rows=1 loops=<strong>10</strong>)                                                                      |
+|                 -&gt;  GroupAggregate (actual rows=1 loops=<strong>10</strong>)                                                       |
+|                       Group Key: u0.book_id                                                                       |
+|                       -&gt;  Index Scan using book_order_book_id_4178112d on book_order u0 (actual rows=<strong>10</strong> loops=10) |
+|                             Index Cond: (book_id = book_rating.book_id)                                           |
+| Planning Time: 0.414 ms                                                                                           |
+| Execution Time: <strong>0.891</strong> ms                                                                                          |
++-------------------------------------------------------------------------------------------------------------------+
 </pre>
 
 <p>Spočítanie riadkov vyzerá nasledovne:</p>
@@ -387,19 +387,19 @@ INNER JOIN "book"
 </pre>
 
 <pre class="u-nowrap">
-┌───────────────────────────────────────────────────────────────────┐
-│                            QUERY PLAN                             │
-├───────────────────────────────────────────────────────────────────┤
-│ Aggregate (actual rows=1 loops=1)                                 │
-│   -&gt;  Hash Join (actual rows=1000000 loops=1)                     │
-│         Hash Cond: (book_rating.book_id = book.id)                │
-│         -&gt;  Seq Scan on book_rating (actual rows=1000000 loops=1) │
-│         -&gt;  Hash (actual rows=100000 loops=1)                     │
-│               Buckets: 131072  Batches: 1  Memory Usage: 4931kB   │
-│               -&gt;  Seq Scan on book (actual rows=100000 loops=1)   │
-│ Planning Time: 0.267 ms                                           │
-│ Execution Time: <strong>172.868</strong> ms                                        │
-└───────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+|                            QUERY PLAN                             |
++-------------------------------------------------------------------+
+| Aggregate (actual rows=1 loops=1)                                 |
+|   -&gt;  Hash Join (actual rows=1000000 loops=1)                     |
+|         Hash Cond: (book_rating.book_id = book.id)                |
+|         -&gt;  Seq Scan on book_rating (actual rows=1000000 loops=1) |
+|         -&gt;  Hash (actual rows=100000 loops=1)                     |
+|               Buckets: 131072  Batches: 1  Memory Usage: 4931kB   |
+|               -&gt;  Seq Scan on book (actual rows=100000 loops=1)   |
+| Planning Time: 0.267 ms                                           |
+| Execution Time: <strong>172.868</strong> ms                                        |
++-------------------------------------------------------------------+
 </pre>
 
 <h2>Štatistiky</h2>
@@ -408,11 +408,11 @@ INNER JOIN "book"
 
 <pre class="u-nowrap">
 SELECT reltuples FROM pg_class WHERE relname = 'book_rating';
-┌───────────┐
-│ reltuples │
-├───────────┤
-│     1e+06 │
-└───────────┘
++-----------+
+| reltuples |
++-----------+
+|     1e+06 |
++-----------+
 </pre>
 
 <p>Problém je, že počet je len približný a týmto spôsobom sa nedá zistiť ani približný počet riadkov pri použití where klauzuly.</p>
@@ -437,20 +437,20 @@ LEFT OUTER JOIN "book_order"
 GROUP BY "book_rating"."id", 3
 ORDER BY "book_rating"."id" ASC
 LIMIT 10 OFFSET 50000;
-┌───────┬────────┬─────────────────┬───────────────┐
-│  id   │ rating │      name       │ total_revenue │
-├───────┼────────┼─────────────────┼───────────────┤
-│ 50001 │      3 │ 7vpPz7iymGQwFHz │        209.00 │
-│ 50002 │      4 │ MsjncKx1KD32dRG │        164.00 │
-│ 50003 │      2 │ tf4TYvrVXEJr2Zu │        268.00 │
-│ 50004 │      3 │ 8ZHr2AVXDJhqIVS │        337.00 │
-│ 50005 │      1 │ ScY0nNLn12lc18L │        118.00 │
-│ 50006 │      1 │ kdvRYxl2VrOB7Ft │        352.00 │
-│ 50007 │      5 │ zkeowCN1d83I17h │        202.00 │
-│ 50008 │      1 │ YN9Wb2xR9m3n0FZ │        243.00 │
-│ 50009 │      2 │ X07SIjFQ7J4TCB2 │        146.00 │
-│ 50010 │      1 │ qDn3zOzAbPGXDN9 │        169.00 │
-└───────┴────────┴─────────────────┴───────────────┘
++-------+--------+-----------------+---------------+
+|  id   | rating |      name       | total_revenue |
++-------+--------+-----------------+---------------+
+| 50001 |      3 | 7vpPz7iymGQwFHz |        209.00 |
+| 50002 |      4 | MsjncKx1KD32dRG |        164.00 |
+| 50003 |      2 | tf4TYvrVXEJr2Zu |        268.00 |
+| 50004 |      3 | 8ZHr2AVXDJhqIVS |        337.00 |
+| 50005 |      1 | ScY0nNLn12lc18L |        118.00 |
+| 50006 |      1 | kdvRYxl2VrOB7Ft |        352.00 |
+| 50007 |      5 | zkeowCN1d83I17h |        202.00 |
+| 50008 |      1 | YN9Wb2xR9m3n0FZ |        243.00 |
+| 50009 |      2 | X07SIjFQ7J4TCB2 |        146.00 |
+| 50010 |      1 | qDn3zOzAbPGXDN9 |        169.00 |
++-------+--------+-----------------+---------------+
 (10 rows)
 
 Time: <strong>996,773</strong> ms
@@ -487,20 +487,20 @@ LIMIT 10;
 <p>Výsledok je rovnaký, ako v predchádzajúcom príklade, ale čas je diametrálne odlišný:</p>
 
 <pre class="u-nowrap">
-┌───────┬────────┬─────────────────┬───────────────┐
-│  id   │ rating │      name       │ total_revenue │
-├───────┼────────┼─────────────────┼───────────────┤
-│ 50001 │      3 │ 7vpPz7iymGQwFHz │        209.00 │
-│ 50002 │      4 │ MsjncKx1KD32dRG │        164.00 │
-│ 50003 │      2 │ tf4TYvrVXEJr2Zu │        268.00 │
-│ 50004 │      3 │ 8ZHr2AVXDJhqIVS │        337.00 │
-│ 50005 │      1 │ ScY0nNLn12lc18L │        118.00 │
-│ 50006 │      1 │ kdvRYxl2VrOB7Ft │        352.00 │
-│ 50007 │      5 │ zkeowCN1d83I17h │        202.00 │
-│ 50008 │      1 │ YN9Wb2xR9m3n0FZ │        243.00 │
-│ 50009 │      2 │ X07SIjFQ7J4TCB2 │        146.00 │
-│ 50010 │      1 │ qDn3zOzAbPGXDN9 │        169.00 │
-└───────┴────────┴─────────────────┴───────────────┘
++-------+--------+-----------------+---------------+
+|  id   | rating |      name       | total_revenue |
++-------+--------+-----------------+---------------+
+| 50001 |      3 | 7vpPz7iymGQwFHz |        209.00 |
+| 50002 |      4 | MsjncKx1KD32dRG |        164.00 |
+| 50003 |      2 | tf4TYvrVXEJr2Zu |        268.00 |
+| 50004 |      3 | 8ZHr2AVXDJhqIVS |        337.00 |
+| 50005 |      1 | ScY0nNLn12lc18L |        118.00 |
+| 50006 |      1 | kdvRYxl2VrOB7Ft |        352.00 |
+| 50007 |      5 | zkeowCN1d83I17h |        202.00 |
+| 50008 |      1 | YN9Wb2xR9m3n0FZ |        243.00 |
+| 50009 |      2 | X07SIjFQ7J4TCB2 |        146.00 |
+| 50010 |      1 | qDn3zOzAbPGXDN9 |        169.00 |
++-------+--------+-----------------+---------------+
 (10 rows)
 
 Time: <strong>1,875</strong> ms
