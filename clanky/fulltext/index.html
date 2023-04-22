@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Fulltext v databáze prakticky, alebo čo vám nadšenci nepovedia</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article data-title-image="img/title_page.jpg">
+
+<header>
+	<h1>Fulltext v databáze prakticky, alebo čo vám nadšenci nepovedia</h1>
+
+	<p>Tento článok sa bude o možnostiach využitia databáz PostgreSQL a MySQL (MariaDB) pri fulltextovom vyhľadávaní. Článok je rozdelený na 2 časti - výkon a kvalita. Obe časti sú na sebe nezávislé a kvalita vyhľadávania prakticky nespomaľuje vyhľadávanie. Oproti iným tutoriálom sa nevenujem len základnej funkcionalite použiteľnej maximálne tak v anglicky hovoriacich krajinách.</p>
+</header>
+
+<p>Nepatrím k ľuďom, ktorí za každú cenu musia používať svoju obľúbenú technológiu na všetko. Prístup typu „mám v ruke kladivo a všetko je teraz pre mňa kliniec“ považujem za vysoko kontraproduktívny.</p>
+
+<p>Moja snaha použiť databázu na fulltextové vyhľadávanie by mohla pôsobiť práve takým dojmom. Aby som rozptýlil pochybnosti, na začiatok hneď napíšem, že zvyčajne pracujem s pomerne malými databázami rôznych elektronických obchodov, kde je dokopy niekoľko tisíc až po stovky tisíc produktov. Keby som chcel skutočne kvalitné fulltextové vyhľadávanie nad veľkou databázou, rozhodne by som vyberal špecializované fulltextové riešenie, akým je napríklad Elasticsearch.</p>
+
+<p>Keď však potrebujem niekoľko menších projektov, nechcem udržiavať špeciálny server na Elasticsearch, ktorý musí mať <a href="https://www.elastic.co/guide/en/cloud-enterprise/2.1/ece-prereqs-hardware.html">viacej RAM</a> než vyžadujú všetky ostatné webové aplikácie dokopy.</p>
+
+<h2>Výkon</h2>
+
+<p>V prvej časti sa budem zaoberať rýchlosťou odozvy pri vyhľadávaní. Nebude ma zaujímať kvalita a relevancia výsledkov, pretože v ďalšej časti si ukážeme, že je možné zvýšiť kvalitu bez zmeny rýchlosti.</p>
+
+<p>Taktiež nebudem rozoberať rýchlosť aktualizácie indexov keďže väčšinou sa fulltextová databáza omnoho častejšie prehľadáva než zapisuje. V prípade, že by išlo skutočne o databázu, ktorá potrebuje časté zápisy, odporúčal by som neaktualizovať index pre fulltext automaticky, ale robiť aktualizáciu v určitých časových intervaloch.</p>
+
+<p>Ako databázový server budem používať <em>MariaDB 10.6</em> a <em>PostgreSQL 15.2</em>.</p>
+
+<h3>Skúšobné dáta</h3>
+
+<p>Aby boli testy ako-tak realistické, exportoval som reálne dáta z <a href="https://linuxos.sk/">LinuxOS.sk</a>. Súbor <a href="https://mireq.linuxos.sk/subory/clanky/2023-04-22-fultext/data/linuxos_texty.csv.xz">linuxos_texty.csv.xz</a> obsahuje 81 MB textu vo forme CSV tabuľky s číslom dokumentu v prvom stĺpci a textom v druhom.</p>
+
+<h3>Vytvorenie databázy</h3>
+
+<p>Databáza MariaDB sa vytvorí nasledujúcou sériou príkazov:</p>
+
+<pre class="code-mysql">
+SET NAMES utf8mb4;
+CREATE DATABASE fulltext_test;
+ALTER DATABASE fulltext_test CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci;
+USE fulltext_test;
+CREATE TABLE ft(
+	id INT NULL AUTO_INCREMENT PRIMARY KEY,
+	document LONGTEXT
+);
+</pre>
+
+<p>Skúšobné údaje sa nahrajú príkazom:</p>
+
+<pre class="code-mysql">
+LOAD DATA INFILE "linuxos_texty.csv"
+INTO TABLE ft
+COLUMNS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+ESCAPED BY '"'
+LINES TERMINATED BY '\n';
+</pre>
+
+<p>PostgreSQL databáza sa vytvorí príkazmi:</p>
+
+<pre class="code-postgresql">
+CREATE DATABASE fulltext_test;
+\c fulltext_test;
+CREATE TABLE ft (
+	id SERIAL,
+	document TEXT,
+	PRIMARY KEY(id)
+);
+
+-- Query OK, 34760 rows affected (0,889 sec)
+-- Records: 34760  Deleted: 0  Skipped: 0  Warnings: 0
+</pre>
+
+<p>Pre načítanie dát pomocou <em>psql</em> potom slúži príkaz:</p>
+
+<pre class="code-postgresql">
+\copy ft FROM linuxos_texty.csv DELIMITER ',' CSV;
+
+-- COPY 34760
+-- Time: 1725,099 ms (00:01,725)
+</pre>
+
+<h3>Vyhľadávanie bez indexu</h3>
+
+<p>Fulltextové vyhľadávanie bez vytvoreného indexu môže slúžiť ako celkom zaujímavá referenčná hodnota, ktorú môžeme v najhoršom prípade očakávať od databázy v momente keď z nejakého dôvodu prestane používať index.
+</p>
+
+<p>Vyhľadávam jedno z najčastejších slov na linuxovom portále. Vyberám frekventované slovo, aby sa neskôr prejavila optimalizácia pri použití klauzuly <code>LIMIT</code>.</p>
+
+<p>Pre MySQL použijem nasledujúci select:</p>
+
+<pre class="code-mysql">
+SELECT
+	COUNT(*)
+FROM ft
+WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE);
+
+-- ERROR 1191 (HY000): Can't find FULLTEXT index matching the column list
+</pre>
+
+<p>MySQL (MariaDB) nepodporuje vyhľadávanie bez indexu. Ako jednoduchú alternatívu k fulltextu je možné použiť <code>LIKE</code>:</p>
+
+<pre>
+SELECT
+	COUNT(*)
+FROM ft
+WHERE document LIKE "%linux%";
++----------+
+| COUNT(*) |
++----------+
+|    17932 |
++----------+
+1 row in set (0,276 sec)
+</pre>
+
+<p>PostgreSQL podporuje fulltextové vyhľadávanie aj bez indexu. Je však extrémne pomalé a v praxi nepoužiteľné.</p>
+
+<pre class="code-postgresql">
+SELECT
+	COUNT(*)
+FROM ft
+WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux');
+
+-- count
+-- -----
+-- 10531
+-- (1 row)
+--
+-- Time: 3810,541 ms (00:03,811)
+</pre>
+
+<p>Na porovnanie ešte pridávam výsledky <code>LIKE</code> s PostgreSQL:</p>
+
+<pre class="code-postgresql">
+SELECT
+	COUNT(*)
+FROM ft
+WHERE document LIKE '%linux%';
+
+-- count
+-- -----
+-- 14147
+-- (1 row)
+--
+-- Time: 162,113 ms
+</pre>
+
+<p>Aby bol počet riadkov rovnaký, je potrebné použiť klauzulu <code>ILIKE</code>, ktorá nerozlišuje veľkosť písmen.</p>
+
+<pre class="code-postgresql">
+SELECT
+	COUNT(*)
+FROM ft
+WHERE document ILIKE '%linux%';
+
+-- count
+-- -----
+-- 17932
+-- (1 row)
+--
+-- Time: 646,595 ms
+</pre>
+
+<h3>Vytvorenie indexu</h3>
+
+<p>Vyhľadávanie v MySQL má viac-menej rozumné štandardné nastavenie, nemá žiadnu možnosť zmeniť parametre. Preto je vytvorenie indexu veľmi jednoduché.</p>
+
+<pre>
+CREATE FULLTEXT INDEX document_idx ON ft(document);
+Query OK, 0 rows affected (4,699 sec)
+Records: 0  Duplicates: 0  Warnings: 0
+</pre>
+
+<p>Vytvorenie indexu v PostgreSQL sa zásadne líši. Hlavné rozdiely sú:</p>
+
+<ul>
+	<li>textový stĺpec nemôže mať fulltextový index</li>
+	<li>je možné vybrať typ indexu</li>
+	<li>je možné vybrať konfiguráciu fulltextového vyhľadávania</li>
+</ul>
+
+<p>Fulltextové vyhľadávanie v PostgreSQL používa špeciálny typ stĺpca <code>tsvector</code>. Prvé vyhľadávanie bolo pomalé pretože každý dokument musel byť konvertovaný funkciou <code>to_tsvector</code>. Výsledok sa napokon porovnáva s dotazom typu <code>tsquery</code>.</p>
+
+<p>Indexy v PostgreSQL nevyžadujú existenciu stĺpca a dajú sa vytvoriť napríklad na volanie funkcie. Nasledujúce volanie vytvorí index typu <code>GIN</code> nad funkciou <code>to_tsvector</code> s konfiguráciou <code>simple</code>.</p>
+
+<pre class="code-postgresql">
+CREATE INDEX document_idx ON ft USING GIN (to_tsvector('simple', document));
+
+-- Time: 11936,167 ms (00:11,936)
+</pre>
+
+
+
+<figure>
+	<a href="img/models.svg"><img src="img/models.svg" alt="Databázové modely" /></a>
+	<figcaption>Obrázok <counter></counter>: Databázové modely</figcaption>
+</figure>
+
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
