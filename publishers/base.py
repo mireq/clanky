@@ -217,7 +217,7 @@ class BasePublisher(object):
 			if field.tag == 'input':
 				if field.attrib.get('type') in ('checkbox', 'radio'):
 					if 'checked' in field.attrib:
-						html_data[name] = field.attrib.get('value', '')
+						html_data[name] = field.attrib.get('value', 'on')
 				else:
 					html_data[name] = field.attrib.get('value', '')
 			elif field.tag == 'textarea':
