@@ -1,0 +1,124 @@
+Mariadb 10.6
+
+
+SET NAMES utf8mb4;
+CREATE DATABASE fulltext_test;
+ALTER DATABASE fulltext_test CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci;
+USE fulltext_test;
+CREATE TABLE ft(
+	id INT NULL AUTO_INCREMENT PRIMARY KEY,
+	document LONGTEXT
+);
+LOAD DATA INFILE "/home/mirec/data.csv"
+INTO TABLE ft
+COLUMNS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+ESCAPED BY '"'
+LINES TERMINATED BY '\n';
+
+Query OK, 34760 rows affected (0,889 sec)            
+Records: 34760  Deleted: 0  Skipped: 0  Warnings: 0
+
+
+
+Select bez indexu
+-----------------
+
+ERROR 1191 (HY000): Can't find FULLTEXT index matching the column list
+
+
+CREATE FULLTEXT INDEX document_idx ON ft(document);
+Query OK, 0 rows affected (4,699 sec)
+Records: 0  Duplicates: 0  Warnings: 0
+
+
+CREATE FULLTEXT INDEX document_idx ON ft(document);
+Query OK, 0 rows affected (4,875 sec)
+Records: 0  Duplicates: 0  Warnings:
+
+SELECT COUNT(*) FROM ft WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE);
++----------+
+| COUNT(*) |
++----------+
+|    11457 |
++----------+
+1 row in set (0,322 sec)
+
+SELECT COUNT(*) FROM ft WHERE match(document) AGAINST ('+závislosť' IN BOOLEAN MODE);
++----------+
+| COUNT(*) |
++----------+
+|      109 |
++----------+
+1 row in set (0,011 sec)
+
+SELECT COUNT(*) FROM ft WHERE match(document) AGAINST ('+linux +závislosť' IN BOOLEAN MODE);
++----------+
+| COUNT(*) |
++----------+
+|       63 |
++----------+
+1 row in set (0,012 sec)
+
+EXPLAIN SELECT COUNT(*) FROM ft WHERE match(document) AGAINST ('+linux +závislosť' IN BOOLEAN MODE);
++------+-------------+-------+----------+---------------+--------------+---------+------+------+-------------+
+| id   | select_type | table | type     | possible_keys | key          | key_len | ref  | rows | Extra       |
++------+-------------+-------+----------+---------------+--------------+---------+------+------+-------------+
+|    1 | SIMPLE      | ft    | fulltext | document_idx  | document_idx | 0       |      | 1    | Using where |
++------+-------------+-------+----------+---------------+--------------+---------+------+------+-------------+
+1 row in set (0,000 sec)
+
+
+SELECT id FROM ft WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE) LIMIT 10;
++-------+
+| id    |
++-------+
+|  1165 |
+| 24467 |
+|  6899 |
+|  5973 |
+| 24940 |
+| 14574 |
+|   482 |
+| 15541 |
+| 11346 |
+| 14764 |
++-------+
+10 rows in set (0,017 sec)
+
+
+SELECT id, match(document) AGAINST ('+linux' IN BOOLEAN MODE) AS score FROM ft WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE) ORDER BY score DESC LIMIT 10;
++-------+--------------------+
+| id    | score              |
++-------+--------------------+
+|  1165 | 113.36463165283203 |
+| 24467 | 112.66340637207031 |
+|  6899 |   84.8481674194336 |
+|  5973 |  78.53714752197266 |
+| 24940 |  64.04517364501953 |
+| 14574 |  61.94150161743164 |
+|   482 | 55.162994384765625 |
+| 15541 |  52.12435531616211 |
+| 11346 |  50.72190856933594 |
+| 14764 | 48.384490966796875 |
++-------+--------------------+
+10 rows in set (0,372 sec)
+
+
+SELECT id, MATCH(document) AGAINST ('+linux' IN BOOLEAN MODE) AS score FROM ft WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE) ORDER BY score DESC, id ASC LIMIT 10;
++-------+--------------------+
+| id    | score              |
++-------+--------------------+
+|  1165 | 113.36463165283203 |
+| 24467 | 112.66340637207031 |
+|  6899 |   84.8481674194336 |
+|  5973 |  78.53714752197266 |
+| 24940 |  64.04517364501953 |
+| 14574 |  61.94150161743164 |
+|   482 | 55.162994384765625 |
+| 15541 |  52.12435531616211 |
+| 11346 |  50.72190856933594 |
+| 14764 | 48.384490966796875 |
++-------+--------------------+
+10 rows in set (0,371 sec)
+

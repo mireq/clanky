@@ -1,0 +1,327 @@
+Zobrazenie fulltextu
+\dFd+
+
+
+createdb fulltext_test
+
+psql fulltext_test
+
+CREATE TABLE ft (id SERIAL, document TEXT, PRIMARY KEY(id));
+
+\copy ft FROM data.csv DELIMITER ',' CSV;
+COPY 34760
+Time: 1725,099 ms (00:01,725)
+
+
+Select bez indexu
+-----------------
+
+SELECT COUNT(*) FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux');
+
+count 
+-----
+10531
+(1 row)
+
+Time: 3810,541 ms (00:03,811)
+
+S indexom
+---------
+
+CREATE INDEX document_idx ON ft USING GIN (to_tsvector('simple', document));
+
+Time: 11936,167 ms (00:11,936)
+
+SELECT COUNT(*) FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux');
+count 
+-----
+10531
+(1 row)
+
+Time: 2,467 ms
+
+# EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT COUNT(*) FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux');
+                                          QUERY PLAN                                           
+----------------------------------------------------------------------------------------------
+Aggregate (actual rows=1 loops=1)
+  ->  Bitmap Heap Scan on ft (actual rows=10531 loops=1)
+        Recheck Cond: (to_tsvector('simple'::regconfig, document) @@ '''linux'''::tsquery)
+        Heap Blocks: exact=2911
+        ->  Bitmap Index Scan on document_idx (actual rows=10531 loops=1)
+              Index Cond: (to_tsvector('simple'::regconfig, document) @@ '''linux'''::tsquery)
+Planning Time: 0.115 ms
+Execution Time: 2.271 ms
+(8 rows)
+
+Time: 2,677 ms
+
+
+SELECT COUNT(*) FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'závislosť');
+count 
+-----
+   45
+(1 row)
+
+Time: 0,396 ms
+
+
+SELECT COUNT(*) FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux & závislosť');
+count 
+-----
+   22
+(1 row)
+
+Time: 0,630 ms
+
+SELECT id FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux') LIMIT 10;
+id  
+---
+720
+602
+340
+ 98
+155
+582
+578
+613
+152
+466
+(10 rows)
+
+
+Teraz pridám skutočný tsvector stĺpec
+
+DROP INDEX document_idx;
+ALTER TABLE ft ADD COLUMN document_tsvector tsvector GENERATED ALWAYS AS (to_tsvector('simple', document)) STORED;
+
+CREATE INDEX document_idx ON ft USING GIN (document_tsvector);
+CREATE INDEX
+Time: 4580,668 ms (00:04,581)
+
+
+SELECT id, ts_rank(document_tsvector, to_tsquery('simple', 'linux')) AS rank FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank DESC LIMIT 10;
+ id      rank     
+----- -----------
+24940  0.09976207
+ 1165  0.09976207
+14574  0.09976207
+ 5973  0.09976207
+24467  0.09976207
+15541  0.09972675
+11346  0.09972046
+ 6899  0.09967747
+  482 0.099663176
+23873  0.09965749
+(10 rows)
+
+Time: 66,747 ms
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, ts_rank(document_tsvector, to_tsquery('simple', 'linux')) AS rank FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank DESC LIMIT 10;
+                                  QUERY PLAN                                    
+-------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Sort (actual rows=10 loops=1)
+        Sort Key: (ts_rank(document_tsvector, '''linux'''::tsquery)) DESC
+        Sort Method: top-N heapsort  Memory: 25kB
+        ->  Bitmap Heap Scan on ft (actual rows=10531 loops=1)
+              Recheck Cond: (document_tsvector @@ '''linux'''::tsquery)
+              Heap Blocks: exact=4021
+              ->  Bitmap Index Scan on document_idx (actual rows=10531 loops=1)
+                    Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+Planning Time: 0.115 ms
+Execution Time: 60.946 ms
+(11 rows)
+
+Time: 61,438 ms
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, ts_rank(document_tsvector, to_tsquery('simple', 'linux')) AS rank FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank DESC, id LIMIT 10;
+                                  QUERY PLAN                                    
+-------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Sort (actual rows=10 loops=1)
+        Sort Key: (ts_rank(document_tsvector, '''linux'''::tsquery)) DESC, id
+        Sort Method: top-N heapsort  Memory: 25kB
+        ->  Bitmap Heap Scan on ft (actual rows=10531 loops=1)
+              Recheck Cond: (document_tsvector @@ '''linux'''::tsquery)
+              Heap Blocks: exact=4021
+              ->  Bitmap Index Scan on document_idx (actual rows=10531 loops=1)
+                    Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+Planning Time: 0.129 ms
+Execution Time: 64.112 ms
+(11 rows)
+
+Time: 64,592 ms
+
+
+Teraz s RUM
+
+DROP INDEX document_idx;
+CREATE EXTENSION rum;
+CREATE INDEX document_idx ON ft USING RUM(document_tsvector rum_tsvector_ops);
+CREATE INDEX
+Time: 5983,727 ms (00:05,984)
+
+
+SELECT id FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') LIMIT 10;
+id  
+---
+720
+602
+340
+ 98
+155
+582
+578
+613
+152
+466
+(10 rows)
+
+Time: 0,712 ms
+
+
+EXPLAIN ANALYZE SELECT id FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') LIMIT 10;
+                                               QUERY PLAN                                                
+--------------------------------------------------------------------------------------------------------
+Limit  (cost=0.00..4.63 rows=10 width=4) (actual time=0.085..0.245 rows=10 loops=1)
+  ->  Seq Scan on ft  (cost=0.00..4860.50 rows=10494 width=4) (actual time=0.083..0.242 rows=10 loops=1)
+        Filter: (document_tsvector @@ '''linux'''::tsquery)
+        Rows Removed by Filter: 18
+Planning Time: 0.135 ms
+Execution Time: 0.257 ms
+(6 rows)
+
+Time: 0,674 ms
+
+
+SELECT COUNT(*) FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux');
+count 
+-----
+10531
+(1 row)
+
+Time: 15,312 ms
+
+
+SELECT COUNT(*) FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'závislosť');
+count 
+-----
+   45
+(1 row)
+
+Time: 0,565 ms
+
+
+SELECT COUNT(*) FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux & závislosť');
+count 
+-----
+   22
+(1 row)
+
+Time: 0,728 ms
+
+
+SELECT id, document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank LIMIT 10;
+ id     rank    
+----- ---------
+24467  10.02385
+14574  10.02385
+24940  10.02385
+ 5973  10.02385
+ 1165  10.02385
+15541 10.027397
+11346 10.028029
+ 6899 10.032354
+  482 10.033794
+23873 10.034368
+(10 rows)
+
+Time: 8,851 ms
+
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank LIMIT 10;
+                            QUERY PLAN                             
+------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Index Scan using document_idx on ft (actual rows=10 loops=1)
+        Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+        Order By: (document_tsvector <=> '''linux'''::tsquery)
+Planning Time: 0.216 ms
+Execution Time: 14.354 ms
+(6 rows)
+
+Time: 15,011 ms
+
+SELECT id, document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank, id LIMIT 10;
+ id     rank    
+----- ---------
+ 1165  10.02385
+ 5973  10.02385
+14574  10.02385
+24467  10.02385
+24940  10.02385
+15541 10.027397
+11346 10.028029
+ 6899 10.032354
+  482 10.033794
+23873 10.034368
+(10 rows)
+
+Time: 67,165 ms
+
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank, id LIMIT 10;
+                                  QUERY PLAN                                    
+-------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Sort (actual rows=10 loops=1)
+        Sort Key: ((document_tsvector <=> '''linux'''::tsquery)), id
+        Sort Method: top-N heapsort  Memory: 25kB
+        ->  Bitmap Heap Scan on ft (actual rows=10531 loops=1)
+              Recheck Cond: (document_tsvector @@ '''linux'''::tsquery)
+              Heap Blocks: exact=4021
+              ->  Bitmap Index Scan on document_idx (actual rows=10531 loops=1)
+                    Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+Planning Time: 0.193 ms
+Execution Time: 67.751 ms
+(11 rows)
+
+Time: 68,362 ms
+
+
+
+
+SELECT id, document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank, id LIMIT 10;
+ id     rank    
+----- ---------
+ 1165  10.02385
+ 5973  10.02385
+14574  10.02385
+24467  10.02385
+24940  10.02385
+15541 10.027397
+11346 10.028029
+ 6899 10.032354
+  482 10.033794
+23873 10.034368
+(10 rows)
+
+Time: 8,367 ms
+
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank, id LIMIT 10;
+                                         QUERY PLAN                                          
+--------------------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Incremental Sort (actual rows=10 loops=1)
+        Sort Key: ((document_tsvector <=> '''linux'''::tsquery)), id
+        Presorted Key: ((document_tsvector <=> '''linux'''::tsquery))
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        ->  Index Scan using document_idx on ft (actual rows=11 loops=1)
+              Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+              Order By: (document_tsvector <=> '''linux'''::tsquery)
+Planning Time: 0.235 ms
+Execution Time: 13.333 ms
+(10 rows)
+
+Time: 14,026 ms
