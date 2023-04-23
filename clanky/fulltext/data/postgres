@@ -325,3 +325,155 @@ Execution Time: 13.333 ms
 (10 rows)
 
 Time: 14,026 ms
+
+
+CREATE TABLE s (id SERIAL, d DOUBLE PRECISION, p POINT, PRIMARY KEY(id));
+INSERT INTO s (SELECT generate_series(1, 10000000), random(), point(random(), random()));
+Time: 12890,828 ms (00:12,891)
+CREATE INDEX d_idx ON s USING btree(d);
+Time: 3037,142 ms (00:03,037)
+CREATE INDEX p_idx ON s USING gist(p);
+Time: 13632,420 ms (00:13,632)
+
+SELECT COUNT(*) FROM s;
+ count   
+--------
+10000000
+(1 row)
+
+Time: 145,828 ms
+
+
+
+SELECT d, id FROM s ORDER BY d DESC LIMIT 10;                                              
+        d            id    
+------------------ -------
+0.9999999729912039 7971458
+0.9999996724381648 5372047
+ 0.999999547273573 3593807
+0.9999995099932779 2321234
+0.9999994120221605 5259286
+0.9999993095493327 3329543
+ 0.999999264140115 2294627
+0.9999991310452243 2958705
+0.9999990016531421 7973130
+0.9999989705945129 5978095
+(10 rows)
+
+Time: 0,443 ms
+
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT d, id FROM s ORDER BY d DESC LIMIT 10;
+                            QUERY PLAN                              
+-------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Index Scan Backward using d_idx on s (actual rows=10 loops=1)
+Planning Time: 0.098 ms
+Execution Time: 0.087 ms
+(4 rows)
+
+Time: 0,526 ms
+
+
+
+
+SELECT d, id FROM s ORDER BY d DESC, id LIMIT 10;
+        d            id    
+------------------ -------
+0.9999999729912039 7971458
+0.9999996724381648 5372047
+ 0.999999547273573 3593807
+0.9999995099932779 2321234
+0.9999994120221605 5259286
+0.9999993095493327 3329543
+ 0.999999264140115 2294627
+0.9999991310452243 2958705
+0.9999990016531421 7973130
+0.9999989705945129 5978095
+(10 rows)
+
+Time: 0,547 ms
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE)  SELECT d, id FROM s ORDER BY d DESC, id LIMIT 10;
+                                         QUERY PLAN                                          
+--------------------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Incremental Sort (actual rows=10 loops=1)
+        Sort Key: d DESC, id
+        Presorted Key: d
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        ->  Index Scan Backward using d_idx on s (actual rows=11 loops=1)
+Planning Time: 0.109 ms
+Execution Time: 0.080 ms
+(8 rows)
+
+Time: 0,542 ms
+
+
+
+
+
+SELECT p <-> point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+         dist            id    
+---------------------- -------
+ 9.551643254873435e-05 3511297
+0.00010409684123264092 7562197
+0.00013130134995835023 5307320
+0.00029056079874593017 8545589
+0.00038732131902211503 8150565
+ 0.0003937272483046989 6901528
+ 0.0004235225364388437 5381375
+0.00048050732171427845 6767459
+0.00048250779126528655  153660
+ 0.0005081051064664928 7293843
+(10 rows)
+
+Time: 420,092 ms
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT p <-> point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+                       QUERY PLAN                        
+--------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Sort (actual rows=10 loops=1)
+        Sort Key: ((p <-> '(0.5,0.5)'::point)), id
+        Sort Method: top-N heapsort  Memory: 25kB
+        ->  Seq Scan on s (actual rows=10000000 loops=1)
+Planning Time: 0.080 ms
+Execution Time: 1151.684 ms
+(7 rows)
+
+Time: 1152,077 ms (00:01,152)
+
+
+
+
+
+SELECT p <-> point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+         dist            id    
+---------------------- -------
+0.00011987107741168088 5379596
+0.00015017600725003723 3210845
+ 0.0003161640768722989 2088410
+0.00034394301511882555 8331054
+0.00035309016406826236 1792926
+0.00037982424455634963 4073252
+0.00039417569989496357 5437426
+  0.000398597678617288 2392662
+ 0.0004051609573442986 6548076
+ 0.0004115374230357224 5302053
+(10 rows)
+
+Time: 0,707 ms
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT p <-> point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+                                         QUERY PLAN                                          
+--------------------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  ->  Incremental Sort (actual rows=10 loops=1)
+        Sort Key: ((p <-> '(0.5,0.5)'::point)), id
+        Presorted Key: ((p <-> '(0.5,0.5)'::point))
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        ->  Index Scan using p_idx on s (actual rows=11 loops=1)
+              Order By: (p <-> '(0.5,0.5)'::point)
+Planning Time: 0.121 ms
+Execution Time: 0.356 ms
