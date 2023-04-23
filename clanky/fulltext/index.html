@@ -191,13 +191,602 @@ CREATE INDEX document_idx ON ft USING GIN (to_tsvector('simple', document));
 -- Time: 11936,167 ms (00:11,936)
 </pre>
 
+<h3>Vyhľadávanie</h3>
 
+<p>V nasledujúcich testoch bude použité bežné slovo na Linuxovom portáli - <em>linux</em>, zriedkavé slovo <em>závislosť</em> a ich kombinácia s operátorom <code>AND</code>, teda v dokumente sa musia vyskytovať oba slova. Testy sa robia 3x za sebou. Do grafu sa zakreslí najlepší výsledok.</p>
+
+<p>Dotazy pre MySQL a PostgreSQL vyzerajú nasledovne:</p>
+
+<pre>
+-- MySQL
+SELECT COUNT(*) FROM ft WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE);
++----------+
+| COUNT(*) |
++----------+
+|    11457 |
++----------+
+
+-- PostgreSQL
+SELECT COUNT(*) FROM ft WHERE to_tsvector('simple', document) @@ to_tsquery('simple', 'linux');
+count
+-----
+10531
+</pre>
+
+<p>Kombinovaný výraz má tvar <code>+linux +závislosť</code> v MySQL a <code>linux &amp; závislosť</code> v PostgreSQL. Do výsledkov som zahrnul aj <a href="https://github.com/postgrespro/rum">RUM</a> index, ku ktorému sa vrátim neskôr.</p>
 
 <figure>
-	<a href="img/models.svg"><img src="img/models.svg" alt="Databázové modely" /></a>
-	<figcaption>Obrázok <counter></counter>: Databázové modely</figcaption>
+	<a href="img/search_speed.svg"><img src="img/search_speed.svg" alt="Porovnanie rýchlosti" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie rýchlosti</figcaption>
 </figure>
 
+<p>Aby bolo v grafe vôbec niečo vidieť, musím trocha zrezať stĺpec MySQL.</p>
+
+<figure>
+	<a href="img/search_speed_crop.svg"><img src="img/search_speed_crop.svg" alt="Porovnanie rýchlosti s orezaným MySQL" /></a>
+	<figcaption>Obrázok <counter></counter>: Porovnanie rýchlosti s orezaným MySQL</figcaption>
+</figure>
+
+<h3>Zoradenie podľa relevancie</h3>
+
+<p>Vrátenie všetkých výsledkov nie je typické pre fulltextové vyhľadávanie. Omnoho častejšie chce používateľ vidieť niekoľko prvých výsledkov zoradených podľa relevancie.</p>
+
+<p>Než sa pustím do samotného testu vytvorím v PostgreSQL reálny <code>tsvector</code> stĺpec, ktorý sa bude automaticky aktualizovať pri zmene dokumentu. Syntax selectov bude po tomto kroku mierne jednoduchšia, pretože už nebude potrebné volanie <code>to_tsvector</code>.</p>
+
+<pre class="code-postgresql">
+DROP INDEX document_idx;
+ALTER TABLE ft
+	ADD COLUMN document_tsvector tsvector
+	GENERATED ALWAYS AS (to_tsvector('simple', document)) STORED;
+CREATE INDEX document_idx ON ft USING GIN (document_tsvector);
+</pre>
+
+<p>Výpis 10 výsledkov zoradených poľa relevancie vyzerá v MySQL nasledovne:</p>
+
+<pre>
+SELECT
+	id,
+	match(document) AGAINST ('+linux' IN BOOLEAN MODE) AS score
+FROM ft
+WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE)
+ORDER BY score DESC
+LIMIT 10;
+
++-------+--------------------+
+| id    | score              |
++-------+--------------------+
+|  1165 | 113.36463165283203 |
+| 24467 | 112.66340637207031 |
+|  6899 |   84.8481674194336 |
+|  5973 |  78.53714752197266 |
+| 24940 |  64.04517364501953 |
+| 14574 |  61.94150161743164 |
+|   482 | 55.162994384765625 |
+| 15541 |  52.12435531616211 |
+| 11346 |  50.72190856933594 |
+| 14764 | 48.384490966796875 |
++-------+--------------------+
+10 rows in set (0,372 sec)
+
+EXPLAIN SELECT id, MATCH(document) AGAINST ('+linux' IN BOOLEAN MODE) AS score FROM ft WHERE match(document) AGAINST ('+linux' IN BOOLEAN MODE) ORDER BY score DESC, id ASC LIMIT 10;
++------+-------------+-------+----------+---------------+--------------+---------+------+------+----------------------------------------------+
+| id   | select_type | table | type     | possible_keys | key          | key_len | ref  | rows | Extra                                        |
++------+-------------+-------+----------+---------------+--------------+---------+------+------+----------------------------------------------+
+|    1 | SIMPLE      | ft    | fulltext | document_idx  | document_idx | 0       |      | 1    | Using where; Using temporary; Using filesort |
++------+-------------+-------+----------+---------------+--------------+---------+------+------+----------------------------------------------+
+</pre>
+
+<p>Ten istý dotaz v PostgreSQL vyzerá takto:</p>
+
+<pre>
+SELECT
+	id,
+	ts_rank(document_tsvector, to_tsquery('simple', 'linux')) AS rank
+FROM ft
+WHERE document_tsvector @@ to_tsquery('simple', 'linux')
+ORDER BY rank
+DESC LIMIT 10;
+
+ id      rank
+
+----- -----------
+24940  0.09976207
+ 1165  0.09976207
+14574  0.09976207
+ 5973  0.09976207
+24467  0.09976207
+15541  0.09972675
+11346  0.09972046
+ 6899  0.09967747
+  482 0.099663176
+23873  0.09965749
+(10 rows)
+
+Time: 66,747 ms
+
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, ts_rank(document_tsvector, to_tsquery('simple', 'linux')) AS rank FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank DESC LIMIT 10;
+                                  QUERY PLAN
+-------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  Sort (actual rows=10 loops=1)
+        Sort Key: (ts_rank(document_tsvector, '''linux'''::tsquery)) DESC
+        Sort Method: <strong>top-N</strong> heapsort  Memory: 25kB
+        -&gt;  Bitmap Heap Scan on ft (actual rows=<strong>10531</strong> loops=1)
+              Recheck Cond: (document_tsvector @@ '''linux'''::tsquery)
+              Heap Blocks: exact=4021
+              -&gt;  Bitmap Index Scan on document_idx (actual rows=<strong>10531</strong> loops=1)
+                    Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+Planning Time: 0.115 ms
+Execution Time: 60.946 ms
+</pre>
+
+<p>Z výpisu MySQL sa nedozvieme nič zaujímavé okrem toho, že dotaz sa vykonáva niekoľkonásobne pomalšie. Výpis PostgreSQL je však omnoho zaujímavejší.</p>
+
+<p>Z výpisu vyplýva, že index vrátil 10 531 výsledkov. Z nich sa pomocou dátovej štruktúry heap vybralo 10 najrelevantnejších výsledkov postupným skenovaním cez všetkých relevantných 10 531 riadkov. Ak by nebol použitý <code>LIMIT</code>, alebo by bol príliš vysoký, PostgreSQL by zvolil priamo stratégiu zoradenia výsledkov.</p>
+
+<p>Kým v prvom teste bol rádový rozdiel medzi MySQL a PostgreSQL, v tomto teste to už na takú dominanciu nevyzerá.</p>
+
+<figure>
+	<a href="img/sort.svg"><img src="img/sort.svg" alt="Zoradenie výsledkov" /></a>
+	<figcaption>Obrázok <counter></counter>: Zoradenie výsledkov</figcaption>
+</figure>
+
+<h3>Prístupová metóda RUM</h3>
+
+<p>Vrátenie výsledkov v PostgreSQL je rýchle, ale zoradenie výsledkov podľa relevancie je pomalé. Problém zoradenia rieši <a href="https://github.com/postgrespro/rum">RUM</a> prístupová metóda.</p>
+
+<p>Rozšírenie nie je súčasťou štandardnej inštalácie PostgreSQL, ale väčšinou je dostupné v distribučných balíkoch. Licencia je rovnaká, ako v PostgreSQL. Po inštalácii je výmena GIN indexu veľmi jednoduchá:</p>
+
+<pre>
+DROP INDEX document_idx; CREATE EXTENSION rum;
+CREATE INDEX document_idx ON ft USING RUM(document_tsvector rum_tsvector_ops);
+</pre>
+
+<p>Dotaz pre zoradenie používa trochu iný spôsob výpočtu relevancie. Upravený dotaz vyzerá takto:</p>
+
+<pre>
+SELECT
+	id,
+	document_tsvector &lt;=&gt; to_tsquery('simple', 'linux') AS "rank"
+FROM ft
+WHERE document_tsvector @@ to_tsquery('simple', 'linux')
+ORDER BYrank
+LIMIT 10;
+
+ id     rank
+----- ---------
+24467  10.02385
+14574  10.02385
+24940  10.02385
+ 5973  10.02385
+ 1165  10.02385
+15541 10.027397
+11346 10.028029
+ 6899 10.032354
+  482 10.033794
+23873 10.034368
+(10 rows)
+
+Time: 5,757 ms
+</pre>
+
+<pre>
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, document_tsvector &lt;=&gt; to_tsquery('simple', 'linux') AS "rank" FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank LIMIT 10;
+                            QUERY PLAN
+------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  <strong>Index Scan</strong> using document_idx on ft (actual rows=<strong>10</strong> loops=1)
+        Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+        <strong>Order By</strong>: (document_tsvector &lt;=&gt; '''linux'''::tsquery)
+Planning Time: 0.155 ms
+Execution Time: 7.598 ms
+</pre>
+
+<p>Podľa výpisu <code>explain</code> sa využilo presne 10 riadkov získaných rýchlym index skenom.</p>
+
+<figure>
+	<a href="img/sort_rum.svg"><img src="img/sort_rum.svg" alt="Zoradenie výsledkov s RUM indexom" /></a>
+	<figcaption>Obrázok <counter></counter>: Zoradenie výsledkov s RUM indexom</figcaption>
+</figure>
+
+<p>To je <strong>64-násobne</strong> rýchlejšie oproti MySQL a skoro <strong>12-násobne</strong> rýchlejšie oproti GIN indexu pri častých slovách.</p>
+
+<h3>Stabilné zoradenie alebo Huston, máme problém</h3>
+
+<p>Databázový systém PostgreSQL môže podľa potreby meniť a spravidla aj mení pri rôznych hodnotách LIMIT a OFFSET stratégiu prístupu k riadkom. Ak sú riadky zoradené iba podľa ranku, môže sa poradie riadkov s rovnakým rankom zmeniť. Zamedziť sa tomu dá napríklad pridaním id do zoradenia - <code>ORDER BY rank, id</code>.</p>
+
+<pre>
+SELECT
+	id,
+	document_tsvector <=> to_tsquery('simple', 'linux') AS "rank"
+FROM ft
+WHERE document_tsvector @@ to_tsquery('simple', 'linux')
+ORDER BY rank, id
+LIMIT 10;
+
+…
+
+Time: <strong>64,808 ms</strong>
+</pre>
+
+<p>Zrazu sa výhoda RUM prístupovej metódy niekde stratila.</p>
+
+<h2>Stabilné zoradenie</h2>
+
+<p>Myslím, že problém zoradenia je dosť zaujímavý na to, aby som mu venoval jednu malú kapitolu. Tá sa nebude týkať priamo fulltextového vyhľadávania, ale bude o zoradení všeobecne.</p>
+
+<p>Testy budú prebiehať ne jednoduchej tabuľke so stĺpcami ID, číslo s plávajúcou desatinnou čiarkou a bod na ploche. V tabuľke bude 10 000 000 náhodných záznamov. Každý stĺpec bude mať index. Najskôr začnem MySQL:</p>
+
+<pre class="code-mysql">
+CREATE TABLE s(id INT NULL AUTO_INCREMENT PRIMARY KEY, d DOUBLE, p POINT);
+
+DELIMITER $$
+CREATE PROCEDURE create_sample_data()
+BEGIN
+	DECLARE i INT DEFAULT 0;
+	WHILE i < 10000 DO
+		INSERT INTO `s` (`d`, `p`)
+		VALUES
+			(RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND())), (RAND(), POINT(RAND(), RAND()));
+		SET i = i + 1;
+	END WHILE;
+END$$
+DELIMITER ;
+
+CALL create_sample_data();
+
+DROP PROCEDURE create_sample_data;
+
+CREATE INDEX d_idx ON s(d);
+CREATE INDEX p_idx ON s(p);
+
+-- Query OK, 10000000 rows affected (47,067 sec)
+-- Query OK, 0 rows affected (15,734 sec)
+-- Query OK, 0 rows affected (26,970 sec)
+</pre>
+
+<p>Tabuľka je vytvorená za 47 sekúnd a indexy za ďalších 43 sekúnd. Vytvorenie náhodných dát si môžme skontrolovať:</p>
+
+<pre>
+SELECT COUNT(*) FROM s;
++----------+
+| COUNT(*) |
++----------+
+| 10000000 |
++----------+
+1 row in set (1,293 sec)
+
+SELECT * FROM s LIMIT 10;
++----+---------------------+---------------------------+
+| id | d                   | p                         |
++----+---------------------+---------------------------+
+|  1 |  0.9137433598877335 |        â¶]w¸mç?ɱu@rlí?       |
+|  2 | 0.40100952368323645 |        /@~º
+                                        Ï?zlzp?      |
+|  3 |  0.4096927758396536 |        å¹úTy®î?
+                                            OȦÂâ?         |
+|  4 |   0.948166525874442 |        ¯g^Ø뙧?®Ïbë³Ø?          |
+|  5 |   0.791618720434251 |        JkfҚé?+PÊJä?      |
+|  6 |  0.7290030342796846 |        Z8âè?Ù)SMvÊä?        |
+|  7 |  0.9465388887995285 |        cKäÆØé?PlÁ ´?       |
+|  8 | 0.04003077656033521 |        {¥`çî?^´Zm­æ?         |
+|  9 |  0.6459137253890873 |        C+j´Њº?#SʸȔâ?       |
+| 10 |  0.5922686621474742 |        OpÈãÌ?%êQ!zÔ?        |
++----+---------------------+---------------------------+
+</pre>
+
+<p>MySQL nevie vypísať typ <code>point</code>, preto sa namiesto hodnôt zobrazujú binárne dáta.</p>
+
+<p>Podobná tabuľka sa v PostgreSQL vytvorí nasledujúcou sériou príkazov:</p>
+
+<pre class="code-postgresql">
+CREATE TABLE s (id SERIAL, d DOUBLE PRECISION, p POINT, PRIMARY KEY(id));
+INSERT INTO s (SELECT generate_series(1, 10000000), random(), point(random(), random()));
+-- Time: 12890,828 ms (00:12,891)
+CREATE INDEX d_idx ON s USING btree(d);
+-- Time: 3037,142 ms (00:03,037)
+CREATE INDEX p_idx ON s USING gist(p);
+-- Time: 13632,420 ms (00:13,632)
+</pre>
+
+<p>Opäť nasleduje kontrola údajov:</p>
+
+<pre>
+SELECT COUNT(*) FROM s;
+ count
+--------
+10000000
+(1 row)
+
+Time: 145,828 ms
+
+SELECT * FROM s LIMIT 10;
+id          d                              p
+-- ------------------- ------------------------------------------
+ 1 0.44124624029167525 (0.5581773825358121,0.308156906191311)
+ 2 0.09759067947576683 (0.07393451293407116,0.027710011644558552)
+ 3 0.18220250470085753 (0.2150454304704421,0.0663700457660914)
+ 4 0.14895286756377923 (0.8180180986740628,0.9082178023263434)
+ 5   0.969328504585125 (0.8755523928021021,0.3570828194116715)
+ 6   0.930351821656485 (0.22167092351788575,0.3140584019365069)
+ 7 0.12802135544719762 (0.21196181026395955,0.8765903299419724)
+ 8  0.9919567843128472 (0.5165731957649631,0.38102477994165995)
+ 9  0.3887398838466707 (0.8947758235085952,0.16025279565670614)
+10  0.5337890264197422 (0.36275067768781977,0.8799555047323149)
+(10 rows)
+
+Time: 0,448 ms
+</pre>
+
+<h3>Výpis údajov zoradených podľa stĺpca</h3>
+
+<p>Najjednoduchšie, čo môžme spraviť je vypísať si údaje zoradené podľa stĺpca so zoradeným indexom. V MySQL je to veľmi rýchla operácia, ktorá využíva index:</p>
+
+<pre>
+SELECT d, id FROM s ORDER BY d DESC LIMIT 10;
++-------------------+---------+
+| d                 | id      |
++-------------------+---------+
+| 0.999999949708581 | 8815993 |
+| 0.999999949708581 | 8716153 |
+| 0.999999949708581 | 7083193 |
+| 0.999999949708581 | 5502393 |
+| 0.999999949708581 | 5068153 |
+| 0.999999949708581 | 1854393 |
+| 0.999999376945197 | 4773466 |
+| 0.999999376945197 | 4578586 |
+| 0.999999376945197 | 4244186 |
+| 0.999999376945197 | 2979866 |
++-------------------+---------+
+10 rows in set (<strong>0,000 sec</strong>)
+
+
+EXPLAIN SELECT d, id FROM s ORDER BY d DESC LIMIT 10;
++------+-------------+-------+-------+---------------+-------+---------+------+------+-------------+
+| id   | select_type | table | type  | possible_keys | key   | key_len | ref  | rows | Extra       |
++------+-------------+-------+-------+---------------+-------+---------+------+------+-------------+
+|    1 | SIMPLE      | s     | index | NULL          | d_idx | 9       | NULL | 10   | Using index |
++------+-------------+-------+-------+---------------+-------+---------+------+------+-------------+
+1 row in set (0,000 sec)
+</pre>
+
+<p>PostgreSQL robí v zásade to isté:</p>
+
+<pre>
+SELECT d, id FROM s ORDER BY d DESC LIMIT 10;
+        d            id
+------------------ -------
+0.9999999729912039 7971458
+0.9999996724381648 5372047
+ 0.999999547273573 3593807
+0.9999995099932779 2321234
+0.9999994120221605 5259286
+0.9999993095493327 3329543
+ 0.999999264140115 2294627
+0.9999991310452243 2958705
+0.9999990016531421 7973130
+0.9999989705945129 5978095
+(10 rows)
+
+Time: <strong>0,443 ms</strong>
+
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT d, id FROM s ORDER BY d DESC LIMIT 10;
+                            QUERY PLAN
+-------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  Index Scan Backward using d_idx on s (actual rows=10 loops=1)
+Planning Time: 0.098 ms
+Execution Time: 0.087 ms
+</pre>
+
+<p>Obe databázy si so selectom poradili bez problémov.</p>
+
+<h3>Zoradenie podľa 2 stĺpcov</h3>
+
+<p>Pri fulltextovom vyhľadávaní sa problém prejavil až pri pokuse o zoradenie podľa 2 stĺpcov. Poďme si podobnú situáciu nasimulovať pomocou tejto pokusnej tabuľky. Najskôr MySQL:</p>
+
+<pre>
+SELECT d, id FROM s ORDER BY d DESC, id LIMIT 10;
++-------------------+---------+
+| d                 | id      |
++-------------------+---------+
+| 0.999999949708581 | 1854393 |
+| 0.999999949708581 | 5068153 |
+| 0.999999949708581 | 5502393 |
+| 0.999999949708581 | 7083193 |
+| 0.999999949708581 | 8716153 |
+| 0.999999949708581 | 8815993 |
+| 0.999999376945197 |   79386 |
+| 0.999999376945197 |   91866 |
+| 0.999999376945197 | 2979866 |
+| 0.999999376945197 | 4244186 |
++-------------------+---------+
+10 rows in set (<strong>2,467 sec</strong>)
+
+EXPLAIN SELECT d, id FROM s ORDER BY d DESC, id LIMIT 10;
++------+-------------+-------+-------+---------------+-------+---------+------+---------+-----------------------------+
+| id   | select_type | table | type  | possible_keys | key   | key_len | ref  | rows    | Extra                       |
++------+-------------+-------+-------+---------------+-------+---------+------+---------+-----------------------------+
+|    1 | SIMPLE      | s     | index | NULL          | d_idx | 9       | NULL | <strong>9712432</strong> | Using index; Using filesort |
++------+-------------+-------+-------+---------------+-------+---------+------+---------+-----------------------------+
+1 row in set (0,000 sec)
+</pre>
+
+<p>Zrazu pri takmer identických výsledkoch trvá dotaz 2,467 s a potrebuje skenovať 9712432 riadkov. Zaujímavé je, že ak otočím zoradenie pri ID, rýchlosť sa zásadne zmení, pričom oba stĺpce majú na sebe nezávislé indexy.</p>
+
+<pre>
+SELECT d, id FROM s ORDER BY d DESC, id DESC LIMIT 10;
+…
+10 rows in set (0,000 sec)
+
+EXPLAIN SELECT d, id FROM s ORDER BY d DESC, id DESC LIMIT 10;
++------+-------------+-------+-------+---------------+-------+---------+------+------+-------------+
+| id   | select_type | table | type  | possible_keys | key   | key_len | ref  | rows | Extra       |
++------+-------------+-------+-------+---------------+-------+---------+------+------+-------------+
+|    1 | SIMPLE      | s     | index | NULL          | d_idx | 9       | NULL | 10   | Using index |
++------+-------------+-------+-------+---------------+-------+---------+------+------+-------------+
+1 row in set (0,000 sec)
+</pre>
+
+<p>Pri rovnakom zadaní PostgreSQL dokáže využívať indexy aj keď majú opačné zoradenie:</p>
+
+<pre>
+SELECT d, id FROM s ORDER BY d DESC, id LIMIT 10;
+        d            id
+------------------ -------
+0.9999999729912039 7971458
+0.9999996724381648 5372047
+ 0.999999547273573 3593807
+0.9999995099932779 2321234
+0.9999994120221605 5259286
+0.9999993095493327 3329543
+ 0.999999264140115 2294627
+0.9999991310452243 2958705
+0.9999990016531421 7973130
+0.9999989705945129 5978095
+(10 rows)
+
+Time: <strong>0,547 ms</strong>
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE)  SELECT d, id FROM s ORDER BY d DESC, id LIMIT 10;
+                                         QUERY PLAN
+--------------------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  <strong>Incremental Sort</strong> (actual rows=10 loops=1)
+        Sort Key: d DESC, id
+        Presorted Key: d
+        Full-sort Groups: 1  Sort Method: <strong>quicksort</strong>  Average Memory: 25kB  Peak Memory: 25kB
+        -&gt;  <strong>Index Scan Backward</strong> using d_idx on s (actual rows=<strong>11</strong> loops=1)
+Planning Time: 0.109 ms
+Execution Time: 0.080 ms
+</pre>
+
+<p>Z výpisu vyplýva, že index scan v spätom smere vrátil len 11 záznamov. Tie boli následne zoradené metódou inkrementálneho zoradenia, čiže zoradia sa len tie, ktoré rovnakú hodnotu v stĺpci <code>d</code>.</p>
+
+<h3>Zoradenie podľa vzdialenosti</h3>
+
+<p>Bežnou požiadavkou je zobrazenie najbližších bodov v okolí. Pri testoch sa generovali náhodne body v rozsahu 0-1 na x-ovej aj y-ovej osi. Údaje sa budú zoraďovať podľa vzdialenosti od stredu. Najskôr dotaz v MySQL, ktorý ani nebudem rozoberať, lebo ani tie jednoduché dotazy nefungovali dobre.</p>
+
+<pre>
+SELECT ST_DISTANCE(p, POINT(0.5, 0.5)) dist, id FROM s ORDER BY dist LIMIT 10;
+…
+10 rows in set (5,301 sec)
+</pre>
+
+<p>Rovnaký dotaz v PostgreSQL prebehne podľa očakávania celkom rýchlo:</p>
+
+<pre>
+SELECT p &lt;-&gt; point(0.5, 0.5) dist, id FROM s ORDER BY dist LIMIT 10;
+…
+Time: <strong>0,650 ms</strong>
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT p &lt;-&gt; point(0.5, 0.5) dist, id FROM s ORDER BY dist LIMIT 10;
+                        QUERY PLAN
+----------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  Index Scan using p_idx on s (actual rows=<strong>10</strong> loops=1)
+        Order By: (p &lt;-&gt; '(0.5,0.5)'::point)
+Planning Time: 0.112 ms
+Execution Time: 0.354 ms
+</pre>
+
+<p>GIST Index v PostgreSQL vie ukladať body do R-tree, čo umožňuje efektívne prehľadávať body podľa vzdialenosti. Index tak skutočne vráti najbližšie body bez nutnosti dodatočného zoradenia. Čo sa však stane keď je požadované zaradenie bodov s rovnakou vzdialenosťou podľa druhého stĺpca?</p>
+
+<pre>
+SELECT p &lt;-&gt; point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+
+Time: <strong>420,092 ms</strong>
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT p &lt;-&gt; point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+                       QUERY PLAN
+--------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  Sort (actual rows=10 loops=1)
+        Sort Key: ((p &lt;-&gt; '(0.5,0.5)'::point)), id
+        Sort <strong>Method: top-N heapsort</strong>  Memory: 25kB
+        -&gt;  Seq Scan on s (actual rows=<strong>10000000</strong> loops=1)
+Planning Time: 0.080 ms
+Execution Time: 1151.684 ms
+</pre>
+
+<p>Neexistuje objektívny dôvod, prečo by PostgreSQL nemala používať rovnakú metódu zoradenia <em>Incremental Sort</em>, ako v predchádzajúcom prípade. Napriek tomu ho nepoužíva.</p>
+
+<p>Strávil som niekoľko hodín hrabaním sa v zdrojových kódoch PostgreSQL, aby som objavil dôvod. V prvom rade by som rád pochválil vývojárov za veľmi prehľadný kód, v ktorom som nemal ani zďaleka tak veľký problém zorientovať sa než som pôvodne čakal.</p>
+
+<p>Nakoniec príčinou problému je to, že PostgreSQL vie použiť <em>Incremental Sort</em> len v prípade keď používa zoradený index. Lenže index bodov nie je zoradený, pretože tu zoradenie ani nedáva zmysel. Čo však dáva zmysel je <strong>zoradenie podľa vzdialenosti voči referenčnému bodu</strong>. Index, alebo prístupová metóda (<em>access method</em>) na to implementuje <em>order operator</em>.</p>
+
+<p>Jedinou chybou je, že kým pri zoradenom indexe sa kontroluje, či index má spoločný prefix s <code>ORDER</code> klauzulou, pri nezoradenom indexe s order operátorom sa kontroluje exaktná zhoda <code>ORDER</code> klauzuly. Problém sa dá vyriešiť <a href="https://www.postgresql.org/message-id/attachment/146450/am_orderbyop_incremental_sort_v3.1.patch">malým patchom</a>, ktorý som zaslal vývojárom. Po jeho aplikácii vyzerajú výsledky takto:</p>
+
+<pre>
+SELECT p &lt;-&gt; point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+…
+
+Time: <strong>0,707</strong> ms
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT p &lt;-&gt; point(0.5, 0.5) dist, id FROM s ORDER BY dist, id LIMIT 10;
+                                         QUERY PLAN
+--------------------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  <strong>Incremental Sort</strong> (actual rows=10 loops=1)
+        Sort Key: ((p &lt;-&gt; '(0.5,0.5)'::point)), id
+        Presorted Key: ((p &lt;-&gt; '(0.5,0.5)'::point))
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        -&gt;  Index Scan using p_idx on s (actual rows=<strong>11</strong> loops=1)
+              Order By: (p &lt;-&gt; '(0.5,0.5)'::point)
+Planning Time: 0.121 ms
+Execution Time: 0.356 ms
+</pre>
+
+<h3>Výkon vo fulltextovom vyhľadávaní</h3>
+
+<p>Po aplikovaní záplaty funguje už aj zoradenie podľa viacerých stĺpcov pomerne rýchlo.</p>
+
+<pre>
+SELECT id, document_tsvector &lt;=&gt; to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank, id LIMIT 10;
+…
+Time: <strong>5,658 ms</strong>
+
+EXPLAIN (COSTS FALSE, ANALYZE TRUE, TIMING FALSE) SELECT id, document_tsvector &lt;=&gt; to_tsquery('simple', 'linux') AS "rank"  FROM ft WHERE document_tsvector @@ to_tsquery('simple', 'linux') ORDER BY rank, id LIMIT 10;
+                                         QUERY PLAN
+--------------------------------------------------------------------------------------------
+Limit (actual rows=10 loops=1)
+  -&gt;  <strong>Incremental Sort</strong> (actual rows=10 loops=1)
+        Sort Key: ((document_tsvector &lt;=&gt; '''linux'''::tsquery)), id
+        Presorted Key: ((document_tsvector &lt;=&gt; '''linux'''::tsquery))
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        -&gt;  Index Scan using document_idx on ft (actual rows=<strong>11</strong> loops=1)
+              Index Cond: (document_tsvector @@ '''linux'''::tsquery)
+              Order By: (document_tsvector &lt;=&gt; '''linux'''::tsquery)
+Planning Time: 0.221 ms
+Execution Time: 8.861 ms
+</pre>
+
+<figure>
+	<a href="img/sort_rum_col2.svg"><img src="img/sort_rum_col2.svg" alt="Zoradenie podľa 2 stĺpcov" /></a>
+	<figcaption>Obrázok <counter></counter>: Zoradenie podľa 2 stĺpcov</figcaption>
+</figure>
+
+<figure>
+	<a href="img/sort_rum_col2_no_mysql.svg"><img src="img/sort_rum_col2_no_mysql.svg" alt="Zoradenie podľa 2 stĺpcov bez MySQL" /></a>
+	<figcaption>Obrázok <counter></counter>: Zoradenie podľa 2 stĺpcov bez MySQL</figcaption>
+</figure>
+
+<p>Väčšina blogov o fulltextovom vyhľadávaní sa zaoberá iba vyhľadávaním zriedkavých slov, alebo sa vôbec nezaoberá poradím výsledkov. Práve kombinácia veľkého množstva a zoradenia je problematická. Dovolím si tvrdiť, že v tomto blogu som zašiel ďalej než ktokoľvek iný, čo skončilo malou, ale nevyhnutnou úpravou zdrojových kódov postgresu.</p>
+
+<p>Výsledky ukazujú, že PostgreSQL je dostatočne výkonnou pre fulltextové vyhľadávanie na malých až stredne veľkých databázach.</p>
+
+<p>MySQL je kapitola sama o sebe. Sťažnosti na mizerný optimalizátor počúvam už najmenej 15 rokov a teraz som sa mohol presvedčiť, že je to pravda dokonca aj pri veľmi jednoduchých dotazoch.</p>
+
+<h2>Kvalita výsledkov v PostgreSQL</h2>
+
+<p>Prvá časť článku bola zameraná len na maximalizáciu výkonu. Pravdou je, že takto navrhnuté vyhľadávanie nenájde ani len výraz <em>závisloť</em> ak ho zadám bez diakritiky. V tejto časti ukážem ako pri vyhľadávaní ignorovať diakritiku, či vyhľadávať slová so skloňovaním.</p>
+
+
+
+
+SELECT word FROM ts_stat('SELECT document_tsvector FROM ft') ORDER BY ndoc DESC;
 
 </article>
 <script src="../../../common/script.js"></script>
