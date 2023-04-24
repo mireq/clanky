@@ -477,3 +477,11 @@ Limit (actual rows=10 loops=1)
               Order By: (p <-> '(0.5,0.5)'::point)
 Planning Time: 0.121 ms
 Execution Time: 0.356 ms
+
+
+-- Generovanie zoznamu slov
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE TABLE words (id SERIAL, word VARCHAR(100), ndoc int, PRIMARY KEY(id));
+INSERT INTO words(word, ndoc) SELECT word, ndoc FROM ts_stat('SELECT to_tsvector(''simple'', document) FROM ft');
+CREATE INDEX word_idx ON words USING GIST (word gist_trgm_ops);

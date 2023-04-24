@@ -61,6 +61,22 @@ def main():
 	]
 	plot('sort_rum.svg', server, test_name, data, ylim=[0, 70])
 
+	server = ['MySQL', 'PG GIN', 'PG RUM']
+	data = [
+		[626, 50.462, 8.459],
+		[1, 1.255, 1.349],
+		[12, 1.180, 0.780],
+	]
+	plot('sort_rum_col2.svg', server, test_name, data)
+
+	server = ['PG GIN', 'PG RUM']
+	data = [
+		[50.462, 8.459],
+		[1.255, 1.349],
+		[1.180, 0.780],
+	]
+	plot('sort_rum_col2_no_mysql.svg', server, test_name, data)
+
 
 if __name__ == "__main__":
 	main()
