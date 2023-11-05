@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Úprava klávesovej mapy v X11</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article data-title-image="img/title_image.jpg">
+
+<header>
+	<h1>Úprava klávesovej mapy v X11</h1>
+
+	<p>Pri programovaní používam paradoxne slovenskú klávesnicu. Pozícia väčšiny špeciálnych kláves mi vyhovuje viac na Slovenskej klávesnici, ale nájdu sa tu výnimky. Preto som sa rozhodol o malú úpravu klávesovej mapy.</p>
+</header>
+
+<p>Nedávno sa podobný článok k úprave klávesovej mapy objavil na <a href="https://www.abclinuxu.cz/blog/using_linux/2021/12/uprava-map-klaves-x.org">abclinuxu</a>. Nepáči sa mi však spôsob aplikácie klávesovej mapy, ako aj veľká náročnosť postupu. Preto by som sa chcel podeliť o trocha jednoduchší spôsob, ktorý dovoľuje nastaviť klávesovú mapu aj globálne.</p>
+
+<h2>Ako fungujú klávesové mapy v X11</h2>
+
+<p>Na začiatok pripomeniem, že nastavenie klávesovej mapy sa robí príkazom <code>setxkbmap mapa</code>. Nasledujúcim príkazom sa nastaví slovenská klávesnica s rozložením <code>qwerty</code>: <code>setxkbmap sk -variant qwerty</code>.</p>
+
+<p>Pre pochopenie, čo sa stalo sa pozrime na výpis <code>setxkbmap -print</code>:</p>
+
+<pre>
+xkb_keymap {
+	xkb_keycodes  { include "evdev+aliases(qwertz)"	};
+	xkb_types     { include "complete"	};
+	xkb_compat    { include "complete"	};
+	xkb_symbols   { include "pc+sk(qwerty)+inet(evdev)"	};
+	xkb_geometry  { include "pc(pc105)"	};
+};
+</pre>
+
+<p>Jednotlivé časti výpisu odkazujú na súbory v adresári <code>/usr/share/X11/xkb</code>. Napríklad položka <code>evdev</code> v <code>xkb_keycodes</code> znamená, že mapovanie z hardvérových kódov na X11 kódy definuje súbor <code>keycodes/evdev</code> v adresári <code>/usr/share/X11/xkb</code>.</p>
+
+<p>Najzaujímavejšia položka je <code>xkb_symbols</code>, ktorá definuje, ako bude X11 reagovať na klávesy. Ide o zoznam súborov z adresára <code>symbols</code> oddelený znakom <code>+</code>. Súbory môžu mať modifikátory, napríklad <code>qwerty</code>.</p>
+
+<p>Zoznam symbolov obsahuje niektoré súbory, ktoré neboli nikde špecifikované. Ako teda funguje mapovanie príkazu <code>setxkbmap</code> do konkrétneho zoznamu v <code>xkb_symbols</code>? Odpoveď nájdeme v adresári <code>rules</code>.</p>
+
+<p>Ako najčistejšie riešenie sa mi zdalo vytvoriť si vlastný variant klávesnice, niečo ako <code>sk(qwerty,<strong>supermap</strong></code>), ale tu som narazil na problém, že neexistuje spôsob, ako rozšíriť pravidlá v adresári <code>rules</code>. Jednoducho zoznam súborov je napevno zakompilovaný do <code>setxkbmap</code>, preto by bola nutná <em>editácia už existujúcich súborov</em>, čo by znamenalo, že pri aktualizácii sa to zase vráti do pôvodného stavu.</p>
+
+<h2>Vytvorenie vlastného súboru symbolov</h2>
+
+<p>Chcel som vytvoriť vlastný súbor symbolov, ktorý mal jedinú modifikáciu oproti pôvodnej klávesovej mape - symbol bodkočiarky na skratke <code>AltGr + K</code>. Tým by som sa zbavil nepríjemného stláčania bodkočiarky na SK klávesnici.</p>
+
+<figure>
+	<a href="img/kbmap.png"><img src="img/kbmap.png" alt="Želaná klávesová mapa" /></a>
+	<figcaption>Obrázok <counter></counter>: Želaná klávesová mapa</figcaption>
+</figure>
+
+<p>Vytvorenie vlastnej klávesovej mapy, ktorá je založená na existujúcej mape je veľmi jednoduché. Stačí vytvoriť nový súbor v adresári <code>symbols</code> s názvom napríklad <code>supermap</code> s nasledujúcim obsahom:</p>
+
+<pre>
+partial alphanumeric_keys modifier_keys
+xkb_symbols "qwerty" {
+	include "sk(qwerty)"
+};
+</pre>
+
+<p>Súbor je možné jednoducho načítať príkazom <code>setxkbmap supermap -variant qwerty</code>. Úspešné načítanie môžeme prekontrolovať príkazom <code>setxkbmap -print</code>:</p>
+
+<pre>
+xkb_keymap {
+	xkb_keycodes  { include "evdev+aliases(qwerty)"	};
+	xkb_types     { include "complete"	};
+	xkb_compat    { include "complete"	};
+	xkb_symbols   { include "pc+supermap(qwerty)+inet(evdev)"	};
+	xkb_geometry  { include "pc(pc105)"	};
+};
+</pre>
+
+<p>Nakoniec zostáva doplniť úpravu mapy. Pre inšpiráciu sa pozrime do súboru <code>sk</code> z adresára <code>symbols</code>. Chcem upraviť klávesu <code>K</code>, ktorý sa nachádza v slovenskej mape na tomto riadku:</p>
+
+<pre>
+    key <AC08>  { [         k,          K,      lstroke,     NoSymbol ] };
+</pre>
+
+<p>Zostáva len upraviť <code>lstroke</code> symbolom <code>semicolon</code>. Takto vyzerá kompletný <code>supermap</code> súbor s náhradou klávesy:</p>
+
+<pre>
+partial alphanumeric_keys modifier_keys
+xkb_symbols "qwerty" {
+	include "sk(qwerty)"
+
+	key <AC08>  { [         k,          K,      semicolon,     NoSymbol ] };
+};
+</pre>
+
+<p>Po načítaní mapy <code>setxkbmap supermap -variant qwerty</code> začne <code>AltGr + K</code> fungovať ako bodkočiarka.</p>
+
+<h2>Globálne nastavenia</h2>
+
+<p>Zostáva už len nastaviť správnu klávesovú mapu automaticky po štarte X11. Ja používam priamo nastavenie v <code>/etc/X11/xorg.conf.d</code> a nemám žiaden applet na prepínanie. Takto vyzerá najjednoduchšie nastavenie:</p>
+
+<pre>
+Section "InputClass"
+	Identifier "Keyboard"
+	MatchIsKeyboard "on"
+	Option "XkbLayout" "supermap"
+	Option "XkbVariant" "qwerty"
+EndSection
+</pre>
+
+<h2>Moje (dosť šialené nastavenie)</h2>
+
+<p>Ok, ja používam trochu zložitejšie nastavenie a preto tu dávam konkrétne moje nastavenie. Je šialené, ale možno niekoho inšpiruje:</p>
+
+<pre>
+Section "InputClass"
+	Identifier "Keyboard"
+	MatchIsKeyboard "on"
+	Option "XkbLayout" "supermap,us"
+	Option "XkbOptions" "grp:ctrls_toggle,grp_led:scroll,terminate:ctrl_alt_bksp,keypad:pointerkeys,caps:escape,shift:both_capslock"
+	Option "XkbVariant" "qwerty,"
+	Option "XkbModel" "microsoftprooem"
+	Option "AutoRepeat" "175 13"
+EndSection
+</pre>
+
+<p>Na začiatku mám 2 definície layoutu. Prvou je moja klávesnica s variantom qwerty a druhou je štandardná anglická klávesnica.</p>
+
+<p>Prepínanie klávesnice je mapované na oba klávesy <code>Ctrl</code> (<code>grp:ctrls_toggle</code>). Alternatívnu klávesovú mapu indikujem LED scroll lock (<code>grp_led:scroll</code>). Ďalej povoľujem zabitie X11 pomocou starej známej skratky <code>Ctrl+Alt+Backspace</code> (<code>terminate:ctrl_alt_bksp</code>). Niekedy nemám žiadne polohovacie zariadenie, takže mám mapované <code>Shift-Numlock</code> na ovládanie myši (<code>keypad:pointerkeys</code>). Ako používateľ vimu často potrebujem stláčať <code>Esc</code>, preto som ho namapoval na <code>CapsLock</code> (<code>caps:escape</code>). Niekedy sa však hodí, napríklad pre písanie konštánt, preto som namapoval <code>CapsLock</code> na obe klávesy <code>Shift</code> súčasne (<code>shift:both_capslock</code>).</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
