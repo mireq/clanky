@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Uwsgi multihosting s monitoringom cez grafana</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article data-title-image="img/title_image.jpg">
+
+<header>
+	<h1>Uwsgi multihosting s monitoringom cez grafana</h1>
+
+	<p></p>
+</header>
+
+<p>Ako server som zvolil Ubuntu Server 23.10. Postup by mal s malými zmenami fungovať prakticky na ľubovoľnej distribúcii založenej na Debian Linuxe. Všetky príkazy budú vykonávané ak to nebude uvedené inak pod používateľom <code>root</code>. V príkazoch preto nebudem uvádzať <code>sudo</code> a budem predpokladať, že používateľ je priamo prihlásený ako root (napríklad príkazom <code>sudo su</code>).</p>
+
+<h2>Vytváranie používateľov a adresárovej štruktúry</h2>
+
+<p>Na serveri bude niekoľko projektov a potenciálne aj niekoľko používateľov. Preto som navrhol nasledujúci spôsob správy používateľov a ich adresárov:</p>
+
+<ul>
+	<li>Každý web má vlastného používateľa (bez možnosti prihlásenia)</li>
+	<li>Každý web (synonymu pre používateľa) je priradený v skupine <code>www-data</code> a v stkupine, ktorá je vytvorená pre klienta</li>
+	<li>Používatelia majú svoje domovské adresáre v <code>/var/www/clients/&lt;skupina&gt;/&lt;používateľ&gt;</code></li>
+	<li>Každý používateľ má meno podľa hlavnej domény webu (napríklad pre <code>linuxos.sk</code> by sa volal <code>linuxos.sk</code> a mal by svoju skupinu <code>linuxos-team</code>, <code>www-data</code>)</li>
+	<li>Používateľský adresár má odkaz do <code>/var/www</code> napríklad <code>/var/www/linuxos.sk</code></li>
+</ul>
+
+<p>Pre stránku <code>linuxos.sk</code> by išlo o nasledujúce príkazy:</p>
+
+<pre class="code-bash">
+# vytvorenie skupiny
+groupadd linuxos-team
+
+# vytvorenie užívateľského adresára (s jedným podadresárom web)
+mkdir -p /var/www/clients/linuxos-team/linuxos.sk/web
+
+# zmena práv pre home adresár
+chown linuxos.sk:linuxos-team /var/www/clients/linuxos-team/linuxos.sk/
+
+# pridanie používateľa bez možnosti prihlásenia
+useradd -d /var/www/clients/linuxos-team/linuxos.sk -g linuxos-team -M -s /bin/false linuxos.sk
+
+# pridanie používateľa do skupiny www-data
+usermod -a -G www-data linuxos.sk
+
+# vytvorenie odkazu
+ln -s /var/www/clients/linuxos-team/linuxos.sk /var/www/linuxos.sk
+</pre>
+
+<p>Keďže proces pridávania používateľov je vážne nudný a repetitívny a my programátori neradi robíme tie isté veci stále a stále znovu nehovoriac o vyhľadávaní návodu, pripravil som si bash skript, ktorý túto úlohu vyrieši za mňa. Povedzme, že nasledujúci skript si pomenujem <code>web_user_add</code>:</p>
+
+<pre class="code-bash">
+#!/bin/bash
+
+# Nápoveda
+if [ "$#" -ne 3 ]; then
+	echo "web_add host system_user system_group"
+	exit -1
+fi
+
+host=$1
+sys_user=$2
+sys_group=$3
+
+# Nie je vytvorená skupina? Vytvoríme
+if [[ ! $(getent group $sys_group) ]]; then
+	groupadd $sys_group
+	usermod -a -G $sys_group www-data
+fi
+
+# Nie je vytvorený používateľ? Vytvoríme
+if [[ ! $(getent passwd $sys_user) ]]; then
+	mkdir -p /var/www/clients/$sys_group/$sys_user/web
+	chown $sys_user:$sys_group -R /var/www/clients/$sys_group/$sys_user
+	useradd -d /var/www/clients/$sys_group/$sys_user -g $sys_group -M -s /bin/false $sys_user
+	usermod -a -G www-data $sys_user
+fi
+
+# Vytvorenie odkazu
+ln -s /var/www/clients/$sys_group/$sys_user /var/www/$host
+</pre>
+
+<p>Teraz už stačí len spustiť <code>./web_user_add linuxos.sk linuxos.sk linuxos-team</code>.</p>
+
+<h2>Uwsgi server</h2>
+
+<p>Zvyčajne prevádzkujem klasické <a href="https://en.wikipedia.org/wiki/Web_Server_Gateway_Interface">Web Server Gateway Interface</a> aplikácie. Existuje množstvo čistých wsgi, alebo kombinovaných asgi / wsgi serverov. Ja konkrétne používam <a href="https://uwsgi-docs.readthedocs.io/en/latest/">uWSGI</a>, čo je dnes považované už prakticky za neudržiavanú vykopávku. Má však veľmi zaujímavé vlastnosti, ktoré som v iných serveroch nenašiel, napríklad podporu socketovej aktivácie, automatické škálovanie, monitoring, routing, plánovanie úloh na pozadí atď.</p>
+
+<p>Najjednoduchšou voľbou, ako začať s multi-app deploymentom je <a href="https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html">uWSGI Emperor</a>. Tento režim umožňuje spravovať niekoľko aplikácii súbežne. Zároveň zvláda automatické spúšťanie nových workerov pri záťaži, či naopak ich vypínanie v prípade, že už nie sú potrební. Ako čerešničku na torte by som spomenul možnosť <a href="https://uwsgi-docs.readthedocs.io/en/latest/Options.html#cheap">cheap</a>, pri ktorej sa počas štartu len vytvorí socket a prvý worker sa spustí až pri požiadavke.</p>
+
+<p>Dosť bolo marketingových kecov, nastal čas vyhrnúť si rukávy a konfigurovať. Upozorňujem, že táto časť nie je nič, pre slabšie povahy a bude zahŕňať pomerne pokročilé techniky, na ktoré autor prišiel pri všetkej skromnosti sám a stálo ho to nemalé úsilie.</p>
+
+<p>Začnem inštaláciou <code>uwsgi</code> serveru, ktorá je na distribúciach založených na debiane veľmi jednoduchá - <code>apt install uwsgi-plugin-python3</code>.</p>
+
+<p>Konfiguráciu začnem prvým a hlavným konfiguračným súborom pre <em>uwsgi emperor</em> - <code>/etc/uwsgi/emperor.ini</code>. Súbor odkazuje na ďalšie konfiguračné súbory a nástroje, ktoré si postupne prejdeme. Tu je už sľúbená konfigurácia:</p>
+
+<pre class="code-ini">
+[uwsgi]
+plugin = syslog
+logger = syslog:emperor
+
+master-fifo = /run/uwsgi/emperor.fifo
+
+emperor = /etc/uwsgi/apps-enabled
+emperor-stats = /run/uwsgi/emperor-stats.sock
+emperor-on-demand-exec = /etc/uwsgi/make_rundir.py
+
+vassals-inherit = /etc/uwsgi/default-inherit.ini
+vassals-include-before = /etc/uwsgi/default-include-before.ini
+
+#emperor-tyrant = true
+#cap = setgid,setuid
+</pre>
+
+<p>Prvé 2 direktívy zapínajú logovanie do syslogu pod identifikátorom <code>emperor</code>. Pomocou tohto identifikátora bude neskôr možné identifikovať logy pochádzajúce z hlavného procesu. Ak je logovanie nastavené správne, výsledné logy vyzerajú približne takto:</p>
+
+<pre>
+Sat Nov 18 13:13:19 2023 - [emperor] vassal linuxos.sk.ini is ready to accept requests
+Sat Nov 18 13:13:21 2023 - [emperor] vassal linuxos.sk.ini is now loyal
+</pre>
+
+<p>Direktíva <code>master-fifo</code> umožňuje ovládať emperor pomocou <a href="https://uwsgi-docs.readthedocs.io/en/latest/MasterFIFO.html">sady príkazov</a>. Osobne som z týchto možností nevyužil ešte reálne nič okrem preskenovania konfigurácie (<code>echo "E" &gt; /run/uwsgi/emperor.fifo</code>).</p>
+
+<p>Pod direktívou <code>emperor</code> sa skrýva cesta ku konfigurácii k jednotlivým webom (<em>vassals</em>). V tomto prípade je to adresár s konfiguračnými súbormi, ale reálne tu môže byť napríklad nastavená aj konfigurácia pre výber konfigurácie z postgresql databázy. Podrobnejšie informácie sa nachádzajú v <a href="https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html">dokumentácii</a>.</p>
+
+<p>Štatistiky o jednotlivých weboch a procesoch sa dajú exportovať cez direktívu <code>emperor-stats</code>.</p>
+
+<p>Pod podozrivou direktívou <code>emperor-on-demand-exec</code> sa dokonca skrýva cesta k skriptu. K jeho úlohe sa vrátim v časti o spúšťaní on demand.</p>
+
+<p>Nasledujúce direktívy <code>vassals-inherit</code> a <code>vassals-include-before</code> definujú spoločnú konfiguráciu pre všetky weby. Stále platí, že som lenivý programátor, ktorému sa nechce všetko konfigurovať pre každý web. Prečo sú však direktívy 2?</p>
+
+<p>Existujú 2 direktívy pre vloženie spoločnej konfigurácie <code>inherit</code> a <code>include</code>. Okrem toho existujú ešte v 2 variantoch a to príponou <code>-before</code> kedy sú akoby vložené na začiatok konfiguračného súboru a bez prípony, kedy sú na konci. Rozdiel medzi <code>inherit</code> a <code>include</code> spočíva v expanzii environment premenných a v tomto prípade rozdiel nie je dôležitý. Čo je však dôležité je prípona <code>-before</code>, bez ktorej by nebolo možné "prebiť" globálne nastavenia špecifickými nastaveniami v konfigurácii konkrétneho webu. Podrobnosti o spôsobe spracovania konfiguračného súboru sú v <a href="https://uwsgi-docs.readthedocs.io/en/latest/ParsingOrder.html">dokumentácii</a>.</p>
+
+<p>Paranoidní používatelia môžu využiť režim <code>emperor-tyrant</code>, pri ktorom weby rovno štartujú s obmedzenými právami. V bežnom režime naopak štartujú s právami, ktoré má emperor a na základe konfigurácie svoje práva degradujú (ešte v čase pred spustením kódu používateľa).</p>
+
+<h3>Globálne nastavenia webov</h3>
+
+<p>Súbor <code>default-inherit.ini</code> bude obsahovať všetky nastavenia, ktoré nebude možné prepísať v konfiguračných súboroch jednotlivých webov.</p>
+
+<pre class="code-ini">
+[uwsgi]
+plugin = syslog
+logger = syslog:%N
+logformat = %(method) %(status) %(msecs)ms %(size)b %(uri)
+
+master = 1
+
+# limit pre beh skriptu
+harakiri = 60
+harakiri-verbose = 1
+
+# automatické vypnutie procesu
+cheap = true
+idle = 3600
+die-on-idle = true
+
+# nastavenie ciest
+chdir = /var/www/%N/web/app
+pythonpath = /var/www/%N/web/app
+virtualenv = /var/www/%N/web/virtualenv
+
+# python modul
+module = wsgi
+
+chmod-socket = 660
+
+stats = /run/uwsgi/stats/%N.sock
+memory-report = true
+
+safe-pidfile = /run/uwsgi/apps/%N/pid
+
+#cgroup = /sys/fs/cgroup/cpu/uwsgi/%N
+#cgroup = /sys/fs/cgroup/memory/uwsgi/%N
+#cgroup-opt = memory.limit_in_bytes = 6442450944
+</pre>
+
+<p>Na začiatku súboru je opäť nastavenie logov. Magická premenná <code>%N</code> obsahuje názov hlavného konfiguračného súboru bez prípony. Konfiguračný súbor webu bude mať názov <code>linuxos.sk.ini</code>, takže táto magická premenná bude obsahovať <code>linuxos.sk</code>. Syslog identifikátor bude preto obsahovať názov domény <code>linuxos.sk</code>, čo nám umožní filtrovať logy podľa konkrétneho webu.</p>
+
+<p>Direktíva <code>master</code> určuje spôsob vytvorenia procesu. V zásade platí, že procesy webu by mali mať nastavenú direktívu <code>master</code> a emperor nie.</p>
+
+<p>Pomocou direktívy <code>harakiri</code> sa nastavuje čas, po ktorom sa zabije worker ak nebude odpovedať.</p>
+
+<p>Nasledujúca časť s direktívami <code>cheap</code>, <code>idle</code> a <code>die-on-idle</code> povoľuje aktiváciu socketom a časovač, ktorý vypne inštanciu, ak po zvolenú dobu nebude prijatá žiada požiadavka.</p>
+
+<p>Nasleduje konfigurácia ciest. Tu sú použité magické premenné, ktoré zložia cestu z názvu hlavného konfiguračného súboru.</p>
+
+<p>Pomocou direktívy <code>module</code> sa nastavuje python modul, ktorý bude obsahovať entry point aplikácie (funkciu <code>application</code>).</p>
+
+<p>Vytvorený socket má mať práva <code>600</code>, teda plný prístup pre používateľa a skupinu.</p>
+
+<p>Každý projekt bude mať vlastný socket, cez ktorý sa dajú čítať štatistiky. Direktívou <code>memory-report</code> sa zapína export informácií o obsadenej pamäti do súboru so štatistikami.</p>
+
+<p>Nakoniec zostáva už len nastavenie PID súboru.</p>
+
+<p>Ak používate cgroups v1, je možné nastaviť limity priamo pre worker. Žiaľ podpora v2 v dobe písania nie je implementovaná.</p>
+
+<p>V súbore <code>default-include-before.ini</code> budú naopak direktívy, ktoré sa môžu v jednotlivých weboch prepísať.</p>
+
+<pre class="code-ini">
+[uwsgi]
+processes = 4
+
+cheaper = 1
+cheaper-initial = 1
+cheaper-step = 1
+
+uid = www-data
+gid = www-data
+chown-socket = www-data:www-data
+</pre>
+
+<p>V tomto súbore nastavujem najskôr počet workerov. V tomto prípade je počet workerov limitovaný na 4.</p>
+
+<p>Ďalej nasleduje nastavenie automatického škálovania pomocou direktív <code>cheaper</code>. Škálovanie sa začína na 1 procese a počet procesov sa zvyšuje / znižuje po 1 procese.</p>
+
+<p>Nakoniec sa nastavuje používateľ / skupina procesu a práva pre socket.</p>
+
+<h3>Spustenie on demand</h3>
+
+<p>Pri inicializácii on-demand inštancie môže uwsgi emperor spustiť ľubovoľný skript. Účelom skriptu je príprava prostredia pre beh webu. Môže napríklad vytvárať potrebné adresáre. Nakoniec musí vrátiť cestu k unix socket súboru. Takto konkrétne vyzerá môj <code>/etc/uwsgi/make_rundir.py</code>:</p>
+
+<pre class="code-python">
+#!/usr/bin/env python3
+
+import configparser
+import grp
+import os
+import pwd
+import socket
+import sys
+
+# uwsgi posiela názov konfiguračného úboru ako args[1]
+confname = sys.argv[1]
+basename = os.path.basename(confname)
+appname = os.path.splitext(basename)[0]
+
+# načítanie konfigurácie
+config = configparser.ConfigParser(strict=False)
+config.read(confname)
+
+# vytvorenie adresára so štatistikami
+dirname = '/run/uwsgi/stats/'
+try:
+	os.makedirs(dirname)
+except OSError:
+	pass
+uid = pwd.getpwnam('www-data').pw_uid
+gid = grp.getgrnam('www-data').gr_gid
+os.chown(dirname, uid, gid)
+os.chmod(dirname, 504) # 770
+
+# vytvorenie socketu pre štatistiky
+stats_socket_file = f'/run/uwsgi/stats/{appname}.sock'
+try:
+	os.unlink(stats_socket_file)
+except OSError:
+	pass
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind(stats_socket_file)
+
+# vytvorenie /run/uwsgi/apps
+dirname = '/run/uwsgi/apps/%s' % appname
+try:
+	os.makedirs(dirname)
+except OSError:
+	pass
+
+# načítanie uid / gid zo súboru
+config = dict(config.items('uwsgi'))
+config.setdefault('uid', 'www-data')
+config.setdefault('gid', 'www-data')
+
+# nastavenie práv
+uid = pwd.getpwnam(config['uid']).pw_uid
+gid = grp.getgrnam(config['gid']).gr_gid
+perms = '%s:%s' % (config['uid'], config['gid'])
+
+if uid == 0 or gid == 0:
+	sys.stderr.write("Dangerous")
+	sys.exit(-1)
+
+os.chown(dirname, uid, gid)
+os.chmod(dirname, 504) # 770
+os.chown(stats_socket_file, uid, gid)
+os.chmod(stats_socket_file, 432) # 660
+
+# vrátenie cesty k socketu
+sys.stdout.write('%s/socket' % dirname)
+</pre>
+
+<h3>Konfigurácia webovej aplikácie</h3>
+
+<p>Konfiguráciu webových aplikácií umiestňujem štandardne do adresára <code>/etc/uwsgi/apps-available</code>. V adresári <code>/etc/uwsgi/apps-enabled</code> sú symbolické odkazy na súbory v <code>apps-available</code>, čo umožňuje jednoducho zapínať / vypínať weby vytvorením či zmazaním odkazu.</p>
+
+<p>Kompletná konfigurácia <code>linuxos.sk.ini</code> môže vyzerať napríklad takto:</p>
+
+<pre class="code-ini">
+[uwsgi]
+plugins = python3
+
+processes = 8
+
+uid = linuxos.sk
+gid = linuxos-team
+chown-socket = linuxos.sk:linuxos-team
+</pre>
+
+<h3>Webová aplikácia</h3>
+
+<p>Teraz si v adresári <code>/var/www/linuxos.sk/web</code> vytvoríme ukážkovú aplikáciu.</p>
+
+<p>Najskôr v adresári vytvoríme python virtualenv prostredie príkazom <code>python3 -m venv virtualenv</code>. Aplikácia bude umiestnená v podadresári <code>app</code> ako súbor <code>wsgi.py</code>. Kompletný súbor vyzerá takto:</p>
+
+<pre class="code-python">
+def application(env, start_response):
+	start_response('200 OK', [('Content-Type','text/html')])
+	return [b"Hello World"]
+</pre>
+
+<h3>Spustenie systémovej služby</h3>
+
+<p>Na dokončenie konfigurácie zostáva jediná drobnosť - vytvorenie systémovej služby pre spustenie uwsgi. V adresári <code>/etc/systemd/system</code> vytvoríme súbor <code>emperor.uwsgi.service</code>.</p>
+
+<pre class="code-ini">
+[Unit]
+Description=uWSGI Emperor
+After=syslog.target
+
+[Service]
+ExecStartPre=/bin/mkdir -p /run/uwsgi
+ExecStart=/usr/bin/uwsgi --ini /etc/uwsgi/emperor.ini
+ExecReload=/bin/echo "E" &gt; /run/uwsgi/emperor.fifo
+Restart=always
+KillSignal=SIGQUIT
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target
+</pre>
+
+<p>Tu sa nastavujú príkazy pre vytvorenie pracovného adresára, spustenie daemona, alebo načítanie adresára s konfiguračnými súbormi poslaním písmena <code>E</code> do riadiacej rúry <code>/run/uwsgi/emperor.fifo</code>.</p>
+
+<p>Služba sa následne naštartuje príkazom <code>systemctl start emperor.uwsgi.service</code>.</p>
+
+<p>Logy sa dajú sledovať príkazom <code>journalctl -f -u emperor.uwsgi.service</code>. Je možné filtrovať logy podľa jednotlivých identifikátorov, napríklad <code>journalctl -f -u emperor.uwsgi.service SYSLOG_IDENTIFIER=emperor</code> pre sledovanie hlavného procesu, alebo <code>SYSLOG_IDENTIFIER=linuxos.sk</code> pre sledovanie logov pre konkrétny web.</p>
+
+<!--
+<figure>
+	<a href="img/kbmap.png"><img src="img/kbmap.png" alt="Želaná klávesová mapa" /></a>
+	<figcaption>Obrázok <counter></counter>: Želaná klávesová mapa</figcaption>
+</figure>
+-->
+
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
