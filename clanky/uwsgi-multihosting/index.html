@@ -348,6 +348,123 @@ WantedBy=multi-user.target
 
 <p>Logy sa dajú sledovať príkazom <code>journalctl -f -u emperor.uwsgi.service</code>. Je možné filtrovať logy podľa jednotlivých identifikátorov, napríklad <code>journalctl -f -u emperor.uwsgi.service SYSLOG_IDENTIFIER=emperor</code> pre sledovanie hlavného procesu, alebo <code>SYSLOG_IDENTIFIER=linuxos.sk</code> pre sledovanie logov pre konkrétny web.</p>
 
+<h2>Webový server nginx</h2>
+
+<p>Inštaláciu webového servara opäť vykonáme klasickým debianovským spôsobom: <code>apt install nginx-full</code>.</p>
+
+<p>Konfiguráciu začnem opäť nastavením formátu logov v hlavnom konfiguračnom súbore <code>/etc/nginx/nginx.conf</code>. Do sekcie <code>http</code> pridávam nastavenia formátu logov, ktoré sa budú jednoducho strojovo čítať:</p>
+
+<pre>
+log_format syslog_format '$request_method $status $request_time(ms) $bytes_sent(B) upstream[response=$upstream_response_time(ms) ttfb=$upstream_header_time(ms)] $remote_addr $request_uri $http_user_agent';
+</pre>
+
+<p>Konfigurácia webu <code>linxuos.sk</code> bude opäť uložená tak, aby sa dala ľahko zapínať / vypínať. Kompletná konfigurácia <code>/etc/nginx/sites-available/linuxos.sk.conf</code> vyzerá takto:</p>
+
+<pre>
+server {
+	listen 80;
+	listen [::]:80;
+
+	server_name linuxos.sk;
+
+	access_log syslog:server=unix:/dev/log,facility=local7,tag=linuxos_sk,severity=info syslog_format;
+
+	location / {
+		include uwsgi_params;
+		uwsgi_pass unix:///run/uwsgi/apps/linuxos.sk/socket;
+	}
+}
+</pre>
+
+<p>Tento súbor v podstate len hovorí, že má počúvať na adrese linuxos.sk, porte 80 a posielať všetky požiadavky serveru <code>uwsgi</code>. Prístupové logy sú odosielané do syslogu pod značkou <code>linuxos_sk</code>. Špeciálne znaky ako napríklad bodka nie sú povolené.</p>
+
+<p>Aby bolo možné webovú stránku načítať, je potrebné ešte pridať adresu <code>linuxos.sk</code> do <code>/etc/hosts</code>.</p>
+
+<pre>
+127.0.1.1 linuxos.sk
+::1 linuxos.sk
+</pre>
+
+<p>Po vytvorení odkazu v <code>sites-enabled</code> a reloade servera <code>systemctl reload nginx</code> je možné načítať web:</p>
+
+<pre>curl http://linuxos.sk/
+Hello World
+</pre>
+
+<h2>Telemetria</h2>
+
+<p>Za dôležitú časť starostlivosti o multihosting považujem monitoring zdrojov. Mať prehľad o rezervách vo výkone, či o nepokrytých špičkách, alebo neposlušných robotoch, ktoré nechtiac robia na server DDoS útok môže byť celkom užitočné.</p>
+
+<p>V tomto smere sú moje skúsenosti pomerne plytké a preto ma neberte až tak celkom vážne. Na druhej strane ak poviem, bacha na databázu Prometheus a vysokú kardinalitu tak si treba dávať vážne pozor, lebo som si kvôli tomu pár krát zostrelil server. Alebo viete čo? Rovno som sa na prometheus vykašlal :)</p>
+
+<h3>Architektúra</h3>
+
+<p>Monitoring bude založený na 3 samostatných navzájom zameniteľných komponentoch:</p>
+
+<dl>
+	<dt>Zber údajov</dt>
+	<dd>Nástroj <a href="https://github.com/influxdata/telegraf">telegraf</a> je excelentným zberačom údajov. Vie získavať informácie o systéme z rôznych zdrojov pomocou množstvá vstupných pluginov. Následne je schopný pozbierané údaje posielať do rôznych databáz cez výstupné pluginy.</dd>
+	<dt>Zaznamenávanie údajov (databáza)</dt>
+	<dd>Telemetrické údaje sa najlepšie zaznamenávajú do špeciálne na to určenej databázy. Na výber je napríklad Prometheus, ale vzhľadom na to, že zaznamenávam aj niektoré textové údaje som nakoniec skončil pri použití <a href="https://www.influxdata.com/">InfluxDB</a></dd>
+	<dt>Vizualizácia a upozornenia</dt>
+	<dd>V oblasti vizualizácie zase exceluje nástroj <a href="https://grafana.com/">Grafana</a>, ktorý vie čítať a zobrazovať dáta z rôznych databáz.</dd>
+</dl>
+
+<h3>Inštalácia a nastavenie databázy InfluxDB 2.x</h3>
+
+<p>Keďže telegraf aj grafana sa budú pripájať na databázu, je rozumné najskôr začať jej inštaláciou.</p>
+
+<p>Podľa <a href="https://www.influxdata.com/downloads/">stránky s okazmi na stiahnutie</a> je postup inštalácie pre Debian / Ubuntu nasledovný:</p>
+
+<pre class="code-bash">
+wget -q https://repos.influxdata.com/influxdata-archive_compat.key
+echo '393e8779c89ac8d958f81f942f9ad7fb82a25e133faddaf92e15b16e6ac9ce4c influxdata-archive_compat.key' | sha256sum -c &amp;&amp; cat influxdata-archive_compat.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg &gt; /dev/null
+echo 'deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg] https://repos.influxdata.com/debian stable main' | sudo tee /etc/apt/sources.list.d/influxdata.list
+
+apt-get update &amp;&amp; apt install influxdb2
+</pre>
+
+<p>Po úspešnej inštalácii je možné databázu naštartovať príkazom <code>systemctl start influxdb</code>. Nasledovať by mala konfigurácia, pri ktorej sa vytvoria prístupové údaje. Ja som pre všetky polia vyplnil <code>telegraf</code>, pretože som vážne lenivý a službu používam len v lokálnej sieti.</p>
+
+<pre>
+# influx setup
+&gt; Welcome to InfluxDB 2.0!
+? Please type your primary username telegraf
+? Please type your password ********
+? Please type your password again ********
+? Please type your primary organization name telegraf
+? Please type your primary bucket name telegraf
+? Please type your retention period in hours, or 0 for infinite 72
+? Setup with these parameters?
+  Username:          telegraf
+  Organization:      telegraf
+  Bucket:            telegraf
+  Retention Period:  72h0m0s
+ Yes
+User            Organization    Bucket
+telegraf        telegraf        telegraf
+</pre>
+
+<p>Pre autentifikáciu bude vyžadovaný token, ktorý je možné zistiť príkazom <code>influx auth list</code>:</p>
+
+<pre>
+ID                      Description             Token                                                                                           User Name       User ID                 Permissions
+0c262a48f390a000        telegraf's Token        <strong>_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg==</strong>        telegraf        0c262a48de90a000        [read:/authorizations write:/authorizations read:/buckets write:/buckets read:/dashboards write:/dashboards read:/orgs write:/orgs read:/sources write:/sources read:/tasks write:/tasks read:/telegrafs write:/telegrafs read:/users write:/users read:/variables write:/variables read:/scrapers write:/scrapers read:/secrets write:/secrets read:/labels write:/labels read:/views write:/views read:/documents write:/documents read:/notificationRules write:/notificationRules read:/notificationEndpoints write:/notificationEndpoints read:/checks write:/checks read:/dbrp write:/dbrp read:/notebooks write:/notebooks read:/annotations write:/annotations read:/remotes write:/remotes read:/replications write:/replications]
+</pre>
+
+<h3>Inštalácia a nastavenie telegrafu</h3>
+
+<p>Návod na inštaláciu pre Ubuntu / Debian sa prakticky nelíši od od InfluxDB a pozostáva z pridania repozitára a klasickú inštaláciu cez apt:</p>
+
+<pre class="code-bash">
+wget -q https://repos.influxdata.com/influxdata-archive_compat.key
+echo '393e8779c89ac8d958f81f942f9ad7fb82a25e133faddaf92e15b16e6ac9ce4c influxdata-archive_compat.key' | sha256sum -c &amp;&amp; cat influxdata-archive_compat.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg &gt; /dev/null
+echo 'deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg] https://repos.influxdata.com/debian stable main' | tee /etc/apt/sources.list.d/influxdata.list
+apt-get update &amp;&amp; apt install telegraf
+</pre>
+
+
+
 <!--
 <figure>
 	<a href="img/kbmap.png"><img src="img/kbmap.png" alt="Želaná klávesová mapa" /></a>
