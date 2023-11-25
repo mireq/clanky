@@ -403,9 +403,9 @@ Hello World
 
 <dl>
 	<dt>Zber údajov</dt>
-	<dd>Nástroj <a href="https://github.com/influxdata/telegraf">telegraf</a> je excelentným zberačom údajov. Vie získavať informácie o systéme z rôznych zdrojov pomocou množstvá vstupných pluginov. Následne je schopný pozbierané údaje posielať do rôznych databáz cez výstupné pluginy.</dd>
+	<dd>Nástroj <a href="https://github.com/influxdata/telegraf">telegraf</a> je excelentným zberačom údajov. Vie získavať informácie o systéme z rôznych zdrojov pomocou množstvá vstupných pluginov. Následne je schopný pozbierané údaje posielať do rôznych databáz cez výstupné pluginy. Typicky každý server má spustenú vlastnú inštanciu, ktorá buď aktívne zasiela údaje v pravidelných intervaloch, alebo počúva na vybranom porte a v prípade požiadavky odpovie aktuálnymi nameranými hodnotami.</dd>
 	<dt>Zaznamenávanie údajov (databáza)</dt>
-	<dd>Telemetrické údaje sa najlepšie zaznamenávajú do špeciálne na to určenej databázy. Na výber je napríklad Prometheus, ale vzhľadom na to, že zaznamenávam aj niektoré textové údaje som nakoniec skončil pri použití <a href="https://www.influxdata.com/">InfluxDB</a></dd>
+	<dd>Telemetrické údaje sa najlepšie zaznamenávajú do špeciálne na to určenej databázy. Na výber je napríklad Prometheus, ale vzhľadom na to, že zaznamenávam aj niektoré textové údaje som nakoniec skončil pri použití <a href="https://www.influxdata.com/">InfluxDB</a>. Databáza zvyčajne beží na jednom stroji ak nie je nevyhnutné škálovanie kvôli výkonu, alebo väčšia odolnosť voči výpadkom.</dd>
 	<dt>Vizualizácia a upozornenia</dt>
 	<dd>V oblasti vizualizácie zase exceluje nástroj <a href="https://grafana.com/">Grafana</a>, ktorý vie čítať a zobrazovať dáta z rôznych databáz.</dd>
 </dl>
@@ -463,15 +463,388 @@ echo 'deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg] https
 apt-get update &amp;&amp; apt install telegraf
 </pre>
 
+<h4>Minimálna konfigurácia</h4>
+
+<p>Zatiaľ budem ignorovať štandardný a začnem úplne jednoduchým čistým konfiguračným súborom <code>telegraf.conf</code>:</p>
+
+<pre class="code-ini">
+[[outputs.file]]
+	files = ["/tmp/telegraf.out"]
+
+[[inputs.mem]]
+</pre>
+
+<p>Po spustení <code>telegraf --config telegraf.conf --debug</code> sa v konzole zobrazí výpis podobný tomuto:</p>
+
+<pre>
+2023-11-25T16:09:09Z I! Starting Telegraf 1.22.3+ds1-0ubuntu2
+2023-11-25T16:09:09Z I! Loaded inputs: mem
+2023-11-25T16:09:09Z I! Loaded aggregators:
+2023-11-25T16:09:09Z I! Loaded processors:
+2023-11-25T16:09:09Z I! Loaded outputs: file
+2023-11-25T16:09:09Z I! Tags enabled: host=linuxos
+2023-11-25T16:09:09Z I! [agent] Config: Interval:10s, Quiet:false, Hostname:"linuxos", Flush Interval:10s
+2023-11-25T16:09:09Z D! [agent] Initializing plugins
+2023-11-25T16:09:09Z D! [agent] Connecting outputs
+2023-11-25T16:09:09Z D! [agent] Attempting connection to [outputs.file]
+2023-11-25T16:09:09Z D! [agent] Successfully connected to outputs.file
+2023-11-25T16:09:09Z D! [agent] Starting service inputs
+2023-11-25T16:09:19Z D! [outputs.file] Wrote batch of 1 metrics in 142.651µs
+2023-11-25T16:09:19Z D! [outputs.file] Buffer fullness: 0 / 10000 metrics
+2023-11-25T16:09:29Z D! [outputs.file] Wrote batch of 1 metrics in 126.871µs
+2023-11-25T16:09:29Z D! [outputs.file] Buffer fullness: 0 / 10000 metrics
+</pre>
+
+<p>Zaujímavejšie však vyzerá súbor <code>/tmp/telegraf.out</code>.</p>
+
+<pre>
+mem,host=linuxos total=8317620224i,inactive=2522996736i,shared=848220160i,write_back=0i,available=3538952192i,huge_pages_free=0i,sreclaimable=1049927680i,swap_total=536866816i,used=3613786112i,commit_limit=4695674880i,high_free=0i,mapped=1177395200i,vmalloc_total=35184372087808i,vmalloc_used=24809472i,buffered=84185088i,slab=1203593216i,swap_cached=87453696i,cached=3088490496i,committed_as=78690824192i,low_total=0i,available_percent=42.547653014843874,dirty=3010560i,high_total=0i,huge_pages_total=0i,vmalloc_chunk=0i,active=2959667200i,huge_page_size=2097152i,low_free=0i,sunreclaim=153665536i,used_percent=43.44735651157328,free=1531158528i,page_tables=32088064i,swap_free=2609152i,write_back_tmp=0i 1700928550000000000
+mem,host=linuxos committed_as=78680104960i,huge_pages_total=0i,low_total=0i,vmalloc_total=35184372087808i,available=3531640832i,commit_limit=4695674880i,swap_cached=87453696i,swap_free=2609152i,swap_total=536866816i,vmalloc_used=24866816i,active=2950438912i,free=1522753536i,low_free=0i,vmalloc_chunk=0i,high_free=0i,huge_pages_free=0i,huge_page_size=2097152i,sunreclaim=153661440i,available_percent=42.45975094907146,buffered=84221952i,high_total=0i,shared=848220160i,slab=1203658752i,sreclaimable=1049997312i,write_back=0i,used_percent=43.535209332490915,dirty=4239360i,mapped=1167822848i,total=8317620224i,used=3621093376i,page_tables=30720000i,write_back_tmp=0i,cached=3089551360i,inactive=2523975680i 1700928560000000000
+mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_cached=87457792i,buffered=84238336i,commit_limit=4695674880i,high_total=0i,swap_total=536866816i,vmalloc_total=35184372087808i,total=8317620224i,dirty=1708032i,inactive=2524303360i,low_total=0i,free=1534955520i,high_free=0i,huge_pages_free=0i,shared=848220160i,sunreclaim=153698304i,vmalloc_used=24842240i,write_back=0i,available_percent=42.61103114293861,active=2949169152i,committed_as=78673256448i,page_tables=30531584i,sreclaimable=1050013696i,available=3544223744i,used=3608514560i,write_back_tmp=0i,huge_page_size=2097152i,slab=1203712000i,swap_free=2658304i,vmalloc_chunk=0i,used_percent=43.38397838347855,low_free=0i 1700928570000000000
+</pre>
+
+<p>Zo vstupných pluginov je povolené len zaznamenávanie obsadenej pamäte. Teraz si bližšie rozoberieme jednotlivé polia súboru. V budúcnosti tento postup bude slúžiť ako pomôcka pri konfigurácii a prezeraní dostupných dát</p>
+
+<p>Prvým poľom na každom riadku je vždy názov metriky. V tomto prípade je to <code>mem</code>. Nasleduje zoznam čiarkou oddelených tagov vo forme <code>názov=hodnota</code>. V tomto prípade je názov tagu <code>host</code> a hodnota <code>linuxos</code>. Tagy sú polia, podľa ktorých sú dáta indexované a je možné ich rýchlo prehľadávať. Na druhej strane je nevhodné do tagov ukladať dáta, ktoré majú veľký počet rozličných hodnôt. V riadku ďalej nasleduje zoznam nameraných hodnôt v rovnakej forme, v akej bol zoznam tagov. Posledným poľom je časová pečiatka merania.</p>
+
+<h4>Odosielanie dát do InfluxDB</h4>
+
+<p>Vo väčšine prípadov budeme chcieť ukladať namerané hodnoty do reálnej databázy. Po pridaní nasledujúcej sekcie sa budú údaje zasielať do InfluxDB:</p>
+
+<pre class="code-ini">
+[[outputs.influxdb_v2]]
+	urls = ["http://127.0.0.1:8086"]
+	token = "_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg=="
+	organization = "telegraf"
+	bucket = "telegraf"
+</pre>
+
+<p>URL adresu je potrebné nastaviť podľa hostiteľa a portu, na ktorom beží InfluxDB. Prístupový token je možné získať príkazom <code>influx auth list</code> použitým pri inštalácii InfluxDB. Názov organizácie a bucketu musia zodpovedať názvom použitým pri inštalácii.</p>
+
+<h4>Príprava parsovania logov</h4>
+
+<p>Okrem bežných metrík budeme zaznamenávať aj niektoré zaujímavé informácie z logov webového serveru nginx a aplikačného serveru uwsgi. V nasledujúcom výpise je ukážka nginx logu získaného príkazom <code>journalctl -f -o short-iso -u nginx.service</code>:</p>
+
+<pre>
+2023-11-25T17:30:47+0100 linuxos nginx[3852772]: linuxos linuxos_sk: GET 302 0.003(ms) 486(B) upstream[response=0.003(ms) ttfb=0.003(ms)] x.x.x.181 /currency/set/?currency=EUR Mozilla/5.0
+2023-11-25T17:30:47+0100 linuxos nginx[3852774]: linuxos linuxos_sk: POST 200 0.028(ms) 867(B) upstream[response=0.027(ms) ttfb=0.027(ms)] x.x.x.54 /accounts/signup/ Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0
+</pre>
+
+<p>Do pozornosti dávam názov webu <code>linuxos_sk</code>, ktorý sa nedal zapísať s bodkou. Našťastie je možné problém veľmi jednoducho napraviť pomocou nástroja <code>awk</code>. Výsledný skript <code>/etc/telegraf/scripts/read_nginx_log.sh</code> bude vyzerať nasledovne:</p>
+
+<pre class="code-bash">
+#!/bin/bash
+/usr/bin/journalctl -f -o short-iso -u nginx.service|awk '\
+{\
+	gsub(/_/, ".", $5);\
+	print\
+}'
+</pre>
+
+<p>Podobným spôsobom bude implementovaný skript pre čítanie uwsgi logov. Konfigurácia bude o niečo zložitejšia, keďže tu sa spracúva dĺžka behu skriptu, z rýchlych dotazov sa odstráni URL adresa a otagujú sa značkou <code>fast</code>. Pomalé sa zase otagujú značkou <code>slow</code> a URL adresa zostane. Takto vyzerá skript <code>/etc/telegraf/scripts/read_uwsgi_log.sh</code>:</p>
+
+<pre class="cod-bash">
+#!/bin/bash
+/usr/bin/journalctl -f -o short-iso -u emperor.uwsgi.service | awk '\
+{\
+	time = substr($6, 1, length($6)-2);\
+	speed = "slow";\
+	if (time+0 &lt; 1000) {\
+		$8 = "∅";\
+		speed = "fast"\
+	}\
+	print $1, $2, $3, $4, $5, $6, $7, speed, $8\
+}'
+</pre>
+
+<p>Výsledný log vyzerá približne takto:</p>
+
+<pre>
+2023-11-25T17:45:42+0100 linuxos linuxos.sk[288892]: GET 200 112ms 103501b fast ∅
+2023-11-25T17:45:43+0100 linuxos linuxos.sk[288892]: GET 200 148ms 108156b fast ∅
+2023-11-25T17:45:44+0100 linuxos linuxos.sk[288892]: GET 200 93ms 102613b fast ∅
+</pre>
+
+<h4>Kompletná konfigurácia</h4>
+
+<p>V tejto časti si prejdeme plne funkčný konfiguračný súbor pre telegraf. Finálny <code>/etc/telegraf/telegraf.conf</code> vyzerá takto:</p>
+
+<pre class="code-ini">
+# Ukladanie do InfluxDB
+[[outputs.influxdb_v2]]
+	urls = ["http://127.0.0.1:8086"]
+	token = "_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg=="
+	organization = "telegraf"
+	bucket = "telegraf"
 
 
-<!--
+# Aktivita CPU
+[[inputs.cpu]]
+	percpu = true
+	totalcpu = true
+	collect_cpu_time = false
+	report_active = false
+
+
+# Zaplnenie disku
+[[inputs.disk]]
+	ignore_fs = ["tmpfs", "devtmpfs", "devfs", "iso9660", "overlay", "aufs", "squashfs"]
+
+
+# Monitorovanie RAM
+[[inputs.mem]]
+
+
+# Monitorovanie siete
+[[inputs.net]]
+	interfaces = ["eth0"]
+
+
+# Monitorovanie procesov (+ pridanie tagov socket podľa používateľa)
+[[inputs.procstat]]
+	user = "linuxos.sk"
+	[inputs.procstat.tags]
+		socket = "linuxos.sk"
+
+[[inputs.procstat]]
+	user = "mirec"
+	[inputs.procstat.tags]
+		socket = "mirec.sk"
+
+
+# Monitorovanie uWSGI procesov
+[[inputs.uwsgi]]
+	servers = ["unix:///run/uwsgi/stats/linuxos.sk.sock"]
+	[inputs.uwsgi.tags]
+		socket = "linuxos.sk"
+
+[[inputs.uwsgi]]
+	servers = ["unix:///run/uwsgi/stats/mirec.sk.sock"]
+	[inputs.uwsgi.tags]
+		socket = "mirec.sk"
+
+
+# Ukladanie uWSGI logov (kvôli záznamu najpomalších URL)
+[[inputs.execd]]
+	command = ["/etc/telegraf/scripts/read_uwsgi_log.sh"]
+	grok_patterns = ['%{TIMESTAMP_ISO8601:timestamp} %{DATA:username} uwsgi-%{DATA:socket:tag}\[%{NUMBER:pid:int}\]: %{DATA:method:tag} %{NUMBER:response_code:tag} %{NUMBER:uwsgi_request_time:float}ms %{NUMBER:bytes:int}b %{WORD:speed:tag} %{GREEDYDATA:url}']
+	data_format = "grok"
+	name_override = "uwsgi_requests"
+	fielddrop = ["username", "pid"]
+
+
+# Rovnaké spracovanie uWSGI logov, tentoraz za účelom výpočtu histogramu
+[[inputs.execd]]
+	command = ["/etc/telegraf/scripts/read_uwsgi_log.sh"]
+	grok_patterns = ['%{TIMESTAMP_ISO8601:timestamp} %{DATA:username} uwsgi-%{DATA:socket:tag}\[%{NUMBER:pid:int}\]: %{DATA:method} %{NUMBER:response_code} %{NUMBER:uwsgi_request_time:float}ms %{NUMBER:bytes:int}b %{WORD:speed} %{GREEDYDATA:url}']
+	data_format = "grok"
+	name_override = "uwsgi_requests_histogram"
+	fielddrop = ["timestamp", "username", "pid", "method", "response_code", "bytes", "speed", "url"]
+
+
+# Rozdelenie počtu requestov do bucketov podľa trvanie requestu po 20ms
+[[aggregators.histogram]]
+	period = "120s"
+	drop_original = true
+	reset = true
+	cumulative = false
+	namepass = ["uwsgi_requests_histogram"]
+	[[aggregators.histogram.config]]
+		measurement_name = "uwsgi_requests_histogram"
+		fields = ["uwsgi_request_time"]
+		buckets = [20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0, 220.0, 240.0, 260.0, 280.0, 300.0, 320.0, 340.0, 360.0, 380.0, 400.0, 420.0, 440.0, 460.0, 480.0, 500.0, 520.0, 540.0, 560.0, 580.0, 600.0, 620.0, 640.0, 660.0, 680.0, 700.0, 720.0, 740.0, 760.0, 780.0, 800.0, 820.0, 840.0, 860.0, 880.0, 900.0, 920.0, 940.0, 960.0, 980.0, 1000.0, 60000.0]
+
+
+# Spracovanie logov nginx
+[[inputs.execd]]
+	command = ["/etc/telegraf/scripts/read_nginx_log.sh"]
+	data_format = "grok"
+	grok_patterns = ["%{TIMESTAMP_ISO8601:timestamp} %{WORD:server} nginx\\[%{NUMBER:nginx_pid}\\]: %{DATA:server_name} %{DATA:socket:tag}: %{WORD:http_method:tag} %{NUMBER:http_status:tag} %{NUMBER:request_time:float}\\(ms\\) %{NUMBER:bytes_sent:int}\\(B\\) upstream\\[response=%{NUMBER:upstream_response_time:float}\\(ms\\) ttfb=%{NUMBER:upstream_ttfb:float}\\(ms\\)\\] %{IP:client_ip} %{DATA:request_path} %{GREEDYDATA:user_agent}"]
+	fielddrop = ["server", "nginx_pid", "server_name", "client_ip", "request_path", "user_agent", "bytes_sent", "upstream_response_time", "ttfb"]
+	name_override = "nginx_access"
+</pre>
+
+<p>Vstup <code>inputs.cpu</code> slúži na monitorovanie stavu CPU. V čase písania článku tento modul exportuje tag <code>cpu</code> s číslom jadra (cpux alebo cpu-total) a polia:</p>
+
+<ul>
+	<li>time_user</li>
+	<li>time_system</li>
+	<li>time_idle</li>
+	<li>time_nice</li>
+	<li>time_iowait</li>
+	<li>time_irq</li>
+	<li>time_softirq</li>
+	<li>time_steal</li>
+	<li>time_guest</li>
+	<li>time_guest_nice</li>
+	<li>usage_user (%)</li>
+	<li>usage_system (%)</li>
+	<li>usage_idle (%)</li>
+	<li>usage_nice (%)</li>
+	<li>usage_iowait (%)</li>
+	<li>usage_irq (%)</li>
+	<li>usage_softirq (%)</li>
+	<li>usage_steal (%)</li>
+	<li>usage_guest (%)</li>
+	<li>usage_guest_nice (%)</li>
+</ul>
+
+<p>Ďalší vstup <code>inputs.disk</code> slúži na zaznamenávanie zaplnenia disku. Dostupné tagy sú:</p>
+
+<ul>
+	<li>fstype (typ FS)</li>
+	<li>device (názov zariadenia)</li>
+	<li>path (cesta k bodu pripojenia)</li>
+	<li>mode (rw / ro podľa toho, či je pripojený na zápis/čítanie)</li>
+	<li>label (devicemapper štítok)</li>
+</ul>
+
+<p>Z polí máme k dispozícii:</p>
+
+<ul>
+	<li>free (byty)</li>
+	<li>total (byty)</li>
+	<li>used (byty)</li>
+	<li>used_percent (%)</li>
+	<li>inodes_free (počet súborov)</li>
+	<li>inodes_total (počet súborov)</li>
+	<li>inodes_used (počet súborov)</li>
+	<li>inodes_used_percent (%)</li>
+</ul>
+
+<p>Ďalšie 2 sekcie slúžia na konfiguráciu zaznamenávania stavu <code>RAM</code> a sieťovej karty <code>eth0</code>.</p>
+
+<p>Zaujímavejšou sekciou je <code>inputs.procstat</code>, ktorá slúži na zaznamenávanie štatistík o procesoch. Nakonfigurovaných je niekoľko vstupov, pričom vstupy sú filtrované podľa používateľa. Každý vstup má nakonfigurovanú značku <code>socket</code>, aby bolo možné dáta zoradiť podľa konkrétneho webu.</p>
+
+<p>Konfiguráciu štatistík v nastavení uWSGI sme samozrejme nerobili len tak prenič-zanič. Nástroj telegraf vstavanú podporu pre čítanie štatistík uWSGI pomocou sekcie <code>inputs.uwsgi</code>. Podobne, ako pri <code>inputs.procstat</code> je aj tu nakonfigurované značkovanie webu do tagu <code>socket</code>.</p>
+
+<p>Skutočná zábava sa začína až teraz pri vstupoch, ktoré obsahujú grok_patterns. Teda začala by … nebyť ChatGPT 4. Ja nepoznám formát patternu grok_paterns, dokonca som ani nepoznal spôsob, ako nakonfigurovať <code>telegraf</code> tak, aby čítal log. Napísal som však požiadavku pre ChatGPT4, aby mi napísal konfiguráciu telegrafu pre čítanie logu, pridal som jeden riadok z logu ako ukážku a on na mňa vyhodil:</p>
+
+<pre class="code-ini">
+[[inputs.execd]]
+	command = ["/etc/telegraf/scripts/read_uwsgi_log.sh"]
+	grok_patterns = ['%{TIMESTAMP_ISO8601:timestamp} %{DATA:username} uwsgi-%{DATA:socket:tag}\[%{NUMBER:pid:int}\]: %{DATA:method:tag} %{NUMBER:response_code:tag} %{NUMBER:uwsgi_request_time:float}ms %{NUMBER:bytes:int}b %{WORD:speed:tag} %{GREEDYDATA:url}']
+	data_format = "grok"
+	name_override = "uwsgi_requests"
+	fielddrop = ["username", "pid"]
+</pre>
+
+<p>Vážne, neviem ako sa to konfiguruje a nebyť ChatGPT by som sa trápil veľmi dlho. Výsledkom je pekne štruktúrovaný vstup, ktorý je správne otagovaný a odosielaný do InfluxDB.</p>
+
+<p>Druhý prakticky identický vstup <code>inputs.execd</code> slúži ako vstup pre výpočet histogramu. Agregačná funkcia <code>aggregators.histogram</code> automaticky sčítava výskyty záznamu podľa ich hodnoty a tagov do jednotlivých bucketov. To je aj dôvod, prečo druhý vstup neobsahuje napríklad tag <code>speed</code>.</p>
+
+<p>Nakoniec tu máme spracovanie logu webového servera. Rovnako ako v prípade uWSGI som požiadal ChatGPT o napísanie konfigurácie. Zase bez problémov sám a bez našepkávania rozpoznal polia v logu a všetko viac-menej správne priradil s použitím minimálneho kontextu. Konečne mám kolegu, ktorému môžem nakladať špinavú prác!</p>
+
+<h2>Grafana</h2>
+
+<p>Pre inštaláciu je podľa <a href="https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/">dokumentácie</a> potrebné vykonať niekoľko príkazov:</p>
+
+<pre class="code-bash">
+apt-get install -y apt-transport-https software-properties-common wget
+mkdir -p /etc/apt/keyrings/
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | tee /etc/apt/keyrings/grafana.gpg &gt; /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | tee -a /etc/apt/sources.list.d/grafana.list
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com beta main" | tee -a /etc/apt/sources.list.d/grafana.list
+apt-get update
+apt-get install grafana
+</pre>
+
+<p>Následne sa grafana naštartuje príkazom <code>systemctl start grafana-server</code>. Teraz stačí povoliť pripojenie na port 3000 (napríklad <code>ufw allow 3000</code>) a po načítaní adresy <code>http://adresa-servera:3000/</code> v prehliadači by sa malo zobraziť prihlasovacie okno.</p>
+
 <figure>
-	<a href="img/kbmap.png"><img src="img/kbmap.png" alt="Želaná klávesová mapa" /></a>
-	<figcaption>Obrázok <counter></counter>: Želaná klávesová mapa</figcaption>
+	<a href="img/login.png"><img src="img/login.png" alt="Prihlasovacie okno grafana" /></a>
+	<figcaption>Obrázok <counter></counter>: Prihlasovacie okno grafana</figcaption>
 </figure>
--->
 
+<p>Úvodné prihlasovacie meno a heslo je <code>admin / admin</code>.</p>
+
+<p>Ďalej je potrebné nastaviť zdroj dát. Ten sa nastavuje cez Menu / Connections a z dostupných spojení vyberieme <em>InfluxDB</em>. Dôležité je vybrať jazyk <em>Flux</em>. Následne je potrebné nastaviť minimálne URL adresu a prihlasovacie údaje tak, ako boli nastavené v konfigurácii telegrafu.</p>
+
+<figure>
+	<a href="img/influxdb_source.png"><img src="img/influxdb_source.png" alt="Pridanie InfluxDB zdroja" /></a>
+	<figcaption>Obrázok <counter></counter>: Pridanie InfluxDB zdroja</figcaption>
+</figure>
+
+<p>Následne sa môžeme začať hrať s dátami kliknutím na <em>Explore data</em>.</p>
+
+<p>Na rozdiel do zdrojov Prometheux, alebo InfluxDB s jazykom InfluxQL nie je pre jazyk Flux dostupný grafický editor. Všetky dotazy preto musia byť písané ručne pomocou textového editoru.</p>
+
+<figure>
+	<a href="img/cpu_query_1.png"><img src="img/cpu_query_1.png" alt="Dotaz na CPU" /></a>
+	<figcaption>Obrázok <counter></counter>: Dotaz na CPU</figcaption>
+</figure>
+
+<p>Graf CPU bol vykreslený nasledujúcim príkazom:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+</pre>
+
+<p>Príkaz <code>from</code> vyberá bucket, z ktorého bud čítané dáta. Nasleduje obmedzenie časového rozsahu pomocou premennej <code>v</code>. Túto premennú nastavuje automaticky grafana podľa rozsahu dát, ktoré má používateľ nastavený. Ďalej nasleduje konkrétny výber dát. Tu zdôrazňujem, že každé pole v dátach je reprezentované ako samostatný riadok. Riadky majú priradené tagy ako <code>r.tag</code>. Riadky obsahujú aj implicitné premenné začínajúce sa na znak <code>_</code>. Sú to napríklad:</p>
+
+<dl>
+	<dt>_measurement</dt>
+	<dd>Názov metriky</dd>
+	<dt>_field</dt>
+	<dd>Názov poľa</dd>
+	<dt>_value</dt>
+	<dd>Hodnota poľa</dd>
+	<dt>_time</dt>
+	<dd>Časová pečiatka</dd>
+</dl>
+
+<p>V štatistikách CPU nie je k dispozícii celkové zaťaženie, ale máme tu k dispozícii pole <code>usage_idle</code>. Ak by sme chceli zobraziť celkové zaťaženie, stačí nám odčítať doby nečinnosti od <code>100%</code>. Na konci dotazu stačí jednoducho pridať funkciu <code>map</code>, ktorá aplikuje funkciu na každý bod:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; <strong>map(fn: (r) =&gt; ({ r with _value: 100.0 - r._value }))</strong>
+</pre>
+
+<figure>
+	<a href="img/cpu_query_2.png"><img src="img/cpu_query_2.png" alt="Záťaž CPU" /></a>
+	<figcaption>Obrázok <counter></counter>: Záťaž CPU</figcaption>
+</figure>
+
+<p>Tento dotaz je vysoko neoptimálny, pretože vyberá všetky dátové body bez ohľadu na to, či je zobrazený graf široký, alebo úzky. Grafana má automatickú premennú <code>v.windowPeriod</code>, ktorá určuje, aký časový úsek zaberá približne pixel v zobrazenom grafe. Pri zobrazení záťaže CPU je ideálne rozdeliť dáta na časové okná a v každom časovom okne vypočítať priemernú hodnotu. Presne na toto slúži funkcia <code>aggregateWindow</code>:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; map(fn: (r) =&gt; ({ r with _value: 100.0 - r._value }))
+  |&gt; <strong>aggregateWindow(every: v.windowPeriod, fn: mean)</strong>
+</pre>
+
+<p>Momentálne prijímame síce dáta len z jediného serveru, ale v reálnom nasadení môžeme mať serverov výrazne viacej. Preto je vhodné nastaviť zoskupenie dát podľa hostiteľa, vďaka čomu budú v grafe jednotlivé servery zobrazené samostatnou krivkou. Zoskupenie sa nastavuje volaním funkcie <code>group</code> pred agregačnou funkciou.</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; map(fn: (r) =&gt; ({ r with _value: 100.0 - r._value }))
+  |&gt; <strong>group(columns: ["host"])</strong>
+  |&gt; aggregateWindow(every: v.windowPeriod, fn: mean)
+</pre>
+
+<p>Nový dashboard sa dá vytvoriť kliknutím na tlačidlo <em>Add to dashboard</em>.</p>
+
+<p>Nasleduje malá ukážka nastavení grafu CPU:</p>
+
+<figure>
+	<a href="img/cpu_settings.png"><img src="img/cpu_settings.png" alt="Nastavenia CPU" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenia CPU</figcaption>
+</figure>
+
+<p>Výsledný graf môže vyzerať celkom elegantne:</p>
+
+<figure>
+	<a href="img/cpu_configured.png"><img src="img/cpu_configured.png" alt="Nastavený graf" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavený graf</figcaption>
+</figure>
 
 </article>
 <script src="../../../common/script.js"></script>
