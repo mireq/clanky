@@ -6,12 +6,12 @@
 	<link href="../../../common/style.css" rel="stylesheet" />
 </head>
 <body>
-<article data-title-image="img/title_image.jpg">
+<article data-title-image="img/title_image.png">
 
 <header>
 	<h1>Uwsgi multihosting s monitoringom cez grafana</h1>
 
-	<p></p>
+	<p>Nastavenie webového servera pre python aplikácie môže byť celkom náročná úloha hlavne kvôli nedostatku dostatočne komplexných návodov. V tomto článku skúsim vysvetliť ako ja nastavujem servery.</p>
 </header>
 
 <p>Ako server som zvolil Ubuntu Server 23.10. Postup by mal s malými zmenami fungovať prakticky na ľubovoľnej distribúcii založenej na Debian Linuxe. Všetky príkazy budú vykonávané ak to nebude uvedené inak pod používateľom <code>root</code>. V príkazoch preto nebudem uvádzať <code>sudo</code> a budem predpokladať, že používateľ je priamo prihlásený ako root (napríklad príkazom <code>sudo su</code>).</p>
@@ -22,7 +22,7 @@
 
 <ul>
 	<li>Každý web má vlastného používateľa (bez možnosti prihlásenia)</li>
-	<li>Každý web (synonymu pre používateľa) je priradený v skupine <code>www-data</code> a v stkupine, ktorá je vytvorená pre klienta</li>
+	<li>Každý web (synonymum pre názov socketu a meno používateľa) je priradený v skupine <code>www-data</code> a v skupine klienta (jeden klient môže mať viacej webov)</li>
 	<li>Používatelia majú svoje domovské adresáre v <code>/var/www/clients/&lt;skupina&gt;/&lt;používateľ&gt;</code></li>
 	<li>Každý používateľ má meno podľa hlavnej domény webu (napríklad pre <code>linuxos.sk</code> by sa volal <code>linuxos.sk</code> a mal by svoju skupinu <code>linuxos-team</code>, <code>www-data</code>)</li>
 	<li>Používateľský adresár má odkaz do <code>/var/www</code> napríklad <code>/var/www/linuxos.sk</code></li>
@@ -89,9 +89,9 @@ ln -s /var/www/clients/$sys_group/$sys_user /var/www/$host
 
 <p>Zvyčajne prevádzkujem klasické <a href="https://en.wikipedia.org/wiki/Web_Server_Gateway_Interface">Web Server Gateway Interface</a> aplikácie. Existuje množstvo čistých wsgi, alebo kombinovaných asgi / wsgi serverov. Ja konkrétne používam <a href="https://uwsgi-docs.readthedocs.io/en/latest/">uWSGI</a>, čo je dnes považované už prakticky za neudržiavanú vykopávku. Má však veľmi zaujímavé vlastnosti, ktoré som v iných serveroch nenašiel, napríklad podporu socketovej aktivácie, automatické škálovanie, monitoring, routing, plánovanie úloh na pozadí atď.</p>
 
-<p>Najjednoduchšou voľbou, ako začať s multi-app deploymentom je <a href="https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html">uWSGI Emperor</a>. Tento režim umožňuje spravovať niekoľko aplikácii súbežne. Zároveň zvláda automatické spúšťanie nových workerov pri záťaži, či naopak ich vypínanie v prípade, že už nie sú potrební. Ako čerešničku na torte by som spomenul možnosť <a href="https://uwsgi-docs.readthedocs.io/en/latest/Options.html#cheap">cheap</a>, pri ktorej sa počas štartu len vytvorí socket a prvý worker sa spustí až pri požiadavke.</p>
+<p>Najjednoduchšou voľbou, ako začať s multi-app prevádzkou je <a href="https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html">uWSGI Emperor</a>. Tento režim umožňuje spravovať niekoľko aplikácii súbežne. Zároveň zvláda automatické spúšťanie nových workerov pri záťaži, či naopak ich vypínanie v prípade, že už nie sú potrební. Ako čerešničku na torte by som spomenul možnosť <a href="https://uwsgi-docs.readthedocs.io/en/latest/Options.html#cheap">cheap</a>, pri ktorej sa len vytvorí socket a prvý worker sa spustí až pri požiadavke.</p>
 
-<p>Dosť bolo marketingových kecov, nastal čas vyhrnúť si rukávy a konfigurovať. Upozorňujem, že táto časť nie je nič, pre slabšie povahy a bude zahŕňať pomerne pokročilé techniky, na ktoré autor prišiel pri všetkej skromnosti sám a stálo ho to nemalé úsilie.</p>
+<p>Dosť bolo marketingového blábolu, nastal čas vyhrnúť si rukávy a konfigurovať. Upozorňujem, že táto časť nie je nič pre slabšie povahy a bude zahŕňať pomerne pokročilé techniky, na ktoré autor prišiel pri všetkej skromnosti sám a stálo ho to nemalé úsilie.</p>
 
 <p>Začnem inštaláciou <code>uwsgi</code> serveru, ktorá je na distribúciach založených na debiane veľmi jednoduchá - <code>apt install uwsgi-plugin-python3</code>.</p>
 
@@ -122,13 +122,13 @@ Sat Nov 18 13:13:19 2023 - [emperor] vassal linuxos.sk.ini is ready to accept re
 Sat Nov 18 13:13:21 2023 - [emperor] vassal linuxos.sk.ini is now loyal
 </pre>
 
-<p>Direktíva <code>master-fifo</code> umožňuje ovládať emperor pomocou <a href="https://uwsgi-docs.readthedocs.io/en/latest/MasterFIFO.html">sady príkazov</a>. Osobne som z týchto možností nevyužil ešte reálne nič okrem preskenovania konfigurácie (<code>echo "E" &gt; /run/uwsgi/emperor.fifo</code>).</p>
+<p>Direktíva <code>master-fifo</code> nastavuje cestu k rúre pre ovládanie. Do rúry je možné posielať príkazy <a href="https://uwsgi-docs.readthedocs.io/en/latest/MasterFIFO.html">definované v dokumentácii</a>. Osobne som z týchto možností nevyužil ešte reálne nič okrem preskenovania konfigurácie (<code>echo "E" &gt; /run/uwsgi/emperor.fifo</code>).</p>
 
-<p>Pod direktívou <code>emperor</code> sa skrýva cesta ku konfigurácii k jednotlivým webom (<em>vassals</em>). V tomto prípade je to adresár s konfiguračnými súbormi, ale reálne tu môže byť napríklad nastavená aj konfigurácia pre výber konfigurácie z postgresql databázy. Podrobnejšie informácie sa nachádzajú v <a href="https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html">dokumentácii</a>.</p>
+<p>Pod direktívou <code>emperor</code> sa skrýva cesta ku konfigurácii k jednotlivým webom (<em>vassals</em>). V tomto prípade je to adresár s konfiguračnými súbormi, ale môže tu byť aj napríklad konfigurácia z postgresql databázy. Podrobnejšie informácie sa nachádzajú v <a href="https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html">dokumentácii</a>.</p>
 
 <p>Štatistiky o jednotlivých weboch a procesoch sa dajú exportovať cez direktívu <code>emperor-stats</code>.</p>
 
-<p>Pod podozrivou direktívou <code>emperor-on-demand-exec</code> sa dokonca skrýva cesta k skriptu. K jeho úlohe sa vrátim v časti o spúšťaní on demand.</p>
+<p>Pod podozrivou direktívou <code>emperor-on-demand-exec</code> sa dokonca skrýva cesta k skriptu. K jeho úlohe sa vrátim v časti o spúšťaní on-demand.</p>
 
 <p>Nasledujúce direktívy <code>vassals-inherit</code> a <code>vassals-include-before</code> definujú spoločnú konfiguráciu pre všetky weby. Stále platí, že som lenivý programátor, ktorému sa nechce všetko konfigurovať pre každý web. Prečo sú však direktívy 2?</p>
 
@@ -185,19 +185,19 @@ safe-pidfile = /run/uwsgi/apps/%N/pid
 
 <p>Nasledujúca časť s direktívami <code>cheap</code>, <code>idle</code> a <code>die-on-idle</code> povoľuje aktiváciu socketom a časovač, ktorý vypne inštanciu, ak po zvolenú dobu nebude prijatá žiada požiadavka.</p>
 
-<p>Nasleduje konfigurácia ciest. Tu sú použité magické premenné, ktoré zložia cestu z názvu hlavného konfiguračného súboru.</p>
+<p>Ďalej tu máme konfiguráciu ciest, v ktorej sú použité magické premenné. Hodnota <code>%N</code> sa nahradí názvom hlavného konfiguračného súboru bez prípony.</p>
 
 <p>Pomocou direktívy <code>module</code> sa nastavuje python modul, ktorý bude obsahovať entry point aplikácie (funkciu <code>application</code>).</p>
 
-<p>Vytvorený socket má mať práva <code>600</code>, teda plný prístup pre používateľa a skupinu.</p>
+<p>Vytvorený socket má mať práva <code>660</code>, teda plný prístup pre používateľa a skupinu.</p>
 
-<p>Každý projekt bude mať vlastný socket, cez ktorý sa dajú čítať štatistiky. Direktívou <code>memory-report</code> sa zapína export informácií o obsadenej pamäti do súboru so štatistikami.</p>
+<p>Každý projekt bude mať vlastný socket určený direktívou <code>stats</code>, cez ktorý sa dajú čítať štatistiky. Direktívou <code>memory-report</code> sa zapína export informácií o obsadenej pamäti do štatistík.</p>
 
 <p>Nakoniec zostáva už len nastavenie PID súboru.</p>
 
 <p>Ak používate cgroups v1, je možné nastaviť limity priamo pre worker. Žiaľ podpora v2 v dobe písania nie je implementovaná.</p>
 
-<p>V súbore <code>default-include-before.ini</code> budú naopak direktívy, ktoré sa môžu v jednotlivých weboch prepísať.</p>
+<p>V súbore <code>default-include-before.ini</code> budú direktívy, ktoré sa môžu môžu v nastaveniach jednotlivých webov prepísať.</p>
 
 <pre class="code-ini">
 [uwsgi]
@@ -212,7 +212,7 @@ gid = www-data
 chown-socket = www-data:www-data
 </pre>
 
-<p>V tomto súbore nastavujem najskôr počet workerov. V tomto prípade je počet workerov limitovaný na 4.</p>
+<p>V tomto súbore nastavujem najskôr počet workerov. Webová aplikácia si v tomto prípade môže spustiť maximálne 4 procesy.</p>
 
 <p>Ďalej nasleduje nastavenie automatického škálovania pomocou direktív <code>cheaper</code>. Škálovanie sa začína na 1 procese a počet procesov sa zvyšuje / znižuje po 1 procese.</p>
 
@@ -352,7 +352,7 @@ WantedBy=multi-user.target
 
 <p>Inštaláciu webového servara opäť vykonáme klasickým debianovským spôsobom: <code>apt install nginx-full</code>.</p>
 
-<p>Konfiguráciu začnem opäť nastavením formátu logov v hlavnom konfiguračnom súbore <code>/etc/nginx/nginx.conf</code>. Do sekcie <code>http</code> pridávam nastavenia formátu logov, ktoré sa budú jednoducho strojovo čítať:</p>
+<p>Konfiguráciu začnem nastavením formátu logov v hlavnom konfiguračnom súbore <code>/etc/nginx/nginx.conf</code>. Do sekcie <code>http</code> pridávam nastavenia formátu logov, ktoré sa budú jednoducho strojovo čítať:</p>
 
 <pre>
 log_format syslog_format '$request_method $status $request_time(ms) $bytes_sent(B) upstream[response=$upstream_response_time(ms) ttfb=$upstream_header_time(ms)] $remote_addr $request_uri $http_user_agent';
@@ -395,15 +395,13 @@ Hello World
 
 <p>Za dôležitú časť starostlivosti o multihosting považujem monitoring zdrojov. Mať prehľad o rezervách vo výkone, či o nepokrytých špičkách, alebo neposlušných robotoch, ktoré nechtiac robia na server DDoS útok môže byť celkom užitočné.</p>
 
-<p>V tomto smere sú moje skúsenosti pomerne plytké a preto ma neberte až tak celkom vážne. Na druhej strane ak poviem, bacha na databázu Prometheus a vysokú kardinalitu tak si treba dávať vážne pozor, lebo som si kvôli tomu pár krát zostrelil server. Alebo viete čo? Rovno som sa na prometheus vykašlal :)</p>
-
 <h3>Architektúra</h3>
 
 <p>Monitoring bude založený na 3 samostatných navzájom zameniteľných komponentoch:</p>
 
 <dl>
 	<dt>Zber údajov</dt>
-	<dd>Nástroj <a href="https://github.com/influxdata/telegraf">telegraf</a> je excelentným zberačom údajov. Vie získavať informácie o systéme z rôznych zdrojov pomocou množstvá vstupných pluginov. Následne je schopný pozbierané údaje posielať do rôznych databáz cez výstupné pluginy. Typicky každý server má spustenú vlastnú inštanciu, ktorá buď aktívne zasiela údaje v pravidelných intervaloch, alebo počúva na vybranom porte a v prípade požiadavky odpovie aktuálnymi nameranými hodnotami.</dd>
+	<dd>Nástroj <a href="https://github.com/influxdata/telegraf">telegraf</a> je excelentným zberačom údajov. Vie získavať informácie o systéme z rôznych rôznych konfigurovateľných zdrojov. Následne je schopný pozbierané údaje posielať do rôznych databáz, alebo súborov. Typicky každý server má spustenú vlastnú inštanciu telegrafu, ktorá buď aktívne zasiela údaje v pravidelných intervaloch, alebo počúva na vybranom porte a v prípade požiadavky odpovie aktuálnymi nameranými hodnotami.</dd>
 	<dt>Zaznamenávanie údajov (databáza)</dt>
 	<dd>Telemetrické údaje sa najlepšie zaznamenávajú do špeciálne na to určenej databázy. Na výber je napríklad Prometheus, ale vzhľadom na to, že zaznamenávam aj niektoré textové údaje som nakoniec skončil pri použití <a href="https://www.influxdata.com/">InfluxDB</a>. Databáza zvyčajne beží na jednom stroji ak nie je nevyhnutné škálovanie kvôli výkonu, alebo väčšia odolnosť voči výpadkom.</dd>
 	<dt>Vizualizácia a upozornenia</dt>
@@ -412,7 +410,7 @@ Hello World
 
 <h3>Inštalácia a nastavenie databázy InfluxDB 2.x</h3>
 
-<p>Keďže telegraf aj grafana sa budú pripájať na databázu, je rozumné najskôr začať jej inštaláciou.</p>
+<p>Keďže telegraf aj grafana sú závislé na databáze, bude najrozumnejšie začať práve inštaláciou databázy.</p>
 
 <p>Podľa <a href="https://www.influxdata.com/downloads/">stránky s okazmi na stiahnutie</a> je postup inštalácie pre Debian / Ubuntu nasledovný:</p>
 
@@ -454,7 +452,7 @@ ID                      Description             Token                           
 
 <h3>Inštalácia a nastavenie telegrafu</h3>
 
-<p>Návod na inštaláciu pre Ubuntu / Debian sa prakticky nelíši od od InfluxDB a pozostáva z pridania repozitára a klasickú inštaláciu cez apt:</p>
+<p>Návod na inštaláciu pre Ubuntu / Debian sa prakticky nelíši od od InfluxDB a pozostáva z pridania repozitára a inštaláciu cez apt:</p>
 
 <pre class="code-bash">
 wget -q https://repos.influxdata.com/influxdata-archive_compat.key
@@ -503,9 +501,9 @@ mem,host=linuxos committed_as=78680104960i,huge_pages_total=0i,low_total=0i,vmal
 mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_cached=87457792i,buffered=84238336i,commit_limit=4695674880i,high_total=0i,swap_total=536866816i,vmalloc_total=35184372087808i,total=8317620224i,dirty=1708032i,inactive=2524303360i,low_total=0i,free=1534955520i,high_free=0i,huge_pages_free=0i,shared=848220160i,sunreclaim=153698304i,vmalloc_used=24842240i,write_back=0i,available_percent=42.61103114293861,active=2949169152i,committed_as=78673256448i,page_tables=30531584i,sreclaimable=1050013696i,available=3544223744i,used=3608514560i,write_back_tmp=0i,huge_page_size=2097152i,slab=1203712000i,swap_free=2658304i,vmalloc_chunk=0i,used_percent=43.38397838347855,low_free=0i 1700928570000000000
 </pre>
 
-<p>Zo vstupných pluginov je povolené len zaznamenávanie obsadenej pamäte. Teraz si bližšie rozoberieme jednotlivé polia súboru. V budúcnosti tento postup bude slúžiť ako pomôcka pri konfigurácii a prezeraní dostupných dát</p>
+<p>Zo vstupov je povolené len zaznamenávanie obsadenej štatistík operačnej pamäte. Teraz si bližšie rozoberieme jednotlivé polia súboru.</p>
 
-<p>Prvým poľom na každom riadku je vždy názov metriky. V tomto prípade je to <code>mem</code>. Nasleduje zoznam čiarkou oddelených tagov vo forme <code>názov=hodnota</code>. V tomto prípade je názov tagu <code>host</code> a hodnota <code>linuxos</code>. Tagy sú polia, podľa ktorých sú dáta indexované a je možné ich rýchlo prehľadávať. Na druhej strane je nevhodné do tagov ukladať dáta, ktoré majú veľký počet rozličných hodnôt. V riadku ďalej nasleduje zoznam nameraných hodnôt v rovnakej forme, v akej bol zoznam tagov. Posledným poľom je časová pečiatka merania.</p>
+<p>Prvým poľom na každom riadku je vždy názov metriky. V tomto prípade je to <code>mem</code>. Nasleduje zoznam čiarkou oddelených tagov vo forme <code>názov=hodnota</code>. V tomto prípade je názov tagu <code>host</code> a hodnota <code>linuxos</code>. Tagy sú polia, podľa ktorých sú dáta indexované a je možné ich rýchlo prehľadávať. Do tagov by mali byť ukladané len polia, ktoré majú obmedzený počet hodnôt. V riadku ďalej nasleduje zoznam nameraných hodnôt v rovnakej forme, v akej bol zoznam tagov. Posledným poľom je časová pečiatka merania.</p>
 
 <h4>Odosielanie dát do InfluxDB</h4>
 
@@ -514,12 +512,12 @@ mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_
 <pre class="code-ini">
 [[outputs.influxdb_v2]]
 	urls = ["http://127.0.0.1:8086"]
-	token = "_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg=="
 	organization = "telegraf"
 	bucket = "telegraf"
+	token = "_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg=="
 </pre>
 
-<p>URL adresu je potrebné nastaviť podľa hostiteľa a portu, na ktorom beží InfluxDB. Prístupový token je možné získať príkazom <code>influx auth list</code> použitým pri inštalácii InfluxDB. Názov organizácie a bucketu musia zodpovedať názvom použitým pri inštalácii.</p>
+<p>URL adresu je potrebné nastaviť podľa hostiteľa a portu, na ktorom beží InfluxDB. Prístupový token je možné získať príkazom <code>influx auth list</code>. Názov organizácie a bucketu musia zodpovedať názvom zvoleným pri inštalácii.</p>
 
 <h4>Príprava parsovania logov</h4>
 
@@ -541,7 +539,7 @@ mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_
 }'
 </pre>
 
-<p>Podobným spôsobom bude implementovaný skript pre čítanie uwsgi logov. Konfigurácia bude o niečo zložitejšia, keďže tu sa spracúva dĺžka behu skriptu, z rýchlych dotazov sa odstráni URL adresa a otagujú sa značkou <code>fast</code>. Pomalé sa zase otagujú značkou <code>slow</code> a URL adresa zostane. Takto vyzerá skript <code>/etc/telegraf/scripts/read_uwsgi_log.sh</code>:</p>
+<p>Podobným spôsobom bude implementovaný skript pre čítanie uwsgi logov. Konfigurácia bude o niečo zložitejšia, keďže tu sa spracúva dĺžka behu skriptu. Z rýchlych dotazov sa odstráni URL adresa a otagujú sa značkou <code>fast</code>. Pomalé sa zase otagujú značkou <code>slow</code> a URL adresa zostane. Takto vyzerá skript <code>/etc/telegraf/scripts/read_uwsgi_log.sh</code>:</p>
 
 <pre class="cod-bash">
 #!/bin/bash
@@ -573,9 +571,9 @@ mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_
 # Ukladanie do InfluxDB
 [[outputs.influxdb_v2]]
 	urls = ["http://127.0.0.1:8086"]
-	token = "_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg=="
 	organization = "telegraf"
 	bucket = "telegraf"
+	token = "_IQwe0LFcZgILzW-Blre9E9s80FUCo8SgU0lrxAZB-BPFg-HGJvd0zqEMXfL8-YcBR7olvMppvCyQY8_YX6izg=="
 
 
 # Aktivita CPU
@@ -714,11 +712,11 @@ mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_
 
 <p>Ďalšie 2 sekcie slúžia na konfiguráciu zaznamenávania stavu <code>RAM</code> a sieťovej karty <code>eth0</code>.</p>
 
-<p>Zaujímavejšou sekciou je <code>inputs.procstat</code>, ktorá slúži na zaznamenávanie štatistík o procesoch. Nakonfigurovaných je niekoľko vstupov, pričom vstupy sú filtrované podľa používateľa. Každý vstup má nakonfigurovanú značku <code>socket</code>, aby bolo možné dáta zoradiť podľa konkrétneho webu.</p>
+<p>Zaujímavejšou sekciou je <code>inputs.procstat</code>, ktorá slúži na zaznamenávanie štatistík o procesoch. Nakonfigurovaných je niekoľko vstupov, pričom vstupy sú filtrované podľa používateľa. Každý vstup má nakonfigurovanú značku <code>socket</code>, aby bolo možné dáta zoskupiť podľa konkrétneho webu.</p>
 
 <p>Konfiguráciu štatistík v nastavení uWSGI sme samozrejme nerobili len tak prenič-zanič. Nástroj telegraf vstavanú podporu pre čítanie štatistík uWSGI pomocou sekcie <code>inputs.uwsgi</code>. Podobne, ako pri <code>inputs.procstat</code> je aj tu nakonfigurované značkovanie webu do tagu <code>socket</code>.</p>
 
-<p>Skutočná zábava sa začína až teraz pri vstupoch, ktoré obsahujú grok_patterns. Teda začala by … nebyť ChatGPT 4. Ja nepoznám formát patternu grok_paterns, dokonca som ani nepoznal spôsob, ako nakonfigurovať <code>telegraf</code> tak, aby čítal log. Napísal som však požiadavku pre ChatGPT4, aby mi napísal konfiguráciu telegrafu pre čítanie logu, pridal som jeden riadok z logu ako ukážku a on na mňa vyhodil:</p>
+<p>Skutočná zábava sa začína až teraz pri vstupoch, ktoré obsahujú grok_patterns. Teda začala by … nebyť ChatGPT 4. Ja som nepoznal formát grok_paterns, dokonca som ani nepoznal spôsob, ako nakonfigurovať <code>telegraf</code> tak, aby čítal log. Napísal som však požiadavku pre ChatGPT4, aby mi napísal konfiguráciu telegrafu pre čítanie logu, pridal som jeden riadok z logu ako ukážku a on na mňa vyhodil:</p>
 
 <pre class="code-ini">
 [[inputs.execd]]
@@ -729,11 +727,11 @@ mem,host=linuxos cached=3089911808i,huge_pages_total=0i,mapped=1167765504i,swap_
 	fielddrop = ["username", "pid"]
 </pre>
 
-<p>Vážne, neviem ako sa to konfiguruje a nebyť ChatGPT by som sa trápil veľmi dlho. Výsledkom je pekne štruktúrovaný vstup, ktorý je správne otagovaný a odosielaný do InfluxDB.</p>
+<p>Vážne, neviem ako sa to konfiguruje a nebyť ChatGPT by som sa trápil veľmi dlho. Výsledkom je pekne štruktúrovaný výstup, ktorý je správne otagovaný a odosielaný do InfluxDB.</p>
 
 <p>Druhý prakticky identický vstup <code>inputs.execd</code> slúži ako vstup pre výpočet histogramu. Agregačná funkcia <code>aggregators.histogram</code> automaticky sčítava výskyty záznamu podľa ich hodnoty a tagov do jednotlivých bucketov. To je aj dôvod, prečo druhý vstup neobsahuje napríklad tag <code>speed</code>.</p>
 
-<p>Nakoniec tu máme spracovanie logu webového servera. Rovnako ako v prípade uWSGI som požiadal ChatGPT o napísanie konfigurácie. Zase bez problémov sám a bez našepkávania rozpoznal polia v logu a všetko viac-menej správne priradil s použitím minimálneho kontextu. Konečne mám kolegu, ktorému môžem nakladať špinavú prác!</p>
+<p>Nakoniec tu máme spracovanie logu webového servera. Rovnako ako v prípade uWSGI som požiadal ChatGPT o napísanie konfigurácie. Zase bez problémov a bez našepkávania rozpoznal polia v logu a všetko viac-menej správne priradil s použitím minimálneho kontextu. Konečne mám kolegu, ktorému môžem nakladať špinavú prác!</p>
 
 <h2>Grafana</h2>
 
@@ -767,22 +765,28 @@ apt-get install grafana
 
 <p>Následne sa môžeme začať hrať s dátami kliknutím na <em>Explore data</em>.</p>
 
-<p>Na rozdiel do zdrojov Prometheux, alebo InfluxDB s jazykom InfluxQL nie je pre jazyk Flux dostupný grafický editor. Všetky dotazy preto musia byť písané ručne pomocou textového editoru.</p>
+<h3>CPU</h3>
+
+<p>Na rozdiel do zdrojov Prometheus, alebo InfluxDB s jazykom InfluxQL nie je pre jazyk Flux dostupný grafický editor. Všetky dotazy preto musia byť písané ručne pomocou textového editoru.</p>
 
 <figure>
 	<a href="img/cpu_query_1.png"><img src="img/cpu_query_1.png" alt="Dotaz na CPU" /></a>
 	<figcaption>Obrázok <counter></counter>: Dotaz na CPU</figcaption>
 </figure>
 
-<p>Graf CPU bol vykreslený nasledujúcim príkazom:</p>
+<p>Graf CPU bol vykreslený nasledujúcim dotazom:</p>
 
 <pre>
 from(bucket: "telegraf")
   |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "cpu" and
+    r.cpu == "cpu-total" and
+    r._field == "usage_idle"
+  )
 </pre>
 
-<p>Príkaz <code>from</code> vyberá bucket, z ktorého bud čítané dáta. Nasleduje obmedzenie časového rozsahu pomocou premennej <code>v</code>. Túto premennú nastavuje automaticky grafana podľa rozsahu dát, ktoré má používateľ nastavený. Ďalej nasleduje konkrétny výber dát. Tu zdôrazňujem, že každé pole v dátach je reprezentované ako samostatný riadok. Riadky majú priradené tagy ako <code>r.tag</code>. Riadky obsahujú aj implicitné premenné začínajúce sa na znak <code>_</code>. Sú to napríklad:</p>
+<p>Príkaz <code>from</code> vyberá bucket, z ktorého bud čítané dáta. Nasleduje obmedzenie časového rozsahu pomocou vstavanej premennej <code>v</code>. Túto premennú nastavuje automaticky grafana podľa rozsahu, ktorý sa nastavuje v hornej časti rozhrania grafany. Ďalej nasleduje konkrétny výber dát. Tu zdôrazňujem, že každé pole v dátach je reprezentované ako samostatný riadok. Riadky majú priradené tagy ako <code>r.tag</code>. Riadky obsahujú aj implicitné premenné začínajúce sa na znak <code>_</code>. Sú to napríklad:</p>
 
 <dl>
 	<dt>_measurement</dt>
@@ -795,12 +799,16 @@ from(bucket: "telegraf")
 	<dd>Časová pečiatka</dd>
 </dl>
 
-<p>V štatistikách CPU nie je k dispozícii celkové zaťaženie, ale máme tu k dispozícii pole <code>usage_idle</code>. Ak by sme chceli zobraziť celkové zaťaženie, stačí nám odčítať doby nečinnosti od <code>100%</code>. Na konci dotazu stačí jednoducho pridať funkciu <code>map</code>, ktorá aplikuje funkciu na každý bod:</p>
+<p>V štatistikách CPU nie je k dispozícii celkové zaťaženie, ale máme tu k dispozícii pole <code>usage_idle</code>. Ak by sme chceli zobraziť celkové zaťaženie, stačí nám odčítať dobu nečinnosti od <code>100%</code>. Na konci dotazu stačí jednoducho pridať funkciu <code>map</code>, ktorá aplikuje funkciu na každý bod:</p>
 
 <pre>
 from(bucket: "telegraf")
   |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "cpu" and
+    r.cpu == "cpu-total" and
+    r._field == "usage_idle"
+  )
   |&gt; <strong>map(fn: (r) =&gt; ({ r with _value: 100.0 - r._value }))</strong>
 </pre>
 
@@ -814,7 +822,11 @@ from(bucket: "telegraf")
 <pre>
 from(bucket: "telegraf")
   |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "cpu" and
+    r.cpu == "cpu-total" and
+    r._field == "usage_idle"
+  )
   |&gt; map(fn: (r) =&gt; ({ r with _value: 100.0 - r._value }))
   |&gt; <strong>aggregateWindow(every: v.windowPeriod, fn: mean)</strong>
 </pre>
@@ -824,7 +836,11 @@ from(bucket: "telegraf")
 <pre>
 from(bucket: "telegraf")
   |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |&gt; filter(fn: (r) =&gt; r._measurement == "cpu" and r.cpu == "cpu-total" and r._field == "usage_idle")
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "cpu" and
+    r.cpu == "cpu-total" and
+    r._field == "usage_idle"
+  )
   |&gt; map(fn: (r) =&gt; ({ r with _value: 100.0 - r._value }))
   |&gt; <strong>group(columns: ["host"])</strong>
   |&gt; aggregateWindow(every: v.windowPeriod, fn: mean)
@@ -844,6 +860,372 @@ from(bucket: "telegraf")
 <figure>
 	<a href="img/cpu_configured.png"><img src="img/cpu_configured.png" alt="Nastavený graf" /></a>
 	<figcaption>Obrázok <counter></counter>: Nastavený graf</figcaption>
+</figure>
+
+<h3>Disk</h3>
+
+<p>Aktuálne zaplnenie disku <code>sda</code> sa dá zistiť nasledujúcim dotazom:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "disk" and
+    r.device == "sda" and
+    r._field == "used_percent"
+  )
+  |&gt; group(columns: ["host"])
+  |&gt; <strong>last()</strong>
+</pre>
+
+<p>Funkcia <code>last</code> znamená, že z dát chceme vybrať len poslednú hodnotu. Typ grafu je v tomto prípade <em>Gauge</em>. Po nastavení príslušných limitov a farbičiek je na svete pekný ukazovateľ zaplnenia disku. Rovnakým spôsobom je možné vytvoriť aj časové priebehy, akurát sa namiesto <code>last</code> použije <code>aggregateWindow</code>.</p>
+
+<figure>
+	<a href="img/disk.png"><img src="img/disk.png" alt="Zaplnenie disku" /></a>
+	<figcaption>Obrázok <counter></counter>: Zaplnenie disku</figcaption>
+</figure>
+
+<h3>Sieťová aktivita</h3>
+
+<p>Pri monitorovaní sieťovej aktivity zvyčajne požadujeme zobrazenie prenosovej rýchlosti. Medzi dátami, ktoré sprístupňuje telegraf však nie je prenosová rýchlosť, ale iba celkové množstvo prenesených dát jedným či druhým smerom. Preto budeme musieť v tomto prípade využiť nové príkazy <code>pivot</code> a <code>derivative</code>.</p>
+
+<p>Kompletný dotaz pre získanie sieťovej aktivity vyzerá tato:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "net" and
+    (<strong>r._field == "bytes_recv" or r._field == "bytes_sent"</strong>)
+  )
+  |&gt; <strong>pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")</strong>
+  |&gt; map(fn: (r) =&gt; ({ _value: r.bytes_recv + r.bytes_sent, _time: r._time, host: r.host }))
+  |&gt; group(columns: ["host"])
+  |&gt; aggregateWindow(every: v.windowPeriod, fn: max)
+  |&gt; <strong>derivative(unit: 1s, nonNegative: true)</strong>
+</pre>
+
+<p>Dotazy v databáze InfluxDB umožňujú získať len jedinú hodnotu parametra, ktorá bude uložená vo vstavanej premennej <code>r._value</code>. Je síce možné vybrať všetky hodnoty, ktoré majú v poli <code>r._field</code> názov <code>bytes_recv</code> alebo <code>bytes_sent</code>, ale v takom prípade by sa pracovalo ako so samostatnými riadkami v tabuľke.</p>
+
+<p>Pre spojenie niekoľkých hodnôt do jediného záznamu slúži funkcia <code>pivot</code>, ktorá podľa kľúča <code>rowKey</code> a vybraných parametrov, napríklad <code>_field</code> pozbiera hodnoty z <code>valueColumn</code> a umiestní ich do záznamu. Výsledkom je v tomto prípade záznam, ktorému pribudli stĺpce <code>bytes_recv</code> a <code>bytes_recv</code>.</p>
+
+<p>Funkciou <code>map</code> sa následne hodnoty sčítajú a uložia do vstavanej premennej <code>_value</code>. Po zoskupení podľa hostiteľa a agregácii v časových oknách dostaneme hodnotu maxima prenesených dát na zariadení. To by však vykreslilo len stúpajúcu krivku. My však chceme vykresliť prenosovú rýchlosť, teda zmenu prenesených dát v čase. Práve na to slúži funkcia <code>derivative</code>.</p>
+
+<figure>
+	<a href="img/net.png"><img src="img/net.png" alt="Prenos dát" /></a>
+	<figcaption>Obrázok <counter></counter>: Prenos dát</figcaption>
+</figure>
+
+<h3>Záťaž CPU podľa webu</h3>
+
+<p>Pri tomto dotaze síce nie sú použité žiadne nové príkazy, ale napriek tomu si zaslúži pozornosť vďaka spôsobu postupného použitia agregačných funkcií. Celý dotaz vyzerá nasledovne:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "procstat" and
+    (r._field == "cpu_usage" or r._field == "pid")
+  )
+  |&gt; pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |&gt; map(fn: (r) =&gt; ({ _time: r._time, _value: r.cpu_usage, pid: r.pid, socket: r.socket }))
+  |&gt; window(every: v.windowPeriod)
+  |&gt; group(columns: ["_start", "pid", "socket"])
+  |&gt; mean()
+  |&gt; group(columns: ["_start", "socket"])
+  |&gt; sum()
+  |&gt; group(columns: ["_time", "socket"])
+</pre>
+
+<p>Pri výbere dát nás budú zaujímať hodnoty <code>cpu_usage</code> a <code>pid</code>. Keďže sú to 2 hodnoty, je potrebné znovu dáta z viacerých riadkov usporiadať do stĺpcov funkciou <code>pivot</code>. Dáta sú následne usporiadané do nového záznamu funkciou <code>map</code> a rozdelené na časové úseky funkciou <code>window</code>.</p>
+
+<p>Nasleduje zvláštna séria agregačných funkcií. V prvom rade sa pre každý úsek vypočíta priemerná hodnota záťaže CPU každého procesu. Následne sa vypočíta súčet (<code>sum</code>) záťaže CPU jednotlivých procesov patriacich webu (<code>socket</code>). Výsledok je nakoniec preskupený tak, aby sa dal vykresliť v grafe. Tentoraz som pre vizualizáciu vybral typ grafu <em>Heatmap</em> s farebnou škálou <em>Turbo</em>.</p>
+
+<figure>
+	<a href="img/cpu_usage_user.png"><img src="img/cpu_usage_user.png" alt="Použitie CPU podľa používateľa" /></a>
+	<figcaption>Obrázok <counter></counter>: Použitie CPU podľa používateľa</figcaption>
+</figure>
+
+<p>Grafana v aktuálnej verzii zobrazuje názvy nameraných hodnôt ako <code>_value názov webu</code>. Odstránenie prebytočného <code>_value </code> je možné vykonať na karte transformácií.</p>
+
+<figure>
+	<a href="img/transform_value.png"><img src="img/transform_value.png" alt="Odstránenie prefixu _value" /></a>
+	<figcaption>Obrázok <counter></counter>: Odstránenie prefixu _value</figcaption>
+</figure>
+
+<p>Zaujímavejšia by bola štatistika priemerného využitia CPU podľa webu za určité obdobie. V tomto prípade bude stratégia výpočtu na jednej strane trochu jednoduchšia, ale na druhej strane spôsob zápisu tak jednoduchý nebude. Princípom bude sčítanie všetkých hodnôt <code>cpu_usage</code> zoskupených podľa webu (<code>socket</code>) a následne ich vydelenie počtom časových okamihov, v ktorých bolo vykonané meranie. Nasledujúci dotaz vyzerá pomerne zložito, ale v skutočnosti sa skladá z 2 jednoduchých častí.</p>
+
+<pre>
+countTimestamps = from(bucket: "telegraf")
+  |&gt; range(start: -24h)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "procstat" and r._field == "cpu_usage")
+  |&gt; <strong>keep(columns: ["_time", "_measurement"])</strong>
+  |&gt; <strong>distinct(column: "_time")</strong>
+  |&gt; map(fn: (r) =&gt; ({ r with _value: 1 }))
+  |&gt; count(column: "_value")
+  |&gt; <strong>findColumn(fn: (key) =&gt; true, column: "_value")</strong>
+
+from(bucket: "telegraf")
+  |&gt; range(start: -24h)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "procstat" and r._field == "cpu_usage")
+  |&gt; window(every: 24h)
+  |&gt; group(columns: ["socket"])
+  |&gt; sum()
+  |&gt; map(fn: (r) =&gt; ({ r with _value: r._value / float(v: <strong>countTimestamps[0]</strong>) }))
+  |&gt; group()
+</pre>
+
+<p>Prvá časť zistí počet časových okamihov a uloží ich do jednoprvkového poľa <code>countTimestamps</code>. Prvou novou funkciou v tejto časti je <code>keep</code>, ktorá ponechá len vybrané stĺpce. Mimochodom opakom funkcie <code>keep</code> je funkcia <code>drop</code>, ktorá naopak vybrané stĺpce zahodí.</p>
+
+<p>Funkcia <code>distinct</code> ponechá unikátne hodnoty vybraného stĺpca. Následne sa hodnoty funkciou modifikujú na formát <code>{_value: 1, _time: čas}</code>. Dôvodom tejto divnej transformácie je, že nasledujúca agregačná funkcia <code>count</code> sa nedá použiť na výsledok <code>distinct</code>.</p>
+
+<p>Nasleduje už len extrakcia hodnoty z prúdu dát. Funkcia <code>findColumn</code> nájde v prúde všetky riadky zodpovedajúce predikátu v <code>fn</code> a extrahuje z nich hodnotu <code>column</code> do poľa. V tomto prípade chceme extrahovať hodnotu <code>_value</code>. Výsledkom je teda jednoprvkové pole keďže na vstupe bol len jeden riadok.</p>
+
+<p>Druhou časťou je klasický súčet zoskupený podľa webu, ktorého hodnota je vydelená počtom časových okamihov vo vzorke dát.</p>
+
+<p>Výsledkom pri použití <em>Bar gauge</em> je elegantný stĺpcový graf.</p>
+
+<figure>
+	<a href="img/cpu_24.png"><img src="img/cpu_24.png" alt="Záťaž CPU za 24 hodín" /></a>
+	<figcaption>Obrázok <counter></counter>: Záťaž CPU za 24 hodín</figcaption>
+</figure>
+
+<p>Aby boli dáta pekne zoradené od najviac vyťaženého webu, po najmenej vyťažený, je možné na konci pridať volanie funkcie <code>|&gt; sort(columns: ["_value"], desc: true)</code>, alebo jednoducho transformovať údaje v grafane vstavanou transformačnou funkciou <em>Sort by</em>.</p>
+
+<figure>
+	<a href="img/transform_sort.png"><img src="img/transform_sort.png" alt="Zoradenie údajov pomocou transformácie" /></a>
+	<figcaption>Obrázok <counter></counter>: Zoradenie údajov pomocou transformácie</figcaption>
+</figure>
+
+<h3>Počet dotazov na uWSGI</h3>
+
+<p>Nasledujúci graf bude zobrazovať priemerný počet požiadaviek za 5 minút. Dáta budú získavané z metriky <code>uwsgi_apps</code>, ktorú poskytuje <code>inputs.uwsgi</code>. Špecialitou v tomto prípade bude, že okno bude síce variabilné, ale minimálna dĺžka okna bude 300s. Zároveň ak bude perióda dlhšia, bude nutné súčet vydeliť príslušným koeficientom, aby bol stále zobrazený počet dotazov za obdobie 5 minút. Výsledný dotaz vyzerá takto:</p>
+
+<pre>
+minPeriod = 300s
+windowPeriod = if <strong>int</strong>(v: v.windowPeriod) &gt; <strong>int</strong>(v: minPeriod) then v.windowPeriod else minPeriod
+periodValueAdjustment = float(v: <strong>int</strong>(v: minPeriod)) / float(v: <strong>int</strong>(v: windowPeriod))
+
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "uwsgi_apps" and r._field == "requests")
+  |&gt; difference(nonNegative: true)
+  |&gt; group(columns: ["socket"])
+  |&gt; aggregateWindow(every: duration(v: windowPeriod), fn: sum)
+  |&gt; map(fn: (r) =&gt; ({ r with _value: float(v: r._value) * periodValueAdjustment }))
+</pre>
+
+<p>Na začiatku je definovaná minimálna perióda. Následne sa do <code>windowPeriod</code> uloží používateľom nastavená hodnota, alebo minimálna. Ak sa pýtate, prečo sa perióda stále pretypuje volaním <code>int</code> na celé číslo, je to preto, lebo operácie porovnania nie sú pre typ <code>duration</code> definované. Poslednou z premenných je koeficient, ktorým sa musí násobiť súčet dotazov v prípade, že požadovaná perióda je dlhšia než 300s.</p>
+
+<p>Nasleduje už klasický výber a transformácia dát zoskupených podľa webu. Výsledok je vhodné zobraziť napríklad v čiarovom grafe s nastavením <em>Stack series</em> na <em>Normal</em>.</p>
+
+<figure>
+	<a href="img/requests_5m.png"><img src="img/requests_5m.png" alt="Počet dotazov za 5 minút" /></a>
+	<figcaption>Obrázok <counter></counter>: Počet dotazov za 5 minút</figcaption>
+</figure>
+
+<p>Podobným spôsobom je možné získať aj celkový počet dotazov za určité obdobie. Výsledok sa dá opäť zobraziť napríklad cez <em>Bar gauge</em>.</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: -24h)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "uwsgi_apps" and r._field == "requests")
+  |&gt; difference(nonNegative: true)
+  |&gt; group(columns: ["socket"])
+  |&gt; sum()
+  |&gt; group()
+  |&gt; sort(columns: ["_value"], desc: true)
+</pre>
+
+<figure>
+	<a href="img/request_count.png"><img src="img/request_count.png" alt="Počet dotazov za 24h" /></a>
+	<figcaption>Obrázok <counter></counter>: Počet dotazov za 24h</figcaption>
+</figure>
+
+<h3>Monitoring RAM</h3>
+
+<p>Pri zobrazení obsadenej pamäte postačia už nadobudnuté vedomosti. Aby bola výsledkom percentuálna hodnota, stačí vydeliť obsadenú pamäť celkovou dostupnou pamäťou, čo sa deje vo volaní funkcie <code>map</code>:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "mem" and (r._field == "total" or r._field == "available"))
+  |&gt; pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |&gt; map(fn: (r) =&gt; ({ _value: float(v: r.total - r.available) / float(v: r.total), _time: r._time }))
+  |&gt; group(columns: ["host"])
+  |&gt; aggregateWindow(every: v.windowPeriod, fn: mean)
+</pre>
+
+<p>Výsledok sa dá vykresliť napríklad v jednoduchom čiarovom grafe:</p>
+
+<figure>
+	<a href="img/mem.png"><img src="img/mem.png" alt="Využitie RAM" /></a>
+	<figcaption>Obrázok <counter></counter>: Využitie RAM</figcaption>
+</figure>
+
+<p>Rovnakou technikou, ako pri CPU je možné rozdeliť spotrebovanú pamäť medzi jednotlivé weby:</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "procstat" and
+    (r._field == "memory_usage" or r._field == "pid")
+  )
+  |&gt; pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |&gt; map(fn: (r) =&gt; ({ r with _value: r.memory_usage }))
+  |&gt; window(every: v.windowPeriod)
+  |&gt; group(columns: ["_start", "pid", "socket"])
+  |&gt; max()
+  |&gt; group(columns: ["_start", "socket"])
+  |&gt; sum()
+  |&gt; group(columns: ["_time", "socket"])
+</pre>
+
+<p>Pri vykreslení je zase použitý <em>Heatmap</em> s farebnou schémou <em>Magma</em>.</p>
+
+<figure>
+	<a href="img/mem_by_user.png"><img src="img/mem_by_user.png" alt="Využitie RAM podľa používateľa" /></a>
+	<figcaption>Obrázok <counter></counter>: Využitie RAM podľa používateľa</figcaption>
+</figure>
+
+<h3>Štatistiky HTTP stavov</h3>
+
+<p>Niekedy môže chybné fungovanie webového serveru prezradiť aj pomer HTTP stavových kódov. Napríklad zvýšený počet stavu 503 môže znamenať preťažený server. Počet požiadaviek podľa stavu sa dá získať jednoduchým dotazom metriky <code>nginx_access</code>.</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: -1h)
+  |&gt; filter(fn: (r) =&gt; r._measurement == "nginx_access" and r._field == "request_time")
+  |&gt; group(columns: ["http_status"])
+  |&gt; count()
+  |&gt; group()
+</pre>
+
+<p>Vhodnou vizualizáciou pre tento typ dát je napríklad <em>Stat</em>.</p>
+
+<figure>
+	<a href="img/http_status.png"><img src="img/http_status.png" alt="HTTP stavy" /></a>
+	<figcaption>Obrázok <counter></counter>: HTTP stavy</figcaption>
+</figure>
+
+<h3>Najpomalšie URL adresy</h3>
+
+<p>Veľmi užitočnou pomôckou pri diagnostike a optimalizácii je zoznam najpomalších URL adries. Nasledujúci dotaz využíva polia <code>uwsgi_request_time</code> a <code>url</code> z metriky <code>uwsgi_requests</code>, pričom sa využívajú len URL adresy označené tagom <code>slow</code>.</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: -1h)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "uwsgi_requests" and
+    r.speed == "slow" and
+    (r._field == "uwsgi_request_time" or r._field == "url")
+  )
+  |&gt; pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |&gt; map(fn: (r) =&gt; ({ r with _value: r.uwsgi_request_time }))
+  |&gt; group(columns: ["socket", "url"])
+  |&gt; mean()
+  |&gt; group()
+  |&gt; <strong>top(n: 100, columns: ["_value"])</strong>
+</pre>
+
+<p>Pre každú URL adresu sa najskôr vypočíta priemerný čas odpovede. Nakoniec sa vyberie 100 záznamov s najvyššou hodnotou stĺpca <code>_value</code>. Vhodnou vizualizáciou pre tento typ dát je <em>Table</em>.</p>
+
+<figure>
+	<a href="img/slow_pages.png"><img src="img/slow_pages.png" alt="Pomalé stránky" /></a>
+	<figcaption>Obrázok <counter></counter>: Pomalé stránky</figcaption>
+</figure>
+
+<p>Stĺpce tabuľky štandardne zobrazujú textovú hodnotu. V prípade, že chceme zmeniť spôsob zobrazenia stĺpcov napríklad na stĺpcový graf, dá sa to cez nastavenia tabuľky na karte overrides. Na nasledujúcom obrázku je nastavenie pre pole s názvom <code>_value</code>.</p>
+
+<figure>
+	<a href="img/table_override.png"><img src="img/table_override.png" alt="Nastavenie stĺpca _value" /></a>
+	<figcaption>Obrázok <counter></counter>: Nastavenie stĺpca _value</figcaption>
+</figure>
+
+<h3>Šablóny</h3>
+
+<p>Často je prehľadnejšie zobrazenie samostatnej sady grafov pre každý web. Opakovaná konfigurácia presne tých istých dotazov a grafov, akurát s jediným rozdielnym filtrom <code>socket = "projekt"</code> by bola pekná nuda. Našťastie je tu možnosť generovať sadu grafov pomocou šablón.</p>
+
+<p>Konfiguráciu začneme pridaním premennej so zoznamom webov. Premenné sa editujú cez tlačidlo nastavenia dashboardu (ozubené koliesko v hornej časti) a sekciu <em>Variables</em>.</p>
+
+<p>Naša premenná bude typu <em>Custom</em>, bude sa volať <code>Project</code> a bude mať viac hodnôt (<em>Multi-value</em>). Hodnoty sa vkladajú ako text oddelený čiarkami.</p>
+
+<p>V zobrazení dashboardu na vrchnej časti pribudlo pole výberu projektu. Aby boli zobrazené grafy pre konkrétne projekty, je potrebné vytvoriť nové elementy, ktoré majú povolené opakovanie. Osobne odporúčam najskôr vytvoriť <em>Row</em> a cez tlačidlo ozubeného kolesa mu nastaviť šablónu titulku a opakovanie podľa projektu.</p>
+
+<figure>
+	<a href="img/row.png"><img src="img/row.png" alt="Opakovanie riadku" /></a>
+	<figcaption>Obrázok <counter></counter>: Opakovanie riadku</figcaption>
+</figure>
+
+<p>Akékoľvek ďalšie zobrazenia pridané do elementu <em>Row</em> budú automaticky opakované pre projekt.</p>
+
+<p>S podobným dotazom, ktorý zobrazuje CPU záťaž webu sme sa už stretli. Tu však ubudlo zoskupenie podľa webu a naopak pribudol konkrétny web do volania funkcie <code>filter</code>. Namiesto názvu projektu sa používa zástupný symbol <code>${Project:raw}</code>.</p>
+
+<pre>
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "procstat" and
+    r.socket == "${Project:raw}" and
+    (r._field == "cpu_usage" or r._field == "pid")
+  )
+  |&gt; pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |&gt; map(fn: (r) =&gt; ({ _time: r._time, _value: r.cpu_usage, pid: r.pid, socket: if exists r.socket then r.socket else "" }))
+  |&gt; window(every: v.windowPeriod)
+  |&gt; group(columns: ["_start", "pid"])
+  |&gt; mean()
+  |&gt; group(columns: ["_start"])
+  |&gt; sum()
+  |&gt; group(columns: ["_time"])
+</pre>
+
+<h3>Histogram s časom odpovede</h3>
+
+<p>Našu úmornú a strastiplnú cestu zakončím svätým grálom vizualizácií. Samotný dotaz patrí skôr k tým jednoduchším, aj keď má svoje špecifiká:</p>
+
+<pre>
+import "math"
+
+windowPeriodBase = int(v: 120s)
+windowPeriodCount = int(v: math.ceil(x: float(v: int(v: v.windowPeriod)) / float(v: windowPeriodBase)))
+windowPeriod = duration(v: windowPeriodBase * windowPeriodCount)
+
+from(bucket: "telegraf")
+  |&gt; range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |&gt; filter(fn: (r) =&gt;
+    r._measurement == "uwsgi_requests_histogram" and
+    r.socket == "${Project:raw}" and
+    r._field == "uwsgi_request_time_bucket"
+  )
+  |&gt; group(columns: ["le"])
+  |&gt; aggregateWindow(every: windowPeriod, fn: sum)
+  |&gt; map(fn: (r) =&gt; ({
+    r with _value:
+      if exists(r._value) then
+        math.log2(x: float(v: r._value) + 1.0)
+      else
+        0.0
+  })
+)
+</pre>
+
+<p>Na začiatku súboru je výpočet periódy podľa hodnoty, ktorú nastavil používateľ. Keďže dáta histogramu sa ukladajú každých 120s, minimálna hodnota je 120s. Aby sa dáta zobrazovali bez anomálií keďže sa zobrazuje súčet v okne, je nutné používať celé násobky hodnoty 120. Práve preto sa počet periód zaokrúhľuje na celé čísla smerom nahor volaním <code>math.ceil</code>.</p>
+
+<p>Dáta sú zoskupené podľa stĺpca <code>le</code>, ktorý obsahuje hornú hodnotu bucketu. Naopak spodná hodnota má stĺpec <code>gt</code> a je jedno, či sa pri zoskupení použije jedna, či druhá.</p>
+
+<p>Vizualizácia počtu požiadaviek je logaritmická (dvojkový logaritmus nameranej hodnoty). K aktuálnej hodnote je pripočítaná hodnota 1, aby boli zobrazené aj jednotlivé požiadavky. Týmto spôsobom budú dobre rozpoznateľné aj tie požiadavky, ktorých je síce málo, ale trvajú napríklad veľmi dlho.</p>
+
+<figure>
+	<a href="img/latency_histogram.png"><img src="img/latency_histogram.png" alt="Histogram latencie v čase" /></a>
+	<figcaption>Obrázok <counter></counter>: Histogram latencie v čase</figcaption>
+</figure>
+
+<p>Konfigurácia dashboardu je aspoň z môjho pohľadu nateraz finálna. Nakoniec prikladám screenshot kompletného dashboardu so všetkými jeho kurlinkami.</p>
+
+<figure>
+	<a href="img/final.png"><img src="img/final.png" alt="Finálny dashboard" /></a>
+	<figcaption>Obrázok <counter></counter>: Finálny dashboard</figcaption>
 </figure>
 
 </article>
