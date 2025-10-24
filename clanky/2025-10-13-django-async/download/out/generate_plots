@@ -1,0 +1,6 @@
+#!/bin/bash
+./generate_plot "naive" "Jednoduchý JSON, 1 worker" uwsgi_naive_sync_1worker "uWSGI" uvicorn_naive_sync_1worker "Uvicorn" uvicorn_naive_async_1worker "Async"
+./generate_plot "naive_16" "Jednoduchý JSON, 16 workerov" uwsgi_naive_sync_16worker "uWSGI" uvicorn_naive_sync_16worker "Uvicorn" uvicorn_naive_async_16worker "Async"
+./generate_plot "db" "Databáza, 1 worker" uwsgi_db_sync_1worker "uWSGI" uvicorn_db_sync_1worker "Uvicorn" uvicorn_db_async_1worker "Async"
+./generate_plot "db_16" "Databáza, 16 workerov" uwsgi_db_sync_16worker "uWSGI" uvicorn_db_sync_16worker "Uvicorn" uvicorn_db_async_16worker "Async"
+./generate_plot "db_opt_16" "Databáza, optimalizovaná, 16 workerov" uwsgi_dbopt_sync_16worker "uWSGI" uvicorn_dbopt_sync_16worker "Uvicorn" uvicorn_dbopt_async_16worker "Async"

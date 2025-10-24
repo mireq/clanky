@@ -1,0 +1,6 @@
+ab -n 1000 -c 10 'http://127.0.0.1:8000/naive/sync/' > uvicorn_naive_sync_16worker
+ab -n 1000 -c 10 'http://127.0.0.1:8000/db/sync/' > uvicorn_db_sync_16worker
+ab -n 1000 -c 10 'http://127.0.0.1:8000/db-opt/sync/' > uvicorn_dbopt_sync_16worker
+ab -n 1000 -c 10 'http://127.0.0.1:8000/naive/async/' > uvicorn_naive_async_16worker
+ab -n 1000 -c 10 'http://127.0.0.1:8000/db/async/' > uvicorn_db_async_16worker
+ab -n 1000 -c 10 'http://127.0.0.1:8000/db-opt/async/' > uvicorn_dbopt_async_16worker

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+import sys
+import re
+import matplotlib.pyplot as plt
+
+
+def extract_rps(filename):
+	with open(filename, "r") as f:
+		content = f.read()
+	match = re.search(r"Requests per second:\s+([\d.]+)", content)
+	if not match:
+		raise ValueError(f"Could not find 'Requests per second' in {filename}")
+
+	return float(match.group(1))
+
+def main():
+	if len(sys.argv) < 5 or len(sys.argv[3:]) % 2 != 0:
+		print("Usage: generate_plot output_basename 'plot label' file1 label1 [file2 label2 ...]")
+		sys.exit(1)
+
+	output_basename = sys.argv[1]
+	plot_label = sys.argv[2]
+	args = sys.argv[3:]
+
+	filenames = args[::2]
+	labels = args[1::2]
+
+	rps_values = [extract_rps(f) for f in filenames]
+
+	colors = plt.cm.tab10.colors[:len(rps_values)]
+
+	fig, ax = plt.subplots(figsize=(4, 5))
+	bars = ax.bar(labels, rps_values, color=colors)
+
+	ax.set_ylabel("Požiadavky za sekundu")
+	ax.set_title(plot_label)
+	ax.bar_label(bars, fmt="%.1f", padding=3)
+	ax.spines[['top', 'right']].set_visible(False)
+	plt.tight_layout()
+
+	# Save
+	plt.savefig(f"{output_basename}.png", dpi=200)
+	plt.savefig(f"{output_basename}.svg")
+
+	print(f"Saved plots as {output_basename}.png and {output_basename}.svg")
+
+if __name__ == "__main__":
+	main()

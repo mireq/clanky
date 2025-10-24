@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Zlý vtip menom async v djangu (pythone)</title>
+	<meta charset="utf-8" />
+	<link href="../../../common/style.css" rel="stylesheet" />
+</head>
+<body>
+<article data-title-image="img/title_image.png">
+
+<header>
+	<h1>Zlý vtip menom async v djangu (pythone)</h1>
+
+	<p>Práce na asynchronnom Djangu začali okolo roku 2020. Je rok 2025. Čo tak sa pozrieť, čo sme za tú dobu získali?</p>
+</header>
+
+<p>Päť rokov je v oblasti IT veľmi dlhá doba aby <em>async</em> prestal ignorovať aj taký technologický konzervatívec a spiatočník ako ja. Po všetkých tých fantastických blogoch a benchamrkoch som nasadol na vlnu asyncu.</p>
+
+<p>Nie až tak dávno som začal nový projekt v asynchrónnom frameworku FastAPI. Nebudem rozoberať, prečo som sa rozhodol práve pre Django v úlohe ORM. Akonáhle som sa začal trocha hrabať vo vnútornostiach, šokovalo ma ako zle všetko funguje. Tento blog bude o čistom djangu.</p>
+
+<h2>Výkon</h2>
+
+<p>Blogy sľubujú výkon. Tak moje konzervatívne skostnatené ja si spustí zastaralý uWSGI a oproti tomu postavím uvicorn. Oba s jedným workerom. Môj naivný view vyzerá ako väčšina dnešných benchmarkov. Veď prečo sa pozerať na komplexnú aplikáciu keď môžeme merať nič?</p>
+
+<pre>
+from django.http.response import JsonResponse
+
+
+def naive_sync(request):
+    return JsonResponse({"status": "ok"})
+
+
+async def naive_async(request):
+    return JsonResponse({"status": "ok"})
+</pre>
+
+<p>S týmto viewom si spustím benchmark pre 10 simultánnych požiadaviek a 1000 celkovo:</p>
+
+<pre>ab -n 1000 -c 10 'http://127.0.0.1:8000/naive/sync/'</pre>
+
+<p>Výsledný graf zobrazuje synchrónne volanie v uWSGI, potom synchrónne uvicorn a asynchrónne uvicorn. Vyššie číslo udáva vyššiu priepustnosť.</p>
+
+<figure>
+	<a href="img/naive.png"><img src="img/naive.png" alt="Naivná implementácia" /></a>
+	<figcaption>Obrázok <counter></counter>: Naivná implementácia</figcaption>
+</figure>
+
+<p>Čo sa stalo? No jednoducho v tomto príklade nemala ako vyniknúť asynchrónnosť. Okrem toho uWSGI je napísaný v C, ale oproti python implementácii je to rozdiel len 2ms na požiadavku. Nie je to nič, čo by mi žily trhalo v reálnej aplikácii. Tento benchmark je nanič a som si toho vedomý.</p>
+
+<p>Chceme ešte jeden nanič benchmark? Samozrejme! Tak teda to isté so 16 workermi.</p>
+
+<figure>
+	<a href="img/naive_16.png"><img src="img/naive_16.png" alt="Naivná implementácia so 16 workermi" /></a>
+	<figcaption>Obrázok <counter></counter>: Naivná implementácia so 16 workermi</figcaption>
+</figure>
+
+<h2>Trocha realistickejší príklad</h2>
+
+<p>Väčšina aplikácií hrabe do databázy a tak si vytvorme pár tabuliek:</p>
+
+<pre>
+from django.db import models
+
+
+class Author(models.Model):
+    name = models.CharField(max_length=100)
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+
+class Document(models.Model):
+    name = models.CharField(max_length=100)
+    authors = models.ManyToManyField(Author, related_name='documents')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='documents', null=True)
+</pre>
+
+<p>Po naplnení databázy som ešte napísal jeden synchrónny a jeden asynchrónny view.</p>
+
+<pre>
+from asgiref.sync import sync_to_async
+from django.http.response import JsonResponse
+from .models import Document
+
+
+def db_sync(request):
+    data = []
+    for document in Document.objects.order_by('pk'):
+        authors = []
+        data.append(
+            {
+                "name": document.name,
+                "category": document.category.name,
+                "authors": authors,
+            }
+        )
+        for author in document.authors.all():
+            authors.append({"name": author.name})
+    return JsonResponse({"data": data})
+
+
+async def db_async(request):
+    data = []
+    async for document in Document.objects.order_by('pk'):
+        authors = []
+        data.append(
+            {
+                "name": document.name,
+                "category": (await sync_to_async(getattr)(document, 'category')).name,
+                "authors": authors,
+            }
+        )
+        async for author in document.authors.all():
+            authors.append({"name": author.name})
+    return JsonResponse({"data": data})
+</pre>
+
+<p>Vytvoril som dve prakticky rovnaké funkcie líšiace sa len v dvoch detailoch. Prvým je volanie generátora for. V jednom prípade je synchrónny (for) a v druhom prípade asynchrónny (async for). No a potom je tu táto šialenosť:</p>
+
+<pre>(await sync_to_async(getattr)(document, 'category')).name</pre>
+
+<p>Python neumožňuje kombinovať synchrónne a asynchrónne funkcie. Napíšete jedinú funkciu asynchrónne a musíte prepísať všetky funkcie, ktoré ju volajú. V postate tým infikujete celý kód. Ak ste tvorcom knižnice, môžete buď napísať knižnicu synchrónne, alebo asynchrónne, alebo oboma spôsobmi pričom každú funkciu napíšete 2x a bude sa v 99% prípadov líšiť v tomto:</p>
+
+<pre>
+# async
+async def afunkcia():
+   ...
+   await ainafunkcia()
+   ...
+
+# sync
+def funkcia():
+   ...
+   inafunkcia()
+   ...
+</pre>
+
+<p>Django začala ako synchrónna knižnica a postupne sa duplikuje kód. Niektoré „drobnosti“ nie sú doteraz podporované ako napríklad transakcie. No a potom sú tu ešte veci, ktoré sa nedajú prepísať ako napríklad property, kde <code>.category</code> potrebuje zavolať SQL dotaz, ale propery nie je polymorfná a tak volá len synchrhónny select, ktorý sa nedá zavolať z asynchrónneho kontextu. Zabalíme to teda do sync_to_async</p>
+
+<figure>
+	<a href="img/db.png"><img src="img/db.png" alt="Prístup do databázy" /></a>
+	<figcaption>Obrázok <counter></counter>: Prístup do databázy</figcaption>
+</figure>
+
+<p>To nie je možné!?! Dajme tam 16 workerov. Nech sa ukáže asynchrónnosť.</p>
+
+<figure>
+	<a href="img/db_16.png"><img src="img/db_16.png" alt="Prístup do databázy so 16 workermi" /></a>
+	<figcaption>Obrázok <counter></counter>: Prístup do databázy so 16 workermi</figcaption>
+</figure>
+
+<p>Ešte väčšia katastrofa, čo? Rozmeňme si to na drobné. Databázový driver, ktorý django používa je synchrónny. Aj keby nebol, tak celá implementácia Djanga je hračkárska a vyzerá <a href="https://github.com/django/django/blob/a956e39b38e48ea2f6f6e763461bceaf0adba2a5/django/db/models/query.py#L649">takto</a>:</p>
+
+<pre>
+async def aget(self, *args, **kwargs):
+    return await sync_to_async(self.get)(*args, **kwargs)
+</pre>
+
+<p>V tomto momente dochádza k prepnutiu kontextu, čo môže trvať rádovo okolo 1ms. Nie je dostatok vývojárov, aby implementovali a udržiavali Django so skoro každou duplikovanou funkciou. Preto sa len hráme na akože asynchrónnosť. Mimochodom viete, že veľa vývojárov vo svojich knižniciach overriduje save, aby tam pridali napríklad nejakú logiku, ja neviem <code>date_created = now</code>? Teraz to funguje pretože <code>asave</code> vyzerá takto: <code>sync_to_async(self.save)</code>. Teraz si predstavte ako sa django knižnice začnú rozpadávať až sa začne reálne implementovať async. Celý ekosystém, desaťtisíce knižníc sa musia prepísať.</p>
+
+<p>Nakoniec ešte doplním úpravu vďaka ktorej sa spustia len 2 dotazy namiesto 300:</p>
+
+<pre>
+def db_opt_sync(request):
+    data = []
+    for document in Document.objects.order_by('pk').prefetch_related('authors').select_related('category'):
+        authors = []
+        data.append(
+            {
+                "name": document.name,
+                "category": document.category.name,
+                "authors": authors,
+            }
+        )
+        for author in document.authors.all():
+            authors.append({"name": author.name})
+    return JsonResponse({"data": data})
+
+
+async def db_opt_async(request):
+    data = []
+    async for document in Document.objects.order_by('pk').prefetch_related('authors').select_related('category'):
+        authors = []
+        data.append(
+            {
+                "name": document.name,
+                "category": (await sync_to_async(getattr)(document, 'category')).name,
+                "authors": authors,
+            }
+        )
+        async for author in document.authors.all():
+            authors.append({"name": author.name})
+    return JsonResponse({"data": data})
+</pre>
+
+<figure>
+	<a href="img/db_opt_16.png"><img src="img/db_opt_16.png" alt="Prístup do databázy so 16 workermi po optimalizácii" /></a>
+	<figcaption>Obrázok <counter></counter>: Prístup do databázy so 16 workermi po optimalizácii</figcaption>
+</figure>
+
+<h2>Záver</h2>
+
+<p>Čo som vlastne chcel povedať? Neverte všetkým sladkým rečiam v blogoch. Python má svoju filozofiu „explicit is better“ a nej podriadil aj implementáciu async. Autori knižníc sa teraz musia rozhodnúť, či budú písať synchrónne, asynchrónne, alebo budú svoj kód duplikovať, budú mať 2x viac práce a 2x viac chýb. Pritom v dynamickom jazyku s tak neskorou adaptáciou async / await nebolo farbenie vôbec nevyhnutné. Škoda. Z môjho pohľadu premárnená príležitosť urobiť lepší jazyk.</p>
+
+</article>
+<script src="../../../common/script.js"></script>
+</body>
+</html>
